@@ -1,0 +1,124 @@
+import {
+  ArrowDownLeft, ArrowUpRight, Bell, Car, ChartPie, Check, ChevronDown, ChevronRight,
+  Download, Eye, EyeOff, Gamepad2, House, MoreHorizontal, Plus, ReceiptText, Settings,
+  TrendingDown, TrendingUp, UserRound, Utensils, Wallet, type LucideIcon,
+} from 'lucide-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { AccountIcon, AccountModal, Card, CategoryIcon, Empty, TransactionModal, TransactionRow } from './components'
+import { accountBalance, categories, currentMonth, money, parseMoney, uid, type FinanceTransaction } from './domain'
+import { useFinanceStore } from './store'
+
+const navigation = [
+  { to: '/', label: 'Início', icon: House },
+  { to: '/transactions', label: 'Transações', icon: ReceiptText },
+  { to: '/planning', label: 'Orçamento', icon: ChartPie },
+  { to: '/profile', label: 'Perfil', icon: UserRound },
+]
+
+function Shell() {
+  const [newTransaction, setNewTransaction] = useState(false)
+  const { hydrate, ready } = useFinanceStore()
+  useEffect(() => { void hydrate() }, [hydrate])
+  if (!ready) return <div className="grid min-h-screen place-items-center"><div className="text-center"><div className="mx-auto h-11 w-11 animate-pulse rounded-full bg-brand"/><p className="mt-3 text-sm text-muted">Carregando suas finanças…</p></div></div>
+  return <div className="min-h-screen"><main className="app-content"><Routes>
+    <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/profile" element={<Profile/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
+  </Routes></main><BottomNavigation onNew={() => setNewTransaction(true)}/>{newTransaction && <TransactionModal close={() => setNewTransaction(false)}/>}</div>
+}
+
+function BottomNavigation({ onNew }: { onNew: () => void }) {
+  return <div className="bottom-nav-shell"><nav className="bottom-nav" aria-label="Navegação principal">
+    {navigation.slice(0, 2).map(item => <BottomNavItem key={item.to} {...item}/>)}
+    <button className="bottom-nav-action" onClick={onNew} aria-label="Nova movimentação"><Plus size={29} strokeWidth={2}/></button>
+    {navigation.slice(2).map(item => <BottomNavItem key={item.to} {...item}/>)}
+  </nav></div>
+}
+
+function BottomNavItem({ to, label, icon: Icon }: { to: string; label: string; icon: LucideIcon }) {
+  return <NavLink end={to === '/'} to={to} className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}><Icon size={22} strokeWidth={1.9}/><span>{label}</span></NavLink>
+}
+
+function Dashboard() {
+  const { accounts, transactions, budgets, hideBalances, toggleBalances } = useFinanceStore()
+  const live = transactions.filter(transaction => !transaction.deletedAt)
+  const month = currentMonth()
+  const total = accounts.filter(account => !account.archived).reduce((sum, account) => sum + accountBalance(account, live), 0)
+  const income = sumTransactions(live, month, 'income')
+  const expense = sumTransactions(live, month, 'expense')
+  const previousIncome = sumTransactions(live, monthKey(-1), 'income')
+  const previousExpense = sumTransactions(live, monthKey(-1), 'expense')
+  const previousBalance = total - (income - expense)
+  const balanceTrend = percentageChange(total, previousBalance)
+  const recent = [...live].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4)
+  const chartData = lastSixMonths(live)
+  const budgetData = budgetCategories(live, month)
+  const expenseTotal = budgetData.reduce((sum, item) => sum + item.value, 0)
+  const hasBudget = budgets.some(budget => budget.month === month)
+
+  return <>
+    <header className="dashboard-header"><div><h1>Olá, Daniel <span aria-hidden="true">👋</span></h1><p>Aqui está o resumo das suas finanças</p></div><button className="notification-button" aria-label="Notificações"><Bell size={23} strokeWidth={1.9}/><span className="notification-dot"/></button></header>
+    <section className="balance-card"><Wallet className="balance-card-watermark" size={94} strokeWidth={1.8}/><div className="relative z-10 flex items-center gap-2"><span className="text-sm font-medium text-white/90">Saldo total</span><button className="balance-eye" onClick={toggleBalances} aria-label={hideBalances ? 'Mostrar valores' : 'Ocultar valores'}>{hideBalances ? <EyeOff size={19}/> : <Eye size={19}/>}</button></div><p className="balance-value">{money(total, hideBalances)}</p><div className="balance-trend">{balanceTrend >= 0 ? <TrendingUp size={16}/> : <TrendingDown size={16}/>}<span>{formatPercent(Math.abs(balanceTrend))} vs mês anterior</span></div></section>
+    <section className="summary-grid"><SummaryCard title="Receitas" value={money(income, hideBalances)} trend={percentageChange(income, previousIncome)} icon={ArrowDownLeft} tone="green"/><SummaryCard title="Despesas" value={money(expense, hideBalances)} trend={percentageChange(expense, previousExpense)} icon={ArrowUpRight} tone="blue"/></section>
+    <Card className="dashboard-card chart-card"><div className="card-heading"><h2>Despesas nos últimos 6 meses</h2><button className="period-button">6 meses <ChevronDown size={15}/></button></div><div className="expense-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}><defs><linearGradient id="expenseArea" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2F80ED" stopOpacity={0.18}/><stop offset="95%" stopColor="#2F80ED" stopOpacity={0.01}/></linearGradient></defs><CartesianGrid stroke="#E9EDF3" strokeDasharray="3 3" vertical={false}/><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#7A8392', fontSize: 12 }} dy={9}/><YAxis axisLine={false} tickLine={false} tick={{ fill: '#8A93A1', fontSize: 11 }} tickFormatter={shortMoney}/><Tooltip content={<ChartTooltip hidden={hideBalances}/>}/><Area type="monotone" dataKey="value" stroke="#2F80ED" strokeWidth={3} fill="url(#expenseArea)" activeDot={{ r: 5, fill: '#fff', stroke: '#2F80ED', strokeWidth: 3 }} dot={{ r: 4, fill: '#fff', stroke: '#2F80ED', strokeWidth: 2.5 }}/></AreaChart></ResponsiveContainer></div></Card>
+    <Card className="dashboard-card budget-card"><div className="card-heading"><h2>Orçamento deste mês</h2><NavLink to="/planning">Ver tudo</NavLink></div><div className="budget-layout"><div className="donut-wrap"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={expenseTotal ? budgetData : [{ value: 1, color: '#E5E7EB' }]} dataKey="value" innerRadius="64%" outerRadius="91%" paddingAngle={expenseTotal ? 2 : 0} stroke="white" strokeWidth={2}>{(expenseTotal ? budgetData : [{ color: '#E5E7EB' }]).map((entry, index) => <Cell key={index} fill={entry.color}/>)}</Pie></PieChart></ResponsiveContainer><div className="donut-center"><strong>{money(expenseTotal, hideBalances)}</strong><span>Total</span></div></div><div className="budget-list">{budgetData.map(item => <BudgetRow key={item.name} item={item} total={expenseTotal} hidden={hideBalances}/>)}</div></div>{!hasBudget && <p className="budget-note">Defina limites por categoria em Orçamento.</p>}</Card>
+    <Card className="dashboard-card recent-card"><div className="card-heading"><h2>Transações recentes</h2><NavLink to="/transactions">Ver todas</NavLink></div><div className="transaction-list">{recent.length ? recent.map(transaction => <TransactionRow item={transaction} key={transaction.id}/>) : <p className="empty-inline">Nenhuma movimentação ainda.</p>}</div></Card>
+  </>
+}
+
+function SummaryCard({ title, value, trend, icon, tone }: { title: string; value: string; trend: number; icon: LucideIcon; tone: 'green' | 'blue' }) {
+  const color = tone === 'green' ? '#18A96B' : '#2F80ED'
+  const background = tone === 'green' ? '#E2F7ED' : '#E8F1FE'
+  return <Card className="summary-card"><CategoryIcon icon={icon} color={color} backgroundColor={background} className={tone === 'green' ? 'summary-icon-green' : 'summary-icon-blue'} size={24}/><div className="min-w-0"><p className="summary-title">{title}</p><p className="summary-value">{value}</p><p className={`summary-trend ${tone === 'green' ? 'text-emerald-600' : 'text-blue-600'}`}>{trend >= 0 ? '+' : '−'} {formatPercent(Math.abs(trend))}</p></div></Card>
+}
+
+function BudgetRow({ item, total, hidden }: { item: BudgetCategory; total: number; hidden: boolean }) {
+  const percent = total ? Math.round(item.value / total * 100) : 0
+  return <div className="budget-row"><CategoryIcon icon={item.icon} color="#fff" backgroundColor={item.color} size={14}/><span className="budget-name">{item.name}</span><strong>{money(item.value, hidden)}</strong><span className="budget-percent">{percent}%</span></div>
+}
+
+function ChartTooltip({ active, payload, label, hidden }: { active?: boolean; payload?: Array<{ value?: number }>; label?: string; hidden: boolean }) {
+  if (!active || !payload?.length) return null
+  return <div className="chart-tooltip"><span>{label}</span><strong>{money(payload[0].value ?? 0, hidden)}</strong></div>
+}
+
+function PageTitle({ eyebrow, title, children }: { eyebrow: string; title: string; children?: ReactNode }) {
+  return <div className="page-title"><div><p>{eyebrow}</p><h1>{title}</h1></div>{children}</div>
+}
+
+function Transactions() {
+  const { transactions, accounts, softDeleteTransaction } = useFinanceStore()
+  const [query, setQuery] = useState(''); const [type, setType] = useState('all'); const [account, setAccount] = useState('all'); const [edit, setEdit] = useState<FinanceTransaction>(); const [confirm, setConfirm] = useState<string>()
+  const list = useMemo(() => transactions.filter(item => !item.deletedAt).filter(item => !query || item.description.toLowerCase().includes(query.toLowerCase())).filter(item => type === 'all' || item.type === type).filter(item => account === 'all' || item.accountId === account).sort((a, b) => b.date.localeCompare(a.date)), [transactions, query, type, account])
+  return <><PageTitle eyebrow="Histórico" title="Transações"/><Card><div className="filter-grid"><input className="field" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar por descrição…"/><select className="field" value={type} onChange={event => setType(event.target.value)}><option value="all">Todos os tipos</option><option value="income">Receitas</option><option value="expense">Despesas</option><option value="transfer">Transferências</option></select><select className="field" value={account} onChange={event => setAccount(event.target.value)}><option value="all">Todas as contas</option>{accounts.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div><div className="transaction-list mt-4">{list.length ? list.map(item => <TransactionRow key={item.id} item={item} onEdit={() => setEdit(item)} onDelete={() => setConfirm(item.id)}/>) : <p className="empty-inline">Nenhuma movimentação encontrada.</p>}</div></Card>{edit && <TransactionModal item={edit} close={() => setEdit(undefined)}/>} {confirm && <ConfirmDelete close={() => setConfirm(undefined)} confirm={() => { softDeleteTransaction(confirm); setConfirm(undefined) }}/>}</>
+}
+
+function Accounts() {
+  const { accounts, transactions, hideBalances, updateAccount } = useFinanceStore(); const [modal, setModal] = useState(false); const [edit, setEdit] = useState<typeof accounts[number]>(); const live = transactions.filter(item => !item.deletedAt)
+  return <><PageTitle eyebrow="Organização" title="Contas e carteiras"><button className="btn-primary" onClick={() => setModal(true)}>Nova conta</button></PageTitle><div className="grid gap-4 sm:grid-cols-2">{accounts.map(item => <Card key={item.id} className={item.archived ? 'opacity-60' : ''}><div className="flex items-start justify-between"><span style={{ backgroundColor: `${item.color}20`, color: item.color }} className="grid h-11 w-11 place-items-center rounded-xl"><AccountIcon type={item.type}/></span><button onClick={() => setEdit(item)} className="icon-button"><Settings size={17}/></button></div><p className="mt-5 font-semibold">{item.name}</p><p className="mt-1 text-sm text-muted">{item.archived ? 'Arquivada' : accountType(item.type)}</p><p className="mt-4 text-xl font-bold tabular-nums">{money(accountBalance(item, live), hideBalances)}</p><button className="mt-4 text-sm font-semibold text-brand" onClick={() => updateAccount({ ...item, archived: !item.archived })}>{item.archived ? 'Reativar conta' : 'Arquivar conta'}</button></Card>)}</div>{!accounts.length && <Empty title="Adicione sua primeira conta" text="Contas e carteiras ajudam a manter seus saldos corretos." action={<button className="btn-primary" onClick={() => setModal(true)}>Criar conta</button>}/>} {modal && <AccountModal close={() => setModal(false)}/>} {edit && <AccountModal item={edit} close={() => setEdit(undefined)}/>}</>
+}
+
+function Planning() {
+  const { budgets, saveBudget, transactions, hideBalances } = useFinanceStore(); const month = currentMonth(); const [draft, setDraft] = useState({ category: categories[0], limit: '' }); const live = transactions.filter(item => !item.deletedAt); const list = budgets.filter(item => item.month === month)
+  return <><PageTitle eyebrow="Planejamento" title="Orçamento mensal"/><div className="space-y-5"><Card><h2 className="section-title">Limites por categoria</h2><p className="mt-1 text-sm text-muted">Acompanhe seu consumo no mês atual.</p><div className="mt-5 space-y-5">{list.length ? list.map(item => { const used = spentByCategory(live, month, item.category); const percent = Math.min(100, Math.round(used / item.limitCents * 100)); return <div key={item.id}><div className="flex justify-between gap-3 text-sm"><span className="font-semibold">{item.category}</span><span className={used > item.limitCents ? 'font-semibold text-red-600' : 'text-muted'}>{money(used, hideBalances)} de {money(item.limitCents, hideBalances)}</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div style={{ width: `${percent}%` }} className={`h-full rounded-full ${used > item.limitCents ? 'bg-red-500' : percent > 80 ? 'bg-amber-500' : 'bg-brand'}`}/></div><p className="mt-1 text-xs text-muted">{used > item.limitCents ? 'Limite excedido' : `${percent}% utilizado`}</p></div> }) : <p className="empty-inline">Você ainda não definiu limites.</p>}</div></Card><Card><h2 className="section-title">Novo limite</h2><p className="mt-1 text-sm text-muted">Válido para {new Date(`${month}-01T12:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p><form className="mt-5 space-y-4" onSubmit={event => { event.preventDefault(); const existing = list.find(item => item.category === draft.category); saveBudget({ id: existing?.id ?? uid(), category: draft.category, month, limitCents: parseMoney(draft.limit) }); setDraft({ category: categories[0], limit: '' }) }}><label><span className="label">Categoria</span><select value={draft.category} className="field" onChange={event => setDraft({ ...draft, category: event.target.value })}>{categories.map(category => <option key={category}>{category}</option>)}</select></label><label><span className="label">Limite mensal</span><input value={draft.limit} onChange={event => setDraft({ ...draft, limit: event.target.value })} required inputMode="decimal" className="field" placeholder="Ex.: 500,00"/></label><button className="btn-primary w-full">Salvar limite</button></form></Card></div></>
+}
+
+function Profile() {
+  const { hideBalances, toggleBalances } = useFinanceStore()
+  return <><PageTitle eyebrow="Preferências" title="Perfil e configurações"/><div className="space-y-5"><Card><h2 className="section-title">Privacidade</h2><button onClick={toggleBalances} className="settings-row"><div><p className="font-semibold">Ocultar valores</p><p className="mt-1 text-sm text-muted">Esconde quantias em toda a interface.</p></div><span className={`toggle ${hideBalances ? 'active' : ''}`}><span/></span></button><div className="settings-row"><div><p className="font-semibold">Persistência local</p><p className="mt-1 text-sm text-muted">Dados armazenados em IndexedDB neste navegador.</p></div><Check className="text-brand" size={20}/></div><NavLink to="/accounts" className="settings-row"><div><p className="font-semibold">Contas e carteiras</p><p className="mt-1 text-sm text-muted">Gerencie saldos, contas ativas e arquivadas.</p></div><ChevronRight className="text-muted" size={20}/></NavLink></Card><Card><Download className="text-blue-500"/><h2 className="mt-4 section-title">Exportação</h2><p className="mt-2 text-sm leading-6 text-muted">A exportação e a sincronização em nuvem ficam preparadas como próxima etapa da arquitetura.</p><button disabled className="btn-secondary mt-5 w-full">Em breve</button></Card></div></>
+}
+
+function ConfirmDelete({ close, confirm }: { close: () => void; confirm: () => void }) { return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"><h2 className="text-lg font-bold">Excluir lançamento?</h2><p className="mt-2 text-sm leading-6 text-muted">Ele deixará de afetar seus saldos e relatórios. Esta ação pode ser revista no histórico técnico futuramente.</p><div className="mt-6 grid grid-cols-2 gap-3"><button className="btn-secondary" onClick={close}>Cancelar</button><button className="inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700" onClick={confirm}>Excluir</button></div></div></div> }
+
+interface BudgetCategory { name: string; value: number; color: string; icon: LucideIcon }
+function budgetCategories(transactions: FinanceTransaction[], month: string): BudgetCategory[] { const expenses = transactions.filter(item => item.type === 'expense' && item.date.startsWith(month)); const values = (terms: RegExp) => expenses.filter(item => terms.test(item.category.toLowerCase())).reduce((sum, item) => sum + item.amountCents, 0); const housing = values(/moradia/); const food = values(/alimenta/); const transport = values(/transporte/); const leisure = values(/lazer/); const total = expenses.reduce((sum, item) => sum + item.amountCents, 0); return [{ name: 'Moradia', value: housing, color: '#24B879', icon: House }, { name: 'Alimentação', value: food, color: '#2F80ED', icon: Utensils }, { name: 'Transporte', value: transport, color: '#F2B323', icon: Car }, { name: 'Lazer', value: leisure, color: '#9367E9', icon: Gamepad2 }, { name: 'Outros', value: Math.max(0, total - housing - food - transport - leisure), color: '#B7BCC5', icon: MoreHorizontal }] }
+function lastSixMonths(transactions: FinanceTransaction[]) { return Array.from({ length: 6 }, (_, index) => { const date = new Date(); date.setDate(1); date.setMonth(date.getMonth() - (5 - index)); const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; return { label: new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(date).replace('.', '').replace(/^./, char => char.toUpperCase()), value: sumTransactions(transactions, key, 'expense') } }) }
+function monthKey(offset: number) { const date = new Date(); date.setDate(1); date.setMonth(date.getMonth() + offset); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}` }
+function sumTransactions(transactions: FinanceTransaction[], month: string, type: 'income' | 'expense') { return transactions.filter(item => item.type === type && item.date.startsWith(month)).reduce((sum, item) => sum + item.amountCents, 0) }
+function percentageChange(current: number, previous: number) { if (!previous) return current ? 100 : 0; return (current - previous) / Math.abs(previous) * 100 }
+function formatPercent(value: number) { return `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(value)}%` }
+function shortMoney(value: number) { return value >= 100000 ? `R$ ${Math.round(value / 100000)}k` : value ? `R$ ${Math.round(value / 100)}` : 'R$ 0' }
+function spentByCategory(transactions: FinanceTransaction[], month: string, category: string) { return transactions.filter(item => item.type === 'expense' && item.category === category && item.date.startsWith(month)).reduce((sum, item) => sum + item.amountCents, 0) }
+function accountType(type: string) { return ({ checking: 'Conta corrente', savings: 'Poupança', cash: 'Dinheiro', wallet: 'Carteira digital', investment: 'Investimento' } as Record<string, string>)[type] }
+
+export default function App() { return <Shell/> }

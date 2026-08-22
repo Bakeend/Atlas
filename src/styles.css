@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { @apply border-slate-200; }
+  html { background: #f7f8fa; }
+  body { @apply min-h-screen bg-canvas font-sans text-ink antialiased; }
+  button, input, select, textarea { font: inherit; }
+  button { @apply disabled:cursor-not-allowed disabled:opacity-50; }
+  button, a { -webkit-tap-highlight-color: transparent; }
+}
+
+@layer components {
+  .app-content { @apply mx-auto w-full max-w-[680px] px-4 pb-32 pt-7 sm:px-6 sm:pt-10; }
+
+  .card {
+    @apply rounded-[20px] border border-black/[0.025] bg-white p-5;
+    box-shadow: 0 6px 22px rgba(15, 23, 42, 0.045);
+    transition: transform 180ms ease, box-shadow 180ms ease;
+  }
+  .dashboard-card:hover { transform: translateY(-1px); box-shadow: 0 8px 26px rgba(15, 23, 42, 0.06); }
+  .label { @apply mb-1.5 block text-sm font-medium text-slate-700; }
+  .field { @apply w-full rounded-xl border bg-white px-3 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20; }
+  .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-brand/30; }
+  .btn-secondary { @apply inline-flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50; }
+  .icon-button { @apply grid h-9 w-9 place-items-center rounded-full text-muted transition hover:bg-slate-100 hover:text-ink; }
+  .category-icon { @apply grid h-10 w-10 shrink-0 place-items-center rounded-full; }
+
+  .dashboard-header { @apply mb-6 flex items-center justify-between gap-4 px-1; }
+  .dashboard-header h1 { @apply text-[25px] font-bold tracking-[-0.025em] text-ink; }
+  .dashboard-header p { @apply mt-1 text-sm text-muted sm:text-[15px]; }
+  .notification-button { @apply relative grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink transition hover:bg-white hover:shadow-sm; }
+  .notification-dot { @apply absolute right-[9px] top-[8px] h-2.5 w-2.5 rounded-full border-2 border-canvas bg-emerald-500; }
+
+  .balance-card { @apply relative min-h-[178px] overflow-hidden rounded-[24px] p-6 text-white; background: linear-gradient(135deg, #2bc984 0%, #18b978 100%); box-shadow: 0 10px 25px rgba(24, 185, 120, 0.18); }
+  .balance-card::before { content: ''; @apply pointer-events-none absolute inset-0; background: radial-gradient(circle at 35% -20%, rgba(255,255,255,.22), transparent 42%); }
+  .balance-card-watermark { @apply pointer-events-none absolute right-6 top-1/2 -translate-y-1/2 text-white opacity-[0.13]; }
+  .balance-eye { @apply grid h-7 w-7 place-items-center rounded-full text-white/90 transition hover:bg-white/10; }
+  .balance-value { @apply relative z-10 mt-3 text-[32px] font-bold leading-none tracking-[-0.02em] tabular-nums sm:text-[36px]; }
+  .balance-trend { @apply relative z-10 mt-5 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-white/95; }
+
+  .summary-grid { @apply mt-4 grid grid-cols-2 gap-3; }
+  .summary-card { @apply flex min-w-0 items-center gap-3 p-4 sm:p-5; }
+  .summary-icon-green { @apply h-12 w-12; }
+  .summary-icon-blue { @apply h-12 w-12; }
+  .summary-title { @apply text-sm text-muted; }
+  .summary-value { @apply mt-0.5 truncate text-[16px] font-bold tracking-[-0.02em] tabular-nums sm:text-[18px]; }
+  .summary-trend { @apply mt-1 text-xs font-semibold; }
+
+  .dashboard-card { @apply mt-4; }
+  .card-heading { @apply flex items-center justify-between gap-3; }
+  .card-heading h2, .section-title { @apply text-[16px] font-semibold tracking-[-0.01em] text-ink; }
+  .card-heading a { @apply shrink-0 text-sm font-semibold text-emerald-600 transition hover:text-emerald-700; }
+  .period-button { @apply inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-muted transition hover:bg-slate-100; }
+  .chart-card .card-heading { gap: 6px; }
+  .chart-card .card-heading h2 { font-size: 15px; }
+  .expense-chart { @apply mt-4 h-[210px] w-full; }
+  .chart-tooltip { @apply grid gap-0.5 rounded-xl border bg-white px-3 py-2 text-xs shadow-lg; }
+  .chart-tooltip span { @apply text-muted; }
+  .chart-tooltip strong { @apply text-sm text-ink; }
+
+  .budget-layout { @apply mt-5 grid grid-cols-[126px_minmax(0,1fr)] items-center gap-4 sm:grid-cols-[172px_minmax(0,1fr)] sm:gap-7; }
+  .donut-wrap { @apply relative h-[126px] w-[126px] sm:h-[172px] sm:w-[172px]; }
+  .donut-center { @apply pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center; }
+  .donut-center strong { @apply max-w-[84px] truncate text-[12px] font-bold tabular-nums sm:max-w-[112px] sm:text-sm; }
+  .donut-center span { @apply mt-0.5 text-[10px] text-muted sm:text-xs; }
+  .budget-list { @apply min-w-0 space-y-2.5; }
+  .budget-row { @apply grid min-w-0 grid-cols-[26px_minmax(0,1fr)_auto_30px] items-center gap-1.5 text-[11px] sm:grid-cols-[28px_minmax(0,1fr)_auto_34px] sm:gap-2 sm:text-xs; }
+  .budget-row .category-icon { @apply h-6 w-6 sm:h-7 sm:w-7; }
+  .budget-name { @apply truncate font-medium; }
+  .budget-row strong { @apply whitespace-nowrap font-semibold tabular-nums; }
+  .budget-percent { @apply text-right text-muted; }
+  .budget-note { @apply mt-4 rounded-xl bg-slate-50 px-3 py-2 text-center text-xs text-muted; }
+
+  .transaction-list { @apply divide-y divide-slate-100; }
+  .transaction-row { @apply flex min-w-0 items-center gap-3 py-3.5; }
+  .empty-inline { @apply py-12 text-center text-sm text-muted; }
+
+  .bottom-nav-shell { @apply fixed inset-x-0 bottom-0 z-40 border-t border-slate-100 bg-white/95 backdrop-blur-xl; box-shadow: 0 -8px 28px rgba(15, 23, 42, 0.05); }
+  .bottom-nav { @apply mx-auto grid h-[76px] w-full max-w-[680px] grid-cols-5 items-center px-2; }
+  .bottom-nav-item { @apply flex h-full min-w-0 flex-col items-center justify-center gap-1 text-[10px] font-medium text-slate-400 transition hover:text-slate-600 sm:text-[11px]; }
+  .bottom-nav-item.active { @apply text-emerald-600; }
+  .bottom-nav-action { @apply mx-auto -mt-5 grid h-14 w-14 place-items-center rounded-full bg-brand text-white transition duration-200 hover:scale-[1.04] hover:bg-emerald-600 active:scale-[0.97]; box-shadow: 0 8px 20px rgba(24, 185, 120, 0.28); }
+
+  .page-title { @apply mb-6 flex items-end justify-between gap-4 px-1; }
+  .page-title > div > p { @apply text-sm font-medium text-brand; }
+  .page-title h1 { @apply mt-1 text-2xl font-bold tracking-tight sm:text-3xl; }
+  .filter-grid { @apply grid gap-3 sm:grid-cols-2; }
+  .filter-grid > :first-child { @apply sm:col-span-2; }
+  .settings-row { @apply mt-3 flex w-full items-center justify-between gap-4 rounded-xl border p-4 text-left transition hover:bg-slate-50; }
+  .toggle { @apply h-6 w-11 shrink-0 rounded-full bg-slate-200 p-0.5 transition; }
+  .toggle > span { @apply block h-5 w-5 rounded-full bg-white shadow transition; }
+  .toggle.active { @apply bg-brand; }
+  .toggle.active > span { @apply translate-x-5; }
+}
+
+@media (max-width: 390px) {
+  .app-content { padding-left: 14px; padding-right: 14px; }
+  .balance-card { min-height: 168px; padding: 21px; }
+  .balance-value { font-size: 29px; }
+  .summary-card { gap: 9px; padding: 14px 11px; }
+  .summary-card .category-icon { width: 42px; height: 42px; }
+  .summary-value { font-size: 14px; }
+  .budget-layout { grid-template-columns: 112px minmax(0, 1fr); gap: 10px; }
+  .donut-wrap { width: 112px; height: 112px; }
+  .budget-row { grid-template-columns: 24px minmax(0, 1fr) auto 27px; gap: 4px; font-size: 10px; }
+  .budget-row .category-icon { width: 23px; height: 23px; }
+  .transaction-row { gap: 9px; }
+}
+
+@media (min-width: 900px) {
+  body { background-image: radial-gradient(circle at 50% 0%, rgba(255,255,255,.9), transparent 45%); }
+  .app-content { padding-top: 48px; }
+}
+
+@media (min-width: 640px) {
+  .chart-card .card-heading h2 { font-size: 16px; }
+}

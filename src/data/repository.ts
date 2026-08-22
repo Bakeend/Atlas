@@ -1,0 +1,38 @@
+import type { FinanceData } from '../domain'
+import { seededData } from '../domain'
+
+const DB_NAME = 'atlas-finance'; const STORE = 'state'; const KEY = 'finance-data'
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1)
+    request.onupgradeneeded = () => request.result.createObjectStore(STORE)
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export interface FinanceRepository { load(): Promise<FinanceData>; save(data: FinanceData): Promise<void> }
+
+export const indexedDbRepository: FinanceRepository = {
+  async load() {
+    try {
+      const db = await openDb()
+      return await new Promise<FinanceData>((resolve, reject) => {
+        const request = db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY)
+        request.onsuccess = () => resolve(request.result ?? seededData())
+        request.onerror = () => reject(request.error)
+      })
+    } catch { return seededData() }
+  },
+  async save(data) {
+    try {
+      const db = await openDb()
+      await new Promise<void>((resolve, reject) => {
+        const request = db.transaction(STORE, 'readwrite').objectStore(STORE).put(data, KEY)
+        request.onsuccess = () => resolve()
+        request.onerror = () => reject(request.error)
+      })
+    } catch { /* Browsers that block storage keep the app usable in memory. */ }
+  }
+}
