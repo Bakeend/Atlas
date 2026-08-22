@@ -20,7 +20,12 @@ const data = (s: State): FinanceData => ({ accounts: s.accounts, transactions: s
 
 export const useFinanceStore = create<State>((set, get) => ({
   ...seededData(), ready: false,
-  hydrate: async () => set({ ...(await indexedDbRepository.load()), ready: true }),
+  hydrate: async () => {
+    const loaded = await indexedDbRepository.load()
+    const migrated = { ...loaded, accounts: loaded.accounts.map(account => ({ ...account, color: account.color.toLowerCase() === '#27c47d' ? '#2F80ED' : account.color })) }
+    if (migrated.accounts.some((account, index) => account.color !== loaded.accounts[index].color)) persist(migrated)
+    set({ ...migrated, ready: true })
+  },
   addAccount: account => set(s => { const next = { ...s, accounts: [...s.accounts, account] }; persist(data(next)); return next }),
   updateAccount: account => set(s => { const next = { ...s, accounts: s.accounts.map(a => a.id === account.id ? account : a) }; persist(data(next)); return next }),
   addTransaction: transaction => set(s => { const next = { ...s, transactions: [transaction, ...s.transactions] }; persist(data(next)); return next }),

@@ -51,7 +51,7 @@ export function accountBalance(account: Account, transactions: FinanceTransactio
 }
 
 export function seededData(): FinanceData {
-  const bank = { id: 'account-bank', name: 'Conta principal', type: 'checking' as const, initialBalanceCents: 450000, color: '#27C47D', archived: false, createdAt: today() }
+  const bank = { id: 'account-bank', name: 'Conta principal', type: 'checking' as const, initialBalanceCents: 450000, color: '#2F80ED', archived: false, createdAt: today() }
   const cash = { id: 'account-cash', name: 'Carteira', type: 'cash' as const, initialBalanceCents: 8000, color: '#2F80ED', archived: false, createdAt: today() }
   const month = currentMonth()
   return {

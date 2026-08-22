@@ -22,7 +22,47 @@
   .dashboard-card:hover { transform: translateY(-1px); box-shadow: 0 8px 26px rgba(15, 23, 42, 0.06); }
   .label { @apply mb-1.5 block text-sm font-medium text-slate-700; }
   .field { @apply w-full rounded-xl border bg-white px-3 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20; }
-  .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-brand/30; }
+  .select-menu { @apply relative w-full; }
+  .select-trigger { @apply flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-sm font-medium text-slate-700 shadow-sm outline-none transition hover:border-blue-300 hover:bg-blue-50/30 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15; }
+  .select-trigger .placeholder { @apply font-normal text-slate-400; }
+  .select-trigger svg { @apply shrink-0 text-blue-500 transition duration-200; }
+  .select-menu.open .select-trigger { @apply border-blue-500 bg-white ring-2 ring-blue-500/15; }
+  .select-menu.open .select-trigger svg { @apply rotate-180; }
+  .select-popover { @apply absolute z-[70] mt-2 max-h-60 w-full overflow-y-auto rounded-2xl border border-blue-100 bg-white p-1.5 shadow-[0_16px_40px_rgba(15,23,42,0.16)]; animation: select-popover-in 140ms ease-out; }
+  .select-option { @apply flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 outline-none transition; }
+  .select-option.highlighted { @apply bg-blue-50 text-blue-700; }
+  .select-option.selected { @apply bg-blue-100 font-semibold text-blue-700; }
+  .select-option.selected.highlighted { @apply bg-blue-100; }
+  .select-option svg { @apply shrink-0 text-blue-600; }
+
+  .date-picker, .color-picker { @apply relative w-full; }
+  .date-trigger { @apply flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-sm font-medium text-slate-700 shadow-sm outline-none transition hover:border-blue-300 hover:bg-blue-50/30 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15; }
+  .date-trigger svg { @apply shrink-0 text-blue-500; }
+  .date-picker.open .date-trigger { @apply border-blue-500 ring-2 ring-blue-500/15; }
+  .calendar-popover { @apply absolute z-[70] mt-2 w-full min-w-[286px] rounded-2xl border border-blue-100 bg-white p-3 shadow-[0_16px_40px_rgba(15,23,42,0.16)]; animation: select-popover-in 140ms ease-out; }
+  .calendar-header { @apply flex items-center justify-between gap-2 px-1 pb-3; }
+  .calendar-header strong { @apply text-sm font-semibold capitalize text-ink; }
+  .calendar-header button { @apply grid h-8 w-8 place-items-center rounded-full text-slate-500 transition hover:bg-blue-50 hover:text-blue-600; }
+  .calendar-weekdays, .calendar-grid { @apply grid grid-cols-7 gap-1; }
+  .calendar-weekdays span { @apply py-1 text-center text-[10px] font-semibold uppercase text-slate-400; }
+  .calendar-grid button { @apply relative grid aspect-square place-items-center rounded-lg text-xs font-medium text-slate-700 outline-none transition hover:bg-blue-50 hover:text-blue-700 focus:ring-2 focus:ring-blue-500/20; }
+  .calendar-grid button.outside { @apply text-slate-300; }
+  .calendar-grid button.today::after { content: ''; @apply absolute bottom-1 h-1 w-1 rounded-full bg-blue-500; }
+  .calendar-grid button.selected { @apply bg-blue-600 font-semibold text-white shadow-sm hover:bg-blue-700 hover:text-white; }
+  .calendar-grid button.selected::after { @apply bg-white; }
+  .calendar-today { @apply mt-3 w-full rounded-xl bg-blue-50 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100; }
+
+  .color-picker { @apply w-auto; }
+  .color-trigger { @apply flex h-11 w-[58px] items-center justify-between gap-1 rounded-xl border border-slate-200 bg-white px-2 shadow-sm outline-none transition hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15; }
+  .color-trigger svg { @apply text-blue-500; }
+  .color-preview { @apply h-6 w-6 rounded-lg ring-1 ring-black/5; }
+  .color-picker.open .color-trigger { @apply border-blue-500 ring-2 ring-blue-500/15; }
+  .color-popover { @apply absolute right-0 z-[70] mt-2 w-[224px] rounded-2xl border border-blue-100 bg-white p-3 shadow-[0_16px_40px_rgba(15,23,42,0.16)]; animation: select-popover-in 140ms ease-out; }
+  .color-popover p { @apply mb-3 text-xs font-semibold text-slate-600; }
+  .color-grid { @apply grid grid-cols-4 gap-2; }
+  .color-grid button { @apply grid h-10 w-10 place-items-center rounded-xl text-white shadow-sm outline-none ring-offset-2 transition hover:scale-105 focus:ring-2 focus:ring-blue-500/30; }
+  .color-grid button.selected { @apply ring-2 ring-blue-500 ring-offset-2; }
+  .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-brand/30; }
   .btn-secondary { @apply inline-flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50; }
   .icon-button { @apply grid h-9 w-9 place-items-center rounded-full text-muted transition hover:bg-slate-100 hover:text-ink; }
   .category-icon { @apply grid h-10 w-10 shrink-0 place-items-center rounded-full; }
@@ -31,9 +71,9 @@
   .dashboard-header h1 { @apply text-[25px] font-bold tracking-[-0.025em] text-ink; }
   .dashboard-header p { @apply mt-1 text-sm text-muted sm:text-[15px]; }
   .notification-button { @apply relative grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink transition hover:bg-white hover:shadow-sm; }
-  .notification-dot { @apply absolute right-[9px] top-[8px] h-2.5 w-2.5 rounded-full border-2 border-canvas bg-emerald-500; }
+  .notification-dot { @apply absolute right-[9px] top-[8px] h-2.5 w-2.5 rounded-full border-2 border-canvas bg-blue-500; }
 
-  .balance-card { @apply relative min-h-[178px] overflow-hidden rounded-[24px] p-6 text-white; background: linear-gradient(135deg, #2bc984 0%, #18b978 100%); box-shadow: 0 10px 25px rgba(24, 185, 120, 0.18); }
+  .balance-card { @apply relative min-h-[178px] overflow-hidden rounded-[24px] p-6 text-white; background: linear-gradient(135deg, #4c94f3 0%, #2f80ed 100%); box-shadow: 0 10px 25px rgba(47, 128, 237, 0.20); }
   .balance-card::before { content: ''; @apply pointer-events-none absolute inset-0; background: radial-gradient(circle at 35% -20%, rgba(255,255,255,.22), transparent 42%); }
   .balance-card-watermark { @apply pointer-events-none absolute right-6 top-1/2 -translate-y-1/2 text-white opacity-[0.13]; }
   .balance-eye { @apply grid h-7 w-7 place-items-center rounded-full text-white/90 transition hover:bg-white/10; }
@@ -42,7 +82,6 @@
 
   .summary-grid { @apply mt-4 grid grid-cols-2 gap-3; }
   .summary-card { @apply flex min-w-0 items-center gap-3 p-4 sm:p-5; }
-  .summary-icon-green { @apply h-12 w-12; }
   .summary-icon-blue { @apply h-12 w-12; }
   .summary-title { @apply text-sm text-muted; }
   .summary-value { @apply mt-0.5 truncate text-[16px] font-bold tracking-[-0.02em] tabular-nums sm:text-[18px]; }
@@ -51,7 +90,7 @@
   .dashboard-card { @apply mt-4; }
   .card-heading { @apply flex items-center justify-between gap-3; }
   .card-heading h2, .section-title { @apply text-[16px] font-semibold tracking-[-0.01em] text-ink; }
-  .card-heading a { @apply shrink-0 text-sm font-semibold text-emerald-600 transition hover:text-emerald-700; }
+  .card-heading a { @apply shrink-0 text-sm font-semibold text-blue-600 transition hover:text-blue-700; }
   .period-button { @apply inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-muted transition hover:bg-slate-100; }
   .chart-card .card-heading { gap: 6px; }
   .chart-card .card-heading h2 { font-size: 15px; }
@@ -80,8 +119,8 @@
   .bottom-nav-shell { @apply fixed inset-x-0 bottom-0 z-40 border-t border-slate-100 bg-white/95 backdrop-blur-xl; box-shadow: 0 -8px 28px rgba(15, 23, 42, 0.05); }
   .bottom-nav { @apply mx-auto grid h-[76px] w-full max-w-[680px] grid-cols-5 items-center px-2; }
   .bottom-nav-item { @apply flex h-full min-w-0 flex-col items-center justify-center gap-1 text-[10px] font-medium text-slate-400 transition hover:text-slate-600 sm:text-[11px]; }
-  .bottom-nav-item.active { @apply text-emerald-600; }
-  .bottom-nav-action { @apply mx-auto -mt-5 grid h-14 w-14 place-items-center rounded-full bg-brand text-white transition duration-200 hover:scale-[1.04] hover:bg-emerald-600 active:scale-[0.97]; box-shadow: 0 8px 20px rgba(24, 185, 120, 0.28); }
+  .bottom-nav-item.active { @apply text-blue-600; }
+  .bottom-nav-action { @apply mx-auto -mt-5 grid h-14 w-14 place-items-center rounded-full bg-brand text-white transition duration-200 hover:scale-[1.04] hover:bg-blue-600 active:scale-[0.97]; box-shadow: 0 8px 20px rgba(47, 128, 237, 0.30); }
 
   .page-title { @apply mb-6 flex items-end justify-between gap-4 px-1; }
   .page-title > div > p { @apply text-sm font-medium text-brand; }
@@ -93,6 +132,11 @@
   .toggle > span { @apply block h-5 w-5 rounded-full bg-white shadow transition; }
   .toggle.active { @apply bg-brand; }
   .toggle.active > span { @apply translate-x-5; }
+}
+
+@keyframes select-popover-in {
+  from { opacity: 0; transform: translateY(-5px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @media (max-width: 390px) {
