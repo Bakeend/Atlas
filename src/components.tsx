@@ -190,9 +190,21 @@ function MoneyDisplay({ display, animationKey = 0, freshDigits = 0 }: { display:
   return <span className="money-display" aria-live="polite">{[...display].map((char, index) => <span key={`${animationKey}-${index}-${char}`} className={`money-char${animationKey > 0 && index >= freshStart && /\d/.test(char) ? ' pop' : ''}`}>{char === ' ' ? '\u00A0' : char}</span>)}</span>
 }
 
-export function TransactionRow({ item, onEdit, onDelete }: { item: FinanceTransaction; onEdit?: () => void; onDelete?: () => void }) {
-  const { accounts, hideBalances } = useFinanceStore(); const account = accounts.find(a => a.id === item.accountId); const config = transactionVisual(item); const [open, setOpen] = useState(false)
-  return <div className="transaction-row"><CategoryIcon icon={config.Icon} color={config.color} backgroundColor={config.background}/><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-ink">{item.description}</p><p className="mt-0.5 truncate text-xs text-muted">{formatLongDate(item.date)}{account ? ` · ${account.name}` : ''}</p></div><div className={`transaction-amount ${config.amountTone}`}><config.AmountIcon size={15} strokeWidth={2.4}/><span>{money(item.amountCents, hideBalances)}</span></div>{onEdit && onDelete && <div className="relative"><button className="icon-button" onClick={() => setOpen(!open)} aria-label="Mais opções"><MoreHorizontal size={18}/></button>{open && <div className="absolute right-0 top-8 z-10 w-32 rounded-xl border bg-white p-1 shadow-lg"><button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-slate-50" onClick={onEdit}><Pencil size={14}/>Editar</button><button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm text-red-600 hover:bg-red-50" onClick={onDelete}><Trash2 size={14}/>Excluir</button></div>}</div>}</div>
+export function TransactionRow({ item, onEdit, onDelete, isMenuOpen, onMenuToggle }: { item: FinanceTransaction; onEdit?: () => void; onDelete?: () => void; isMenuOpen?: boolean; onMenuToggle?: (next: boolean) => void }) {
+  const { accounts, hideBalances } = useFinanceStore(); const account = accounts.find(a => a.id === item.accountId); const config = transactionVisual(item); const [localOpen, setLocalOpen] = useState(false)
+  const isControlled = typeof isMenuOpen === 'boolean' && typeof onMenuToggle === 'function'
+  const open = isControlled ? (isMenuOpen as boolean) : localOpen
+  const setOpen = (next: boolean) => { if (isControlled) (onMenuToggle as (b: boolean) => void)(next); else setLocalOpen(next) }
+  const containerRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+  return <div className="transaction-row"><CategoryIcon icon={config.Icon} color={config.color} backgroundColor={config.background}/><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-ink">{item.description}</p><p className="mt-0.5 truncate text-xs text-muted">{formatLongDate(item.date)}{account ? ` · ${account.name}` : ''}</p></div><div className={`transaction-amount ${config.amountTone}`}><config.AmountIcon size={15} strokeWidth={2.4}/><span>{money(item.amountCents, hideBalances)}</span></div>{onEdit && onDelete && <div className="relative" ref={containerRef}><button className="icon-button" onClick={() => setOpen(!open)} aria-label="Mais opções" aria-expanded={open} aria-haspopup="menu"><MoreHorizontal size={18}/></button>{open && <div className="absolute right-0 top-8 z-20 w-36 rounded-xl border bg-white p-1 shadow-xl" role="menu"><button role="menuitem" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-slate-50" onClick={() => { setOpen(false); onEdit() }}><Pencil size={14}/>Editar</button><button role="menuitem" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50" onClick={() => { setOpen(false); onDelete() }}><Trash2 size={14}/>Excluir</button></div>}</div>}</div>
 }
 
 function transactionVisual(item: FinanceTransaction): { Icon: LucideIcon; AmountIcon: LucideIcon; amountTone: string; color: string; background: string } {

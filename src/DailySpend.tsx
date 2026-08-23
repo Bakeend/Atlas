@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CalendarClock, ShieldCheck, Wallet, Eye, EyeOff, Calculator } from 'lucide-react'
-import { Card, MoneyInput } from './components'
+import { Card, MoneyInput, SelectMenu } from './components'
 import { accountBalance, money, parseMoney } from './domain'
 import { useFinanceStore } from './store'
 import { calculateSafeDailySpend, simulateDailySpend } from './ai/services/financialEngine'
@@ -133,8 +133,7 @@ function CalcModal({ data, close }: { data: ReturnType<typeof calculateSafeDaily
           <div className="flex justify-between"><span className="text-muted">Margem de segurança ({data.safetyMarginPercent}%)</span><strong>-{money(data.safetyReserveInCents, hideBalances)}</strong></div>
           <div className="flex items-center gap-2">
             <span className="text-muted">Ajustar margem</span>
-            <input type="range" min={0} max={30} value={safetyMarginPercent} onChange={e => setSafetyMarginPercent(Number(e.target.value))} className="flex-1" />
-            <span className="text-xs font-semibold">{safetyMarginPercent}%</span>
+            <div className="flex-1"><SelectMenu ariaLabel="Ajustar margem de segurança" value={String(safetyMarginPercent)} onChange={v => setSafetyMarginPercent(Number(v))} options={[0,5,10,15,20,30].map(v => ({ value: String(v), label: `${v}%` }))} /></div>
           </div>
           <div className="flex justify-between"><span className="text-muted">Distribuível</span><strong>{money(data.distributableInCents, hideBalances)}</strong></div>
           <div className="flex justify-between"><span className="text-muted">Dias até próximo recebimento</span><strong>{data.daysUntilNextIncome ?? 30} dias {data.nextIncomeDate ? `(${data.nextIncomeDate})` : '(estimativa)'}</strong></div>

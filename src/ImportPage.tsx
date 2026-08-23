@@ -188,10 +188,17 @@ export function ImportPage() {
             <div className="divide-y divide-slate-100">
               {filtered.length ? filtered.map(row => (
                 <div key={row.id} className={`import-row ${row.duplicate ? 'dup' : ''} ${row.invalidReason ? 'invalid' : ''}`}>
-                  <label className="import-check">
-                    <input type="checkbox" checked={row.selected} disabled={!!row.invalidReason || !!row.duplicate} onChange={() => toggleSelect(row.id)} />
-                    <span/>
-                  </label>
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={row.selected}
+                    aria-label={`Selecionar ${row.description}`}
+                    disabled={!!row.invalidReason || !!row.duplicate}
+                    onClick={() => toggleSelect(row.id)}
+                    className={`import-check grid h-5 w-5 shrink-0 place-items-center rounded border text-white transition ${row.selected ? 'bg-brand border-brand' : 'bg-white border-slate-300'} ${row.invalidReason || row.duplicate ? 'opacity-40 cursor-not-allowed' : 'hover:border-brand'}`}
+                  >
+                    {row.selected && <Check size={14} strokeWidth={2.6} />}
+                  </button>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <strong className="truncate text-sm">{row.description}</strong>
