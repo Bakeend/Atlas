@@ -61,6 +61,7 @@ type State = FinanceData & {
   setPaymentAllocationPriority: (order: import('./domain').AllocationPriority[]) => void
   addPaymentAllocationPreference: (rule: string) => void
   removePaymentAllocationPreference: (id: string) => void
+  deleteAllData: () => void
 }
 
 const persist = (state: FinanceData) => { void indexedDbRepository.save(state) }
@@ -394,4 +395,9 @@ export const useFinanceStore = create<State>((set, get) => ({
     const next = { ...s, paymentAllocationPreferences: ((s as any).paymentAllocationPreferences ?? []).filter((p:any)=> p.id!==id) }
     persist(data(next as any)); return next as any
   }),
+  deleteAllData: () => {
+    const fresh = emptyData()
+    persist(fresh)
+    set({ ...fresh, ready: true })
+  },
 }))
