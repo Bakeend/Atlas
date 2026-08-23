@@ -40,64 +40,39 @@ export function DailySpendCard() {
 
   return (
     <>
-      <Card className="dashboard-card daily-spend-card">
-        <div className="card-heading">
-          <div className="flex items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><Calculator size={16} /></span>
+      <Card className="dashboard-card daily-spend-card !p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><Calculator size={15} /></span>
             <div>
-              <h2>Quanto posso gastar hoje?</h2>
-              <p className="text-xs text-muted">{d.hasNextIncome ? `Próximo pagamento em ${d.daysUntilNextIncome} dias` : 'Sem próximo pagamento cadastrado'}</p>
+              <h2 className="text-sm font-semibold leading-none">Hoje</h2>
+              <p className="mt-0.5 text-xs text-muted">{d.hasNextIncome ? `${d.daysUntilNextIncome} dias até receber` : 'Sem recebimento'}</p>
             </div>
           </div>
-          <button className="text-xs font-semibold text-brand" onClick={() => setShowCalc(true)}>Ver cálculo</button>
+          <button className="text-xs font-semibold text-brand" onClick={() => setShowCalc(true)}>Detalhes</button>
         </div>
 
         {!d.hasNextIncome ? (
-          <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-            <p className="font-medium">Cadastre seu próximo recebimento</p>
-            <p className="mt-1 text-xs leading-5">Para calcular um limite diário mais preciso, crie uma receita recorrente (ex: Salário dia 5).</p>
-            <p className="mt-2 text-xs">Estimativa mensal (30 dias): <strong>{d.safeDailyFormatted ? d.safeDailyFormatted : money(d.distributableInCents > 0 ? Math.floor(d.distributableInCents / 30) : 0, hideBalances)}/dia</strong></p>
+          <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800">
+            Cadastre seu salário para ver o limite diário.
           </div>
         ) : (
           <>
-            <div className="mt-4">
-              <span className="block text-xs text-muted">Pode gastar hoje</span>
-              <strong className={`mt-1 block text-3xl font-bold tracking-tight tabular-nums ${progressStatus === 'over' || progressStatus === 'negative_free' ? 'text-red-600' : progressStatus === 'near_limit' ? 'text-amber-600' : 'text-emerald-600'}`}>{mainFormatted}</strong>
-              <span className={`mt-1 block text-xs ${statusTone}`}>{statusText}</span>
-              {d.safeDailyFormatted && (
-                <span className="mt-1 block text-xs text-muted">Seu limite recomendado hoje é {money(d.safeDailySpendInCents!, hideBalances)}. Você já utilizou {money(d.spentTodayInCents, hideBalances)}.</span>
-              )}
-            </div>
+            <p className={`mt-3 text-2xl font-bold tracking-tight tabular-nums ${progressStatus === 'over' || progressStatus === 'negative_free' ? 'text-red-600' : progressStatus === 'near_limit' ? 'text-amber-600' : 'text-emerald-600'}`}>{mainFormatted}</p>
+            <p className="mt-1 text-xs text-muted">{statusText}</p>
 
             {d.safeDailySpendInCents !== null && d.safeDailySpendInCents > 0 && (
-              <div className="mt-4">
-                <div className="flex justify-between text-xs text-muted">
-                  <span>{money(d.spentTodayInCents, hideBalances)} de {money(d.safeDailySpendInCents, hideBalances)} usados</span>
+              <div className="mt-3">
+                <ProgressBar percent={progressPercent} status={progressStatus} />
+                <div className="mt-1.5 flex justify-between text-[11px] text-muted">
+                  <span>{money(d.spentTodayInCents, hideBalances)} / {money(d.safeDailySpendInCents, hideBalances)}</span>
                   <span>{progressPercent}%</span>
                 </div>
-                <div className="mt-1.5"><ProgressBar percent={progressPercent} status={progressStatus} /></div>
               </div>
             )}
 
-            <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
-              <div className="rounded-xl bg-slate-50 p-3">
-                <span className="flex items-center gap-1 text-muted"><Wallet size={14} /> Dinheiro livre</span>
-                <strong className="mt-1 block text-sm tabular-nums">{money(d.freeMoneyInCents, hideBalances)}</strong>
-                <small className="text-[11px] text-muted">Margem {d.safetyMarginPercent}% protegida: {money(d.safetyReserveInCents, hideBalances)}</small>
-              </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <span className="flex items-center gap-1 text-muted"><CalendarClock size={14} /> Próxima conta</span>
-                <strong className="mt-1 block truncate text-sm">{d.nextBill ? `${d.nextBill.name} — ${d.nextBill.amountFormatted}` : 'Nenhuma'}</strong>
-                <small className="text-[11px] text-muted">{d.nextBill ? d.nextBill.date : '—'}</small>
-              </div>
-            </div>
-
-            <div className="mt-3 flex items-center gap-2 text-xs text-muted">
-              <button className="rounded-full bg-slate-100 px-3 py-1.5 font-medium" onClick={() => setShowToday(v => !v)}>{showToday ? 'Ocultar Hoje' : 'Ver Hoje'}</button>
-              <span className="ml-auto flex items-center gap-1"><ShieldCheck size={14} /> Margem {d.safetyMarginPercent}%</span>
-            </div>
-
             {showToday && <TodayCenter data={d} />}
+            <button className="mt-3 text-xs font-medium text-muted hover:text-ink" onClick={() => setShowToday(v => !v)}>{showToday ? 'Ocultar' : 'Ver hoje'}</button>
           </>
         )}
       </Card>

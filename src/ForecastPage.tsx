@@ -24,7 +24,7 @@ function ForecastTooltip({ active, payload, label, hidden }: { active?: boolean;
 }
 
 export function ForecastDashboardCard() {
-  const { accounts, transactions, recurringExpenses, forecastRealistic, setForecastRealistic, hideBalances } = useFinanceStore()
+  const { accounts, transactions, recurringExpenses, forecastRealistic, hideBalances } = useFinanceStore()
   const live = transactions.filter(t => !t.deletedAt)
   const total = accounts.filter(a => !a.archived).reduce((s, acc) => s + accountBalance(acc, live), 0)
   const points = useMemo(() => calculateForecast({ accounts, transactions, recurringExpenses, startDate: today(), days: 30, realistic: forecastRealistic }), [accounts, transactions, recurringExpenses, forecastRealistic])
@@ -38,17 +38,9 @@ export function ForecastDashboardCard() {
       <div className="card-heading">
         <div>
           <h2>Previsão de saldo</h2>
-          <p className="mt-1 text-xs text-muted">{forecastRealistic ? 'Realista (recorrentes + média 90 dias)' : 'Só recorrentes'} • 30 dias</p>
+          <p className="mt-1 text-xs text-muted">{forecastRealistic ? 'Realista' : 'Só recorrentes'} • 30 dias</p>
         </div>
-        <NavLink to="/forecast">Ver detalhes</NavLink>
-      </div>
-      <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-slate-50 p-2.5">
-        <span className="text-xs font-medium text-muted">Modo da previsão</span>
-        <label className="inline-flex items-center gap-2 text-xs">
-          <span className={forecastRealistic ? 'font-semibold text-brand' : 'text-muted'}>Realista</span>
-          <button onClick={() => setForecastRealistic(!forecastRealistic)} className={`toggle ${forecastRealistic ? 'active' : ''}`} aria-label="Alternar modo realista no dashboard"><span/></button>
-          <span className={!forecastRealistic ? 'font-semibold text-ink' : 'text-muted'}>Só fixos</span>
-        </label>
+        <NavLink to="/forecast">Ver</NavLink>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div className="rounded-xl bg-slate-50 p-3">
