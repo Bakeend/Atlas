@@ -9,6 +9,7 @@ import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContaine
 import { AccountIcon, AccountModal, Card, CategoryIcon, Empty, MoneyInput, SelectMenu, TransactionModal, TransactionRow } from './components'
 import { accountBalance, categories, currentMonth, money, parseMoney, uid, type FinanceTransaction } from './domain'
 import { useFinanceStore } from './store'
+import { RecurringDashboardCard, RecurringExpensesPage } from './RecurringExpenses'
 
 const navigation = [
   { to: '/', label: 'Início', icon: House },
@@ -23,7 +24,7 @@ function Shell() {
   useEffect(() => { void hydrate() }, [hydrate])
   if (!ready) return <div className="grid min-h-screen place-items-center"><div className="text-center"><div className="mx-auto h-11 w-11 animate-pulse rounded-full bg-brand"/><p className="mt-3 text-sm text-muted">Carregando suas finanças…</p></div></div>
   return <div className="min-h-screen"><main className="app-content"><Routes>
-    <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/profile" element={<Profile/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
+    <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/recurring" element={<RecurringExpensesPage/>}/><Route path="/profile" element={<Profile/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
   </Routes></main><BottomNavigation onNew={() => setNewTransaction(true)}/>{newTransaction && <TransactionModal close={() => setNewTransaction(false)}/>}</div>
 }
 
@@ -62,6 +63,7 @@ function Dashboard() {
     <section className="summary-grid"><SummaryCard title="Receitas" value={money(income, hideBalances)} trend={percentageChange(income, previousIncome)} icon={ArrowDownLeft} tone="income"/><SummaryCard title="Despesas" value={money(expense, hideBalances)} trend={percentageChange(expense, previousExpense)} icon={ArrowUpRight} tone="expense"/></section>
     <Card className="dashboard-card chart-card"><div className="card-heading"><h2>Despesas nos últimos 6 meses</h2><button className="period-button">6 meses <ChevronDown size={15}/></button></div><div className="expense-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}><defs><linearGradient id="expenseArea" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2F80ED" stopOpacity={0.18}/><stop offset="95%" stopColor="#2F80ED" stopOpacity={0.01}/></linearGradient></defs><CartesianGrid stroke="#E9EDF3" strokeDasharray="3 3" vertical={false}/><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#7A8392', fontSize: 12 }} dy={9}/><YAxis axisLine={false} tickLine={false} tick={{ fill: '#8A93A1', fontSize: 11 }} tickFormatter={shortMoney}/><Tooltip content={<ChartTooltip hidden={hideBalances}/>}/><Area type="monotone" dataKey="value" stroke="#2F80ED" strokeWidth={3} fill="url(#expenseArea)" activeDot={{ r: 5, fill: '#fff', stroke: '#2F80ED', strokeWidth: 3 }} dot={{ r: 4, fill: '#fff', stroke: '#2F80ED', strokeWidth: 2.5 }}/></AreaChart></ResponsiveContainer></div></Card>
     <Card className="dashboard-card budget-card"><div className="card-heading"><h2>Orçamento deste mês</h2><NavLink to="/planning">Ver tudo</NavLink></div><div className="budget-layout"><div className="donut-wrap"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={expenseTotal ? budgetData : [{ value: 1, color: '#E5E7EB' }]} dataKey="value" innerRadius="64%" outerRadius="91%" paddingAngle={expenseTotal ? 2 : 0} stroke="white" strokeWidth={2}>{(expenseTotal ? budgetData : [{ color: '#E5E7EB' }]).map((entry, index) => <Cell key={index} fill={entry.color}/>)}</Pie></PieChart></ResponsiveContainer><div className="donut-center"><strong>{money(expenseTotal, hideBalances)}</strong><span>Total</span></div></div><div className="budget-list">{budgetData.map(item => <BudgetRow key={item.name} item={item} total={expenseTotal} hidden={hideBalances}/>)}</div></div>{!hasBudget && <p className="budget-note">Defina limites por categoria em Orçamento.</p>}</Card>
+    <RecurringDashboardCard/>
     <Card className="dashboard-card recent-card"><div className="card-heading"><h2>Transações recentes</h2><NavLink to="/transactions">Ver todas</NavLink></div><div className="transaction-list">{recent.length ? recent.map(transaction => <TransactionRow item={transaction} key={transaction.id}/>) : <p className="empty-inline">Nenhuma movimentação ainda.</p>}</div></Card>
   </>
 }
@@ -84,7 +86,7 @@ function ChartTooltip({ active, payload, label, hidden }: { active?: boolean; pa
 }
 
 function PageTitle({ eyebrow, title, children }: { eyebrow: string; title: string; children?: ReactNode }) {
-  return <div className="page-title"><div><p>{eyebrow}</p><h1>{title}</h1></div>{children}</div>
+  return <><div className="page-title"><div><p>{eyebrow}</p><h1>{title}</h1></div>{children}</div>{eyebrow === 'Planejamento' && <NavLink to="/recurring" className="planning-recurring-link"><span><ReceiptText size={23}/></span><div><strong>Gastos recorrentes</strong><p>Planeje contas fixas, vencimentos e pagamentos.</p></div><ChevronRight size={20}/></NavLink>}</>
 }
 
 function Transactions() {

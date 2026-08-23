@@ -1,5 +1,6 @@
 import type { FinanceData } from '../domain'
 import { seededData } from '../domain'
+import type { RecurringExpense } from '../recurring'
 
 const DB_NAME = 'atlas-finance'; const STORE = 'state'; const KEY = 'finance-data'
 
@@ -13,6 +14,7 @@ function openDb(): Promise<IDBDatabase> {
 }
 
 export interface FinanceRepository { load(): Promise<FinanceData>; save(data: FinanceData): Promise<void> }
+export interface RecurringExpenseRepository { load(): Promise<RecurringExpense[]>; save(expenses: RecurringExpense[]): Promise<void> }
 
 export const indexedDbRepository: FinanceRepository = {
   async load() {
@@ -35,4 +37,12 @@ export const indexedDbRepository: FinanceRepository = {
       })
     } catch { /* Browsers that block storage keep the app usable in memory. */ }
   }
+}
+
+export const recurringExpenseRepository: RecurringExpenseRepository = {
+  async load() { return (await indexedDbRepository.load()).recurringExpenses ?? [] },
+  async save(expenses) {
+    const current = await indexedDbRepository.load()
+    await indexedDbRepository.save({ ...current, recurringExpenses: expenses })
+  },
 }

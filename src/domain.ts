@@ -1,3 +1,5 @@
+import type { RecurringExpense } from './recurring'
+
 export type TransactionType = 'income' | 'expense' | 'transfer'
 export type AccountType = 'checking' | 'savings' | 'cash' | 'wallet' | 'investment'
 
@@ -21,12 +23,16 @@ export interface FinanceTransaction {
   destinationAccountId?: string
   date: string
   note?: string
+  recurringExpenseId?: string
+  recurringOccurrenceDate?: string
+  plannedAmountCents?: number
   createdAt: string
   deletedAt?: string
 }
 
 export interface Budget { id: string; category: string; month: string; limitCents: number }
-export interface FinanceData { accounts: Account[]; transactions: FinanceTransaction[]; budgets: Budget[]; hideBalances: boolean }
+
+export interface FinanceData { accounts: Account[]; transactions: FinanceTransaction[]; budgets: Budget[]; recurringExpenses: RecurringExpense[]; hideBalances: boolean }
 
 export const categories = ['Alimentação', 'Moradia', 'Transporte', 'Saúde', 'Lazer', 'Educação', 'Assinaturas', 'Outros']
 export const uid = () => crypto.randomUUID()
@@ -54,6 +60,12 @@ export function seededData(): FinanceData {
   const bank = { id: 'account-bank', name: 'Conta principal', type: 'checking' as const, initialBalanceCents: 450000, color: '#2F80ED', archived: false, createdAt: today() }
   const cash = { id: 'account-cash', name: 'Carteira', type: 'cash' as const, initialBalanceCents: 8000, color: '#2F80ED', archived: false, createdAt: today() }
   const month = currentMonth()
+  const createdAt = today()
+  const recurringExpenses: RecurringExpense[] = [
+    { id: 'recurring-rent', name: 'Aluguel', amountInCents: 142500, category: 'Moradia', accountId: bank.id, frequency: 'monthly', dueDay: 6, startDate: `${month}-01`, description: 'Apartamento', isVariable: false, isActive: true, reminderEnabled: true, reminderDaysBefore: 3, createdAt, updatedAt: createdAt },
+    { id: 'recurring-internet', name: 'Internet', amountInCents: 11990, category: 'Assinaturas', accountId: bank.id, frequency: 'monthly', dueDay: 12, startDate: `${month}-01`, isVariable: false, isActive: true, reminderEnabled: true, reminderDaysBefore: 2, createdAt, updatedAt: createdAt },
+    { id: 'recurring-streaming', name: 'Streaming', amountInCents: 2990, category: 'Assinaturas', accountId: bank.id, frequency: 'monthly', dueDay: 18, startDate: `${month}-01`, isVariable: false, isActive: true, reminderEnabled: false, createdAt, updatedAt: createdAt },
+  ]
   return {
     accounts: [bank, cash],
     transactions: [
@@ -63,6 +75,7 @@ export function seededData(): FinanceData {
       { id: 'seed-4', type: 'expense', amountCents: 2990, description: 'Streaming', category: 'Assinaturas', accountId: bank.id, date: `${month}-18`, createdAt: today() },
     ],
     budgets: [{ id: 'budget-food', category: 'Alimentação', month, limitCents: 80000 }, { id: 'budget-leisure', category: 'Lazer', month, limitCents: 40000 }],
+    recurringExpenses,
     hideBalances: false,
   }
 }

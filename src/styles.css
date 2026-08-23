@@ -161,6 +161,49 @@
   .page-title { @apply mb-6 flex items-end justify-between gap-4 px-1; }
   .page-title > div > p { @apply text-sm font-medium text-brand; }
   .page-title h1 { @apply mt-1 text-2xl font-bold tracking-tight sm:text-3xl; }
+  .planning-recurring-link { @apply mb-5 flex items-center gap-4 rounded-[20px] border border-blue-100 bg-gradient-to-br from-blue-600 to-blue-500 p-5 text-white shadow-[0_10px_25px_rgba(47,128,237,0.20)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(47,128,237,0.25)]; }
+  .planning-recurring-link > span { @apply grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/15; }
+  .planning-recurring-link > div { @apply min-w-0 flex-1; }
+  .planning-recurring-link strong { @apply font-semibold; }
+  .planning-recurring-link p { @apply mt-1 text-xs text-blue-50 sm:text-sm; }
+
+  .recurring-summary-grid { @apply grid grid-cols-2 gap-3; }
+  .recurring-stat { @apply flex min-w-0 items-center gap-3 p-4; }
+  .recurring-stat > div { @apply min-w-0; }
+  .recurring-stat span { @apply block text-[11px] leading-4 text-muted sm:text-xs; }
+  .recurring-stat strong { @apply mt-1 block truncate text-base font-bold tabular-nums sm:text-lg; }
+  .recurring-stat-primary { @apply col-span-2 p-5; }
+  .recurring-stat-primary .category-icon { @apply h-12 w-12; }
+  .recurring-stat-primary > div { @apply flex-1; }
+  .recurring-stat-primary span { @apply text-xs font-medium text-slate-500; }
+  .recurring-stat-primary strong { @apply mt-1 text-2xl sm:text-[28px]; }
+  .recurring-stat-primary small { @apply mt-1 block text-xs text-muted; }
+  .recurring-search { @apply flex items-center gap-2 rounded-xl border bg-white px-3 text-slate-400 transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15; }
+  .recurring-search input { @apply min-h-11 w-full bg-transparent text-sm text-ink outline-none placeholder:text-slate-400; }
+  .recurring-month-title { @apply mb-2 px-1 text-sm font-semibold text-slate-500; }
+  .recurring-row { @apply flex w-full min-w-0 items-center gap-3 px-4 py-4 text-left transition hover:bg-blue-50/40 sm:px-5; }
+  .recurring-row strong { @apply text-sm font-semibold text-ink; }
+  .recurring-row > div > span { @apply mt-1 block truncate text-xs text-muted; }
+  .recurring-row > div.text-right { @apply shrink-0; }
+  .recurring-row > div.text-right b { @apply block whitespace-nowrap text-sm font-bold tabular-nums text-ink; }
+  .recurring-row > div.text-right small { @apply mt-1 block text-[10px] text-muted; }
+  .recurring-badge { @apply inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold; }
+  .recurring-badge.upcoming { @apply bg-blue-50 text-blue-700; }
+  .recurring-badge.overdue { @apply bg-red-50 text-red-700; }
+  .recurring-badge.paid { @apply bg-emerald-50 text-emerald-700; }
+  .recurring-badge.paused { @apply bg-slate-100 text-slate-600; }
+  .recurring-mini-row { @apply flex min-w-0 items-center gap-3 py-3 text-ink transition hover:text-blue-700; }
+  .recurring-mini-row strong { @apply block truncate text-sm font-semibold; }
+  .recurring-mini-row span { @apply mt-0.5 block text-xs text-muted; }
+  .recurring-mini-row b { @apply shrink-0 text-sm font-bold tabular-nums; }
+  .recurring-detail-hero { @apply flex items-center gap-4 rounded-2xl bg-blue-50/70 p-4; }
+  .recurring-detail-hero > div { @apply min-w-0 flex-1; }
+  .recurring-detail-hero strong { @apply mt-2 block text-2xl font-bold tabular-nums; }
+  .recurring-detail-hero p { @apply mt-1 text-xs text-muted; }
+  .recurring-detail-grid { @apply mt-4 grid grid-cols-2 gap-3; }
+  .recurring-detail-grid > div { @apply rounded-xl border bg-white p-3; }
+  .recurring-detail-grid span { @apply block text-[11px] text-muted; }
+  .recurring-detail-grid strong { @apply mt-1 block truncate text-xs font-semibold sm:text-sm; }
   .filter-grid { @apply grid gap-3 sm:grid-cols-2; }
   .filter-grid > :first-child { @apply sm:col-span-2; }
   .settings-row { @apply mt-3 flex w-full items-center justify-between gap-4 rounded-xl border p-4 text-left transition hover:bg-slate-50; }
@@ -203,6 +246,10 @@
   .budget-row { grid-template-columns: 24px minmax(0, 1fr) auto 27px; gap: 4px; font-size: 10px; }
   .budget-row .category-icon { width: 23px; height: 23px; }
   .transaction-row { gap: 9px; }
+  .recurring-stat:not(.recurring-stat-primary) { gap: 8px; padding: 14px 12px; }
+  .recurring-stat:not(.recurring-stat-primary) .category-icon { width: 36px; height: 36px; }
+  .recurring-stat:not(.recurring-stat-primary) span { font-size: 10px; line-height: 14px; }
+  .recurring-stat:not(.recurring-stat-primary) strong { overflow: visible; font-size: 14px; white-space: nowrap; }
 }
 
 @media (min-width: 900px) {
