@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { accountBalance, categories, currentMonth, money, parseMoney, today, uid, type Account, type AccountType, type FinanceTransaction, type TransactionType } from './domain'
 import { useFinanceStore } from './store'
-import { iconByName } from './lib/categoryIcons'
+import { getCategoryIcon, iconByName } from './lib/categoryIcons'
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) { return <section className={`card ${className}`}>{children}</section> }
 
@@ -14,7 +14,7 @@ export function CategoryIcon({ icon: Icon, color = '#2F80ED', backgroundColor = 
   return <span className={`category-icon ${className}`} style={{ color, backgroundColor }}><Icon size={size} strokeWidth={1.9}/></span>
 }
 
-export interface SelectOption { value: string; label: string }
+export interface SelectOption { value: string; label: string; icon?: LucideIcon }
 
 export function SelectMenu({ value, onChange, options, placeholder = 'Selecione', ariaLabel }: { value: string; onChange: (value: string) => void; options: SelectOption[]; placeholder?: string; ariaLabel: string }) {
   const [open, setOpen] = useState(false)
@@ -41,8 +41,8 @@ export function SelectMenu({ value, onChange, options, placeholder = 'Selecione'
   }
 
   return <div className={`select-menu ${open ? 'open' : ''}`}>
-    <button type="button" className="select-trigger" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(current => !current)} onKeyDown={onKeyDown}><span className={!selected || !value ? 'placeholder' : ''}>{selected?.label ?? placeholder}</span><ChevronDown size={18} strokeWidth={2}/></button>
-    {open && createPortal(<div className="control-overlay" onMouseDown={event => { if (event.target === event.currentTarget) setOpen(false) }}><div className="control-overlay-panel select-overlay-panel" role="dialog" aria-modal="true" aria-label={ariaLabel}><div className="control-overlay-header"><div><span>{ariaLabel}</span><p>Escolha uma opção</p></div><button type="button" aria-label={`Fechar ${ariaLabel}`} onClick={() => setOpen(false)}><ChevronDown size={22}/></button></div><div className="select-overlay-list" role="listbox" aria-label={ariaLabel}>{options.map((option, index) => <button type="button" role="option" aria-selected={option.value === value} className={`select-option ${option.value === value ? 'selected' : ''} ${index === highlighted ? 'highlighted' : ''}`} key={option.value} onMouseEnter={() => setHighlighted(index)} onClick={() => choose(index)}><span>{option.label}</span>{option.value === value && <Check size={19} strokeWidth={2.2}/>}</button>)}</div></div></div>, document.body)}
+    <button type="button" className="select-trigger" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(current => !current)} onKeyDown={onKeyDown}><span className={`flex items-center gap-2 ${!selected || !value ? 'placeholder' : ''}`}>{selected?.icon && <selected.icon size={16} className="shrink-0 text-brand" />}<span>{selected?.label ?? placeholder}</span></span><ChevronDown size={18} strokeWidth={2}/></button>
+    {open && createPortal(<div className="control-overlay" onMouseDown={event => { if (event.target === event.currentTarget) setOpen(false) }}><div className="control-overlay-panel select-overlay-panel" role="dialog" aria-modal="true" aria-label={ariaLabel}><div className="control-overlay-header"><div><span>{ariaLabel}</span><p>Escolha uma opção</p></div><button type="button" aria-label={`Fechar ${ariaLabel}`} onClick={() => setOpen(false)}><ChevronDown size={22}/></button></div><div className="select-overlay-list" role="listbox" aria-label={ariaLabel}>{options.map((option, index) => <button type="button" role="option" aria-selected={option.value === value} className={`select-option ${option.value === value ? 'selected' : ''} ${index === highlighted ? 'highlighted' : ''}`} key={option.value} onMouseEnter={() => setHighlighted(index)} onClick={() => choose(index)}><span className="flex items-center gap-2">{option.icon && <option.icon size={16} className="shrink-0 text-brand" />}<span>{option.label}</span></span>{option.value === value && <Check size={19} strokeWidth={2.2}/>}</button>)}</div></div></div>, document.body)}
   </div>
 }
 
@@ -110,7 +110,7 @@ type TransactionForm = z.infer<typeof transactionSchema>
 
 export function TransactionModal({ close, item }: { close: () => void; item?: FinanceTransaction }) {
   const { accounts, addTransaction, updateTransaction } = useFinanceStore()
-  const { customCategories } = useFinanceStore() as any
+  const { customCategories, customCategoryIcons } = useFinanceStore() as any
   const allCats = [...categories, ...((customCategories ?? []) as string[])]
   const active = (accounts as Account[]).filter((a: Account) => !a.archived)
   const form = useForm<TransactionForm>({ resolver: zodResolver(transactionSchema), defaultValues: item ? { ...item, amount: String(item.amountCents / 100) } : { type: 'expense', amount: '', description: '', category: 'Alimentação', accountId: active[0]?.id ?? '', date: today(), note: '' } })
@@ -123,7 +123,7 @@ export function TransactionModal({ close, item }: { close: () => void; item?: Fi
     <div className="grid grid-cols-3 gap-2">{([['expense', 'Despesa', ArrowUpRight], ['income', 'Receita', ArrowDownLeft], ['transfer', 'Transferir', ChevronRight]] as const).map(([value, label, Icon]) => <button type="button" key={value} onClick={() => form.setValue('type', value)} className={`flex flex-col items-center gap-1 rounded-xl border p-2.5 text-xs font-semibold ${type === value ? 'border-brand bg-blue-50 text-blue-700' : 'text-muted'}`}><Icon size={18}/>{label}</button>)}</div>
     <Field label="Valor" error={form.formState.errors.amount?.message}><MoneyInput ariaLabel="Valor da movimentação" value={form.watch('amount')} onChange={value => form.setValue('amount', value, { shouldDirty: true, shouldValidate: true })}/></Field>
     <Field label="Descrição" error={form.formState.errors.description?.message}><input placeholder={type === 'transfer' ? 'Ex.: Reserva mensal' : 'Ex.: Mercado'} className="field" {...form.register('description')} /></Field>
-    {type !== 'transfer' && <Field label="Categoria"><SelectMenu ariaLabel="Categoria" value={form.watch('category')} onChange={value => form.setValue('category', value, { shouldDirty: true, shouldValidate: true })} options={allCats.map(category => ({ value: category, label: category }))}/></Field>}
+    {type !== 'transfer' && <Field label="Categoria"><SelectMenu ariaLabel="Categoria" value={form.watch('category')} onChange={value => form.setValue('category', value, { shouldDirty: true, shouldValidate: true })} options={allCats.map(category => ({ value: category, label: category, icon: getCategoryIcon(category, customCategoryIcons) }))}/></Field>}
     <div className="grid gap-4 sm:grid-cols-2"><Field label={type === 'transfer' ? 'Origem' : 'Conta'} error={form.formState.errors.accountId?.message}><SelectMenu ariaLabel={type === 'transfer' ? 'Conta de origem' : 'Conta'} value={form.watch('accountId')} onChange={value => form.setValue('accountId', value, { shouldDirty: true, shouldValidate: true })} options={[{ value: '', label: 'Selecione' }, ...active.map(account => ({ value: account.id, label: account.name }))]}/></Field>{type === 'transfer' && <Field label="Destino" error={form.formState.errors.destinationAccountId?.message}><SelectMenu ariaLabel="Conta de destino" value={form.watch('destinationAccountId') ?? ''} onChange={value => form.setValue('destinationAccountId', value, { shouldDirty: true, shouldValidate: true })} options={[{ value: '', label: 'Selecione' }, ...active.map(account => ({ value: account.id, label: account.name }))]}/></Field>}</div>
     <Field label="Data"><DatePicker ariaLabel="Data da movimentação" value={form.watch('date')} onChange={value => form.setValue('date', value, { shouldDirty: true, shouldValidate: true })}/></Field><Field label="Observação (opcional)"><textarea rows={2} className="field resize-none" {...form.register('note')} /></Field>
     <button className="btn-primary w-full" type="submit"><Check size={18}/>Salvar movimentação</button>

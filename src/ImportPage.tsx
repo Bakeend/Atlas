@@ -6,6 +6,7 @@ import { categories, money, uid } from './domain'
 import type { FinanceTransaction } from './domain'
 import { buildDuplicateKey, markDuplicates, parseImportFile, type ParsedImportRow } from './import/parse'
 import { useFinanceStore } from './store'
+import { getCategoryIcon } from './lib/categoryIcons'
 
 type EditableRow = ParsedImportRow & { selected: boolean; category: string }
 
@@ -17,6 +18,8 @@ function formatPreviewDate(value: string) {
 export function ImportPage() {
   const navigate = useNavigate()
   const { accounts, transactions, importTransactions } = useFinanceStore()
+  const { customCategories, customCategoryIcons } = useFinanceStore() as any
+  const allCats = [...categories, ...((customCategories ?? []) as string[])]
   const activeAccounts = accounts.filter(a => !a.archived)
   const [accountId, setAccountId] = useState(activeAccounts[0]?.id ?? '')
   const [rows, setRows] = useState<EditableRow[]>([])
@@ -211,7 +214,7 @@ export function ImportPage() {
                   <div className="import-row-actions">
                     <strong className={row.type === 'income' ? 'text-emerald-600' : 'text-red-600'}>{money(row.amountCents)}</strong>
                     <div className="mt-1 flex flex-col gap-1.5 sm:flex-row sm:items-center">
-                      <div className="min-w-[140px]"><SelectMenu ariaLabel={`Categoria de ${row.description}`} value={row.category} onChange={v => updateCategory(row.id, v)} options={categories.map(c => ({ value: c, label: c }))} /></div>
+                      <div className="min-w-[140px]"><SelectMenu ariaLabel={`Categoria de ${row.description}`} value={row.category} onChange={v => updateCategory(row.id, v)} options={allCats.map(c => ({ value: c, label: c, icon: getCategoryIcon(c, customCategoryIcons) }))} /></div>
                       <div className="min-w-[120px]"><SelectMenu ariaLabel={`Tipo de ${row.description}`} value={row.type} onChange={v => updateType(row.id, v as 'income'|'expense')} options={[{ value: 'expense', label: 'Despesa' }, { value: 'income', label: 'Receita' }]} /></div>
                       <button className="grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-red-600" onClick={() => removeRow(row.id)} aria-label="Remover"><X size={14}/></button>
                     </div>
