@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Wallet, PiggyBank, CircleDollarSign, ChevronDown, ChevronUp, AlertTriangle, Info } from 'lucide-react'
-import { Card, SelectMenu, Modal } from './components'
+import { Card, SelectMenu, Modal, DatePicker } from './components'
 import { money } from './domain'
 import { useFinanceStore } from './store'
 import { calculateFreeMoney } from './ai/services/financialEngine'
@@ -73,7 +73,11 @@ export function FreeMoneyCard() {
 
         {period === 'custom' && (
           <div className="mt-3">
-            <input type="date" className="field" value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
+            <DatePicker
+              value={customEnd}
+              onChange={setCustomEnd}
+              ariaLabel="Data final do dinheiro livre"
+            />
           </div>
         )}
 
