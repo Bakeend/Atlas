@@ -22,13 +22,34 @@
   .dashboard-card:hover { transform: translateY(-1px); box-shadow: 0 8px 26px rgba(15, 23, 42, 0.06); }
   .label { @apply mb-1.5 block text-sm font-medium text-slate-700; }
   .field { @apply w-full rounded-xl border bg-white px-3 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20; }
+
+  .money-input { @apply relative w-full; }
+  .money-trigger { @apply flex min-h-[52px] w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-left text-xl font-bold tracking-[-0.01em] tabular-nums text-ink transition hover:border-blue-300 focus-visible:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/15; }
+  .money-trigger svg { @apply shrink-0 text-blue-500 transition duration-200; }
+  .money-trigger.placeholder .money-display { @apply font-semibold text-slate-300; }
+  .money-input.open .money-trigger { @apply border-blue-500 ring-2 ring-blue-500/15; }
+  .money-input.open .money-trigger svg { transform: rotate(180deg); }
+  .money-display { @apply flex min-w-0 flex-wrap items-baseline overflow-hidden; }
+  .money-char { display: inline-block; }
+  .money-char.pop { animation: digit-pop 340ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .money-overlay { @apply fixed inset-0 z-[120] flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[2px] sm:items-center sm:p-6; animation: overlay-fade-in 160ms ease-out; }
+  .money-overlay-panel { @apply w-full max-w-[560px] rounded-t-[30px] border border-white/70 bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.30)] sm:rounded-[30px] sm:p-6; animation: money-panel-in 220ms cubic-bezier(.2,.8,.2,1); }
+  .money-overlay-header { @apply mb-4 flex items-center justify-between gap-4; }
+  .money-overlay-header span { @apply text-base font-semibold text-ink; }
+  .money-overlay-header p { @apply mt-0.5 text-xs text-muted; }
+  .money-overlay-header button { @apply grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-blue-50 hover:text-blue-600; }
+  .money-overlay-value { @apply flex min-h-[76px] items-center rounded-2xl border-2 border-blue-500 bg-blue-50/40 px-5 text-[30px] font-bold tracking-[-0.025em] tabular-nums text-ink shadow-[0_0_0_4px_rgba(47,128,237,0.10)] sm:text-[34px]; }
+  .money-overlay-value.placeholder { @apply text-slate-300; }
+  .money-keypad { @apply mt-5 w-full rounded-2xl border border-blue-100 bg-white; }
+  .money-keypad-grid { @apply grid grid-cols-3 gap-2.5; }
+  .money-key { @apply grid h-[62px] touch-manipulation select-none place-items-center rounded-2xl bg-slate-50 text-xl font-semibold text-ink outline-none transition duration-100 hover:bg-blue-50 hover:text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500/20 active:scale-[0.92] active:bg-blue-100/80 active:text-blue-800 sm:h-[68px] sm:text-2xl; }
+  .money-delete { @apply text-slate-600; }
   .select-menu { @apply relative w-full; }
   .select-trigger { @apply flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-sm font-medium text-slate-700 shadow-sm outline-none transition hover:border-blue-300 hover:bg-blue-50/30 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15; }
   .select-trigger .placeholder { @apply font-normal text-slate-400; }
   .select-trigger svg { @apply shrink-0 text-blue-500 transition duration-200; }
   .select-menu.open .select-trigger { @apply border-blue-500 bg-white ring-2 ring-blue-500/15; }
   .select-menu.open .select-trigger svg { @apply rotate-180; }
-  .select-popover { @apply absolute z-[70] mt-2 max-h-60 w-full overflow-y-auto rounded-2xl border border-blue-100 bg-white p-1.5 shadow-[0_16px_40px_rgba(15,23,42,0.16)]; animation: select-popover-in 140ms ease-out; }
   .select-option { @apply flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 outline-none transition; }
   .select-option.highlighted { @apply bg-blue-50 text-blue-700; }
   .select-option.selected { @apply bg-blue-100 font-semibold text-blue-700; }
@@ -39,18 +60,29 @@
   .date-trigger { @apply flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-sm font-medium text-slate-700 shadow-sm outline-none transition hover:border-blue-300 hover:bg-blue-50/30 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15; }
   .date-trigger svg { @apply shrink-0 text-blue-500; }
   .date-picker.open .date-trigger { @apply border-blue-500 ring-2 ring-blue-500/15; }
-  .calendar-popover { @apply absolute z-[70] mt-2 w-full min-w-[286px] rounded-2xl border border-blue-100 bg-white p-3 shadow-[0_16px_40px_rgba(15,23,42,0.16)]; animation: select-popover-in 140ms ease-out; }
-  .calendar-header { @apply flex items-center justify-between gap-2 px-1 pb-3; }
-  .calendar-header strong { @apply text-sm font-semibold capitalize text-ink; }
-  .calendar-header button { @apply grid h-8 w-8 place-items-center rounded-full text-slate-500 transition hover:bg-blue-50 hover:text-blue-600; }
+
+  .control-overlay { @apply fixed inset-0 z-[120] flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[2px] sm:items-center sm:p-6; animation: overlay-fade-in 160ms ease-out; }
+  .control-overlay-panel { @apply w-full max-w-[560px] rounded-t-[30px] border border-white/70 bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.30)] sm:rounded-[30px] sm:p-6; animation: money-panel-in 220ms cubic-bezier(.2,.8,.2,1); }
+  .control-overlay-header { @apply mb-5 flex items-center justify-between gap-4; }
+  .control-overlay-header span { @apply text-base font-semibold text-ink; }
+  .control-overlay-header p { @apply mt-0.5 text-xs text-muted; }
+  .control-overlay-header button { @apply grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-blue-50 hover:text-blue-600; }
+  .select-overlay-list { @apply max-h-[58vh] space-y-1.5 overflow-y-auto rounded-2xl border border-blue-100 bg-blue-50/20 p-2; }
+  .select-overlay-list .select-option { @apply min-h-[54px] rounded-xl bg-white px-4 py-3 text-[15px] shadow-sm; }
+  .select-overlay-list .select-option.highlighted { @apply bg-blue-50; }
+  .select-overlay-list .select-option.selected { @apply bg-blue-100 text-blue-700 ring-1 ring-blue-200; }
+
+  .calendar-header { @apply mb-3 flex items-center justify-between gap-2 rounded-2xl bg-blue-50/60 px-2 py-2; }
+  .calendar-header strong { @apply text-[15px] font-semibold text-ink; }
+  .calendar-header button { @apply grid h-10 w-10 place-items-center rounded-full text-slate-500 transition hover:bg-white hover:text-blue-600 hover:shadow-sm; }
   .calendar-weekdays, .calendar-grid { @apply grid grid-cols-7 gap-1; }
-  .calendar-weekdays span { @apply py-1 text-center text-[10px] font-semibold uppercase text-slate-400; }
-  .calendar-grid button { @apply relative grid aspect-square place-items-center rounded-lg text-xs font-medium text-slate-700 outline-none transition hover:bg-blue-50 hover:text-blue-700 focus:ring-2 focus:ring-blue-500/20; }
+  .calendar-weekdays span { @apply py-1.5 text-center text-[11px] font-semibold uppercase text-slate-400; }
+  .calendar-grid button { @apply relative grid min-h-[42px] place-items-center rounded-xl text-sm font-medium text-slate-700 outline-none transition hover:bg-blue-50 hover:text-blue-700 focus:ring-2 focus:ring-blue-500/20 sm:min-h-[50px]; }
   .calendar-grid button.outside { @apply text-slate-300; }
   .calendar-grid button.today::after { content: ''; @apply absolute bottom-1 h-1 w-1 rounded-full bg-blue-500; }
   .calendar-grid button.selected { @apply bg-blue-600 font-semibold text-white shadow-sm hover:bg-blue-700 hover:text-white; }
   .calendar-grid button.selected::after { @apply bg-white; }
-  .calendar-today { @apply mt-3 w-full rounded-xl bg-blue-50 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100; }
+  .calendar-today { @apply mt-4 w-full rounded-xl bg-blue-50 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100; }
 
   .color-picker { @apply w-auto; }
   .color-trigger { @apply flex h-11 w-[58px] items-center justify-between gap-1 rounded-xl border border-slate-200 bg-white px-2 shadow-sm outline-none transition hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15; }
@@ -114,6 +146,10 @@
 
   .transaction-list { @apply divide-y divide-slate-100; }
   .transaction-row { @apply flex min-w-0 items-center gap-3 py-3.5; }
+  .transaction-amount { @apply flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-sm font-bold tabular-nums; }
+  .transaction-amount.income { @apply bg-emerald-50 text-emerald-600; }
+  .transaction-amount.expense { @apply bg-red-50 text-red-600; }
+  .transaction-amount.transfer { @apply bg-blue-50 text-blue-600; }
   .empty-inline { @apply py-12 text-center text-sm text-muted; }
 
   .bottom-nav-shell { @apply fixed inset-x-0 bottom-0 z-40 border-t border-slate-100 bg-white/95 backdrop-blur-xl; box-shadow: 0 -8px 28px rgba(15, 23, 42, 0.05); }
@@ -136,6 +172,22 @@
 
 @keyframes select-popover-in {
   from { opacity: 0; transform: translateY(-5px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes digit-pop {
+  0% { opacity: 0.2; transform: translateY(-65%) scale(0.68); }
+  55% { opacity: 1; transform: translateY(8%) scale(1.08); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes money-panel-in {
+  from { opacity: 0; transform: translateY(34px) scale(.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
