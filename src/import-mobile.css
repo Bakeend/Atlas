@@ -1,0 +1,107 @@
+/* Compacta a prévia de importação no mobile sem alterar o layout desktop. */
+@media (max-width: 639px) {
+  .import-row {
+    display: grid !important;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: 12px;
+    row-gap: 10px;
+    padding: 14px 14px !important;
+  }
+
+  .import-row > .import-check {
+    grid-column: 1;
+    grid-row: 1;
+    margin-top: 2px;
+  }
+
+  .import-row > .min-w-0.flex-1 {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .import-row > .min-w-0.flex-1 > div:first-child {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .import-row > .min-w-0.flex-1 > div:first-child > strong {
+    min-width: 0;
+    flex: 1 1 110px;
+  }
+
+  /* Faz o valor ocupar o canto superior direito e libera os controles para uma linha própria. */
+  .import-row-actions {
+    display: contents;
+  }
+
+  .import-row-actions > strong {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
+    white-space: nowrap;
+    font-size: 16px;
+    line-height: 1.25;
+  }
+
+  .import-row-actions > div {
+    grid-column: 2 / 4;
+    grid-row: 2;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(104px, 0.72fr) 32px;
+    align-items: end !important;
+    gap: 8px !important;
+    margin-top: 0 !important;
+  }
+
+  .import-row-actions > div > div {
+    min-width: 0 !important;
+  }
+
+  .import-row-actions > div > div::before {
+    display: block;
+    margin: 0 0 4px 2px;
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+  }
+
+  .import-row-actions > div > div:nth-child(1)::before {
+    content: 'Categoria';
+  }
+
+  .import-row-actions > div > div:nth-child(2)::before {
+    content: 'Tipo';
+  }
+
+  .import-row-actions .select-trigger {
+    min-height: 40px;
+    padding: 8px 10px;
+    gap: 7px;
+    font-size: 13px;
+  }
+
+  .import-row-actions .select-trigger .category-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .import-row-actions > div > button:last-child {
+    width: 32px;
+    height: 40px;
+    align-self: end;
+    border-radius: 10px;
+  }
+
+  .import-type {
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+}
