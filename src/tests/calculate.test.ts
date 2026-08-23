@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateForecast, getAverageDailyVariable } from './calculate'
+import { calculateForecast, getAverageDailyVariable } from '../forecast/calculate'
 import type { Account, FinanceTransaction } from '../domain'
 import type { RecurringExpense } from '../recurring'
 

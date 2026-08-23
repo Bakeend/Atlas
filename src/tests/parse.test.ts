@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseCsv, parseOfx, buildDuplicateKey, markDuplicates, parseImportFile } from './parse'
+import { parseCsv, parseOfx, buildDuplicateKey, markDuplicates, parseImportFile } from '../import/parse'
 
 describe('import parse', () => {
   it('parseCsv semicolon BR', () => {

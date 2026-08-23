@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { indexedDbRepository } from './data/repository'
 import type { Account, AiActionLog, AiConversation, AiMessage, AiRule, AllocationPlan, Budget, FinanceData, FinanceTransaction, Goal, PaymentAllocationPlan, RecurringIncome } from './domain'
-import { seededData, uid } from './domain'
+import { emptyData, uid } from './domain'
 import type { RecurringExpense } from './domain'
 import { isOccurrenceRecorded } from './recurring'
 
@@ -88,13 +88,13 @@ const data = (s: State): FinanceData => ({
 })
 
 export const useFinanceStore = create<State>((set, get) => ({
-  ...seededData(), ready: false,
+  ...emptyData(), ready: false,
   hydrate: async () => {
     const loaded = await indexedDbRepository.load() as Partial<FinanceData> & FinanceData
     const migrated: FinanceData = {
-      ...seededData(),
+      ...emptyData(),
       ...loaded,
-      accounts: (loaded.accounts ?? seededData().accounts).map(account => ({ ...account, color: account.color.toLowerCase() === '#27c47d' ? '#2F80ED' : account.color })),
+      accounts: (loaded.accounts ?? []).map(account => ({ ...account, color: account.color.toLowerCase() === '#27c47d' ? '#2F80ED' : account.color })),
       transactions: loaded.transactions ?? [],
       budgets: loaded.budgets ?? [],
       recurringExpenses: loaded.recurringExpenses ?? [],
@@ -111,7 +111,7 @@ export const useFinanceStore = create<State>((set, get) => ({
       readNotificationIds: loaded.readNotificationIds ?? [],
       forecastRealistic: (loaded as Partial<FinanceData>).forecastRealistic ?? true,
       safetyMarginPercent: (loaded as any).safetyMarginPercent ?? 10,
-      paymentAllocationPriority: (loaded as any).paymentAllocationPriority ?? (seededData() as any).paymentAllocationPriority,
+      paymentAllocationPriority: (loaded as any).paymentAllocationPriority ?? ['overdue','essential','bills','food','transport','goals','reserve','leisure','free'],
       paymentAllocationPreferences: (loaded as any).paymentAllocationPreferences ?? [],
     }
     const needsPersist =

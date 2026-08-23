@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { accountBalance, type Account, type FinanceTransaction } from './domain'
+import { accountBalance, type Account, type FinanceTransaction } from '../domain'
 import {
   calculateCommittedAmount, getNextOccurrence, getOccurrencesBetween,
   getUnrecordedOccurrencesBetween, type RecurringExpense,
-} from './recurring'
+} from '../recurring'
 
 const base: RecurringExpense = {
   id: 'internet', name: 'Internet', amountInCents: 11990, category: 'Assinaturas',

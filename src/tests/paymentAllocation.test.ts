@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { money, today, uid } from './domain'
-import { useFinanceStore } from './store'
-import { preparePaymentAllocationPlan, getVirtualReservesTotal } from './ai/services/financialEngine'
-import { executeTool } from './ai/tools/registry'
-import { seededData } from './domain'
+import { money, today, uid } from '../domain'
+import { useFinanceStore } from '../store'
+import { preparePaymentAllocationPlan, getVirtualReservesTotal } from '../ai/services/financialEngine'
+import { executeTool } from '../ai/tools/registry'
+import { seededData } from '../testing/seedFixture'
 
 function reset() {
   const s = seededData()

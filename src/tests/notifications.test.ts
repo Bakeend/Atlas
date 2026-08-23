@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { getFinanceNotifications } from './notifications'
-import type { RecurringExpense } from './recurring'
+import { getFinanceNotifications } from '../notifications'
+import type { RecurringExpense } from '../recurring'
 
 const recurring: RecurringExpense = {
   id: 'internet', name: 'Internet', amountInCents: 11990, category: 'Assinaturas', accountId: 'account',

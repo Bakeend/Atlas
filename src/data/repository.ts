@@ -1,5 +1,5 @@
 import type { FinanceData } from '../domain'
-import { seededData } from '../domain'
+import { emptyData } from '../domain'
 import type { RecurringExpense } from '../recurring'
 
 const DB_NAME = 'atlas-finance'; const STORE = 'state'; const KEY = 'finance-data'
@@ -22,10 +22,10 @@ export const indexedDbRepository: FinanceRepository = {
       const db = await openDb()
       return await new Promise<FinanceData>((resolve, reject) => {
         const request = db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY)
-        request.onsuccess = () => resolve(request.result ?? seededData())
+        request.onsuccess = () => resolve(request.result ?? emptyData())
         request.onerror = () => reject(request.error)
       })
-    } catch { return seededData() }
+    } catch { return emptyData() }
   },
   async save(data) {
     try {
