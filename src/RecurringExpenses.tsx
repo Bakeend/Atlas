@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
-  AlertTriangle, BellRing, CalendarCheck2, CalendarClock, Check, CheckCircle2, ChevronLeft,
+  AlertTriangle, BellRing, CalendarClock, CalendarRange, Check, CheckCircle2, ChevronLeft,
   ChevronRight, CirclePause, Clock3, Pencil, Play, Plus, ReceiptText, Repeat2, Search, Trash2,
   WalletCards, Wifi, House, Zap, Droplets, GraduationCap, Tv, Dumbbell, HeartPulse, Car, Smartphone,
   type LucideIcon,
@@ -102,9 +102,9 @@ export function RecurringExpensesPage() {
   return <>
     <div className="page-title"><div><button onClick={() => navigate('/planning')} className="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-brand"><ChevronLeft size={17}/>Planejamento</button><h1>Gastos recorrentes</h1><span className="mt-2 block max-w-md text-xs leading-5 text-muted sm:text-sm">Acompanhe contas, assinaturas e despesas que se repetem.</span></div><button className="btn-primary" onClick={() => setEditor('new')}><Plus size={18}/><span className="hidden sm:inline">Novo gasto</span></button></div>
     <section className="recurring-summary-grid">
-      <Card className="recurring-stat recurring-stat-primary"><CategoryIcon icon={WalletCards}/><div><span>Compromissos deste mês</span><strong>{money(monthlyCommitment, hideBalances)}</strong><small>{active.length} {active.length === 1 ? 'gasto recorrente ativo' : 'gastos recorrentes ativos'}</small></div></Card>
+      <Card className="recurring-stat recurring-stat-primary"><CategoryIcon icon={Repeat2}/><div><span>Compromissos deste mês</span><strong>{money(monthlyCommitment, hideBalances)}</strong><small>{active.length} {active.length === 1 ? 'gasto recorrente ativo' : 'gastos recorrentes ativos'}</small></div></Card>
       <SummaryStat icon={CalendarClock} label="Próximos 7 dias" value={money(upcoming7, hideBalances)}/>
-      <SummaryStat icon={CalendarCheck2} label="Próximos 30 dias" value={money(upcoming30, hideBalances)}/>
+      <SummaryStat icon={CalendarRange} label="Próximos 30 dias" value={money(upcoming30, hideBalances)}/>
     </section>
     <Card className="mt-5"><div className="recurring-search"><Search size={18}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar gasto recorrente…"/></div><div className="mt-3 grid gap-3 sm:grid-cols-2"><SelectMenu ariaLabel="Filtrar por status" value={status} onChange={value => setStatus(value as ExpenseFilter)} options={[{ value: 'all', label: 'Todos os status' }, { value: 'active', label: 'Ativos' }, { value: 'upcoming', label: 'Próximos' }, { value: 'overdue', label: 'Atrasados' }, { value: 'paid', label: 'Pagos' }, { value: 'paused', label: 'Pausados' }]}/><SelectMenu ariaLabel="Filtrar por conta" value={account} onChange={setAccount} options={[{ value: 'all', label: 'Todas as contas' }, ...accounts.map(item => ({ value: item.id, label: item.name }))]}/><SelectMenu ariaLabel="Filtrar por categoria" value={category} onChange={setCategory} options={[{ value: 'all', label: 'Todas as categorias' }, ...categories.map(item => ({ value: item, label: item }))]}/><SelectMenu ariaLabel="Filtrar por frequência" value={frequency} onChange={setFrequency} options={[{ value: 'all', label: 'Todas as frequências' }, ...recurrenceFrequencies]}/></div></Card>
     <div className="mt-5 space-y-5">{Object.entries(grouped).map(([month, rows]) => <section key={month}><h2 className="recurring-month-title">{month}</h2><Card className="!p-0"><div className="divide-y divide-slate-100">{rows!.map(row => <RecurringRow key={row.item.id} expense={row.item} date={row.date} status={row.status} hidden={hideBalances} onClick={() => setSelected(row.item)}/>)}</div></Card></section>)}</div>
