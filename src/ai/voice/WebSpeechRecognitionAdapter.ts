@@ -18,6 +18,22 @@ interface WebSpeechRecognition extends EventTarget {
   onstart: (() => void) | null
 }
 
+async function ensureMicrophoneAccess(): Promise<void> {
+  if (!navigator.mediaDevices?.getUserMedia) return
+
+  let stream: MediaStream | null = null
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+  } catch (error) {
+    const message = error instanceof DOMException && error.name === 'NotAllowedError'
+      ? 'Permissão do microfone negada'
+      : 'Não foi possível acessar o microfone'
+    throw new Error(message)
+  } finally {
+    stream?.getTracks().forEach(track => track.stop())
+  }
+}
+
 export class WebSpeechRecognitionAdapter implements SpeechRecognitionService {
   private recognition: WebSpeechRecognition | null = null
   private transcript = ''
@@ -35,9 +51,14 @@ export class WebSpeechRecognitionAdapter implements SpeechRecognitionService {
 
   async start(): Promise<void> {
     if (!this.isSupported()) throw new Error('Reconhecimento de voz não suportado neste navegador')
+
+    await ensureMicrophoneAccess()
+
     const w = window as WebkitWindow
     const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition
     if (!Ctor) throw new Error('API não disponível')
+
+    this.cleanup()
     this.transcript = ''
     this.recognition = new Ctor()
     this.recognition.continuous = false
@@ -50,27 +71,27 @@ export class WebSpeechRecognitionAdapter implements SpeechRecognitionService {
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i]
         const t = r[0]?.transcript ?? ''
-        // interim vs final detection via isFinal flag if present
         const isFinal = (r as unknown as { isFinal?: boolean }).isFinal ?? i === e.results.length - 1
         if (isFinal) final += t
         else interim += t
       }
-      const cur = final || interim
-      this.transcript = cur
-      this.onResult?.(cur, !!final)
+      const current = (final || interim).trim()
+      if (current) this.transcript = current
+      this.onResult?.(current, !!final)
     }
     this.recognition.onerror = e => {
+      const reject = this.rejectStop
       this.onError?.(e.error)
       this.onStateChange?.('idle')
-      this.rejectStop?.(new Error(e.error))
       this.cleanup()
+      reject?.(new Error(e.error))
     }
     this.recognition.onend = () => {
+      const transcript = this.transcript.trim()
+      const resolve = this.resolveStop
       this.onStateChange?.('idle')
-      if (this.resolveStop) {
-        this.resolveStop(this.transcript.trim())
-        this.cleanup()
-      }
+      this.cleanup()
+      resolve?.(transcript)
     }
     this.recognition.start()
   }
@@ -86,18 +107,20 @@ export class WebSpeechRecognitionAdapter implements SpeechRecognitionService {
       this.onStateChange?.('processing')
       try {
         this.recognition.stop()
-      } catch (e) {
-        // if already stopped
-        resolve(this.transcript.trim())
+      } catch {
+        const transcript = this.transcript.trim()
         this.cleanup()
+        resolve(transcript)
+        return
       }
-      // timeout fallback
+
       setTimeout(() => {
-        if (this.resolveStop) {
-          resolve(this.transcript.trim())
-          this.cleanup()
-        }
-      }, 8000)
+        if (!this.resolveStop) return
+        const transcript = this.transcript.trim()
+        const pendingResolve = this.resolveStop
+        this.cleanup()
+        pendingResolve?.(transcript)
+      }, 5000)
     })
   }
 
@@ -114,7 +137,6 @@ export class WebSpeechRecognitionAdapter implements SpeechRecognitionService {
   }
 }
 
-// Fallback que nunca grava, só informa indisponibilidade (01:40, 01:61)
 export class NoopSpeechRecognitionService implements SpeechRecognitionService {
   isSupported(): boolean { return false }
   async start(): Promise<void> { throw new Error('Seu navegador não oferece reconhecimento de voz. Você ainda pode escrever sua pergunta.') }
