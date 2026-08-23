@@ -1,4 +1,17 @@
-/* Compacta a prévia de importação no mobile sem alterar o layout desktop. */
+/* Correções de acabamento mobile. */
+
+/* O card pode listar pendências vencidas; "Próximos" ficava enganoso. */
+.recurring-dashboard-card .card-heading h2 {
+  font-size: 0;
+}
+.recurring-dashboard-card .card-heading h2::after {
+  content: 'Gastos recorrentes pendentes';
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+}
+
 @media (max-width: 639px) {
   .import-row {
     display: grid !important;
@@ -34,7 +47,6 @@
     flex: 1 1 110px;
   }
 
-  /* Faz o valor ocupar o canto superior direito e libera os controles para uma linha própria. */
   .import-row-actions {
     display: contents;
   }
@@ -105,8 +117,6 @@
     font-size: 10px;
   }
 
-  /* O menu de ações das transações era um dropdown de desktop e cobria as linhas seguintes.
-     No mobile ele vira uma barra de ações flutuante acima da navegação inferior. */
   .transaction-row > .relative > [role='menu'] {
     position: fixed !important;
     z-index: 115 !important;
@@ -137,5 +147,28 @@
 
   .transaction-row > .relative > [role='menu'] > button:last-child {
     background: #fff1f2;
+  }
+
+  /* Mantém o composer da IA totalmente acima da navegação e do safe-area. */
+  .ai-input-bar {
+    bottom: calc(88px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: 4px;
+  }
+
+  .ai-input-wrap {
+    gap: 4px;
+    padding: 7px;
+  }
+
+  .ai-input-wrap input {
+    padding-left: 8px;
+    padding-right: 4px;
+    font-size: 14px;
+  }
+
+  .ai-input-hint {
+    margin-top: 5px;
+    font-size: 10px;
+    line-height: 1.35;
   }
 }
