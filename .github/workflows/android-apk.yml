@@ -40,12 +40,12 @@ jobs:
           npm run build
 
       - name: Install Capacitor Android tooling
-        run: npm install --no-save @capacitor/core @capacitor/cli @capacitor/android
+        run: npm install --no-save @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor-community/speech-recognition@7.0.1
 
       - name: Create Android project
         run: npx cap add android
 
-      - name: Sync web build to Android
+      - name: Sync web build and native plugins to Android
         run: npx cap sync android
 
       - name: Build debug APK
