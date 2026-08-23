@@ -125,7 +125,102 @@ export function AiSafeDailyCard({ data }: { data:any }) {
   )
 }
 
-export function ToolResultRenderer({ name, result, onApplyPlan, onCancelPlan, onUndo }: { name:string; result:any; onApplyPlan?:(id:string)=>void; onCancelPlan?:()=>void; onUndo?:(id:string)=>void }) {
+export function AiPaymentPlanCard({ data, onApply, onCancel }: { data:any; onApply:(id:string)=>void; onCancel:(id:string)=>void }) {
+  const plan = data?.plan ?? data
+  if (!plan) return null
+  const items = plan.items ?? []
+  const isDraft = plan.status === 'draft' || !plan.status
+  return (
+    <div className="ai-card ai-plan">
+      <div className="ai-card-header"><PiggyBank size={16} className="text-brand"/> <strong>✦ Organização sugerida</strong></div>
+      <p className="ai-plan-subtitle">Você recebeu {plan.receivedAmount ?? money(plan.receivedAmountInCents ?? 0)} {plan.period ? `• ${plan.period}` : ''}</p>
+      <div className="ai-plan-list">
+        {items.slice(0, 6).map((it:any, i:number) => (
+          <div key={i} className="ai-plan-item"><span>{it.label} <small>{it.type}</small></span><strong>{it.amount ?? money(it.amountInCents ?? 0)}</strong></div>
+        ))}
+        {items.length > 6 && <p className="text-xs text-muted">+{items.length - 6} itens</p>}
+      </div>
+      <div className="mt-2 flex justify-between text-xs">
+        <span>Livre: <strong className={plan.freeAmountInCents < 0 ? 'text-red-600' : 'text-emerald-600'}>{plan.freeAmount ?? money(plan.freeAmountInCents ?? 0)}</strong></span>
+        {plan.deficit && <span className="text-red-600">Déficit {plan.deficit}</span>}
+        {plan.deficitInCents > 0 && <span className="text-red-600">Faltam {money(plan.deficitInCents)}</span>}
+      </div>
+      {isDraft ? (
+        <div className="ai-plan-actions">
+          <button className="btn-secondary" onClick={() => onCancel(plan.id)}><X size={16}/> Cancelar</button>
+          <button className="btn-primary" onClick={() => onApply(plan.id)}><Check size={16}/> Aplicar</button>
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-muted">Status: {plan.status}</p>
+      )}
+    </div>
+  )
+}
+
+export function AiFreeMoneyCard({ data }: { data:any }) {
+  if (!data) return null
+  if (data.insufficient) {
+    return (
+      <div className="ai-card">
+        <div className="ai-card-header"><Wallet size={16} className="text-amber-600"/> <strong>Dinheiro livre</strong></div>
+        <div className="ai-card-body">
+          <p className="text-sm text-amber-800">{data.message}</p>
+          <small className="text-muted">Período: {data.period?.label ?? ''}</small>
+        </div>
+      </div>
+    )
+  }
+  const isBreakdown = !!data.breakdown
+  if (isBreakdown) {
+    const b = data.breakdown
+    return (
+      <div className="ai-card">
+        <div className="ai-card-header"><Wallet size={16} className="text-emerald-600"/> <strong>Dinheiro livre — detalhamento</strong></div>
+        <div className="ai-card-body text-xs">
+          <div className="flex justify-between"><span>Saldo total</span><strong>{b.saldoTotal?.formatted ?? data.total ?? '—'}</strong></div>
+          <div className="flex justify-between"><span>Separado para contas</span><strong>{b.separadoParaContas?.formatted ?? '—'}</strong></div>
+          {b.separadoParaContas?.detalhes?.slice(0,3).map((d:any,i:number)=> <div key={i} className="flex justify-between text-[11px] text-muted"><span>{d.nome} {d.estimado==='Estimado' ? '• Estimado' : ''}</span><span>{d.valor}</span></div>)}
+          <div className="flex justify-between"><span>Orçamentos essenciais</span><strong>{b.orcamentosEssenciais?.formatted ?? '—'}</strong></div>
+          <div className="flex justify-between"><span>Metas e reservas</span><strong>{b.metasEReservas?.formatted ?? '—'}</strong></div>
+          <div className="flex justify-between"><span>Margem ({b.margemDeSeguranca?.percent ?? 0}%)</span><strong>{b.margemDeSeguranca?.formatted ?? '—'}</strong></div>
+          <div className="mt-2 flex justify-between rounded-xl bg-emerald-50 p-2 text-sm font-bold text-emerald-700"><span>Livre</span><span>{b.livre?.formatted ?? data.free ?? '—'}</span></div>
+          {b.livre?.isNegative && <p className="text-red-600">Déficit {b.livre?.deficit ?? ''}</p>}
+          <small className="text-muted">{data.explicacao ?? data.period?.label ?? ''}</small>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="ai-card">
+      <div className="ai-card-header"><Wallet size={16} className={data.isNegative ? 'text-red-600' : 'text-emerald-600'}/> <strong>Dinheiro livre</strong> <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold ${data.isNegative ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{data.isNegative ? `Déficit ${data.deficit}` : data.free}</span></div>
+      <div className="ai-card-body text-xs">
+        <div className="flex justify-between"><span>Saldo</span><strong>{data.total}</strong></div>
+        <div className="flex justify-between"><span>Comprometido</span><span>{data.committed}</span></div>
+        {data.essentialBudgets && <div className="flex justify-between"><span>Orçamentos</span><span>{data.essentialBudgets}</span></div>}
+        {data.goals && <div className="flex justify-between"><span>Metas</span><span>{data.goals}</span></div>}
+        <div className="flex justify-between"><span>Margem</span><span>{data.safetyMargin ?? '—'}</span></div>
+        <div className="mt-2 text-sm">{data.message}</div>
+        <small className="text-muted">{data.period?.label ?? ''} • {data.period?.start ?? ''} → {data.period?.end ?? ''}</small>
+      </div>
+    </div>
+  )
+}
+
+export function AiCommittedCard({ data }: { data:any }) {
+  if (!data) return null
+  return (
+    <div className="ai-card">
+      <div className="ai-card-header"><ReceiptText size={16} className="text-brand"/> <strong>Comprometido</strong></div>
+      <div className="ai-card-body text-xs">
+        <div className="flex justify-between"><span>Total</span><strong>{data.committed ?? data.total ?? '—'}</strong></div>
+        {data.details?.slice(0,4).map((d:any,i:number)=> <div key={i} className="flex justify-between"><span>{d.nome ?? d.name} {d.estimado==='Estimado' ? '• Estimado' : ''}</span><span>{d.valor ?? d.amount ?? ''}</span></div>)}
+        <small className="text-muted">{data.period?.label ?? `${data.period?.start ?? ''} → ${data.period?.end ?? ''}`}</small>
+      </div>
+    </div>
+  )
+}
+
+export function ToolResultRenderer({ name, result, onApplyPlan, onCancelPlan, onUndo }: { name:string; result:any; onApplyPlan?:(id:string)=>void | Promise<void>; onCancelPlan?:(id?:string)=>void | Promise<void>; onUndo?:(id:string)=>void }) {
   if (!result) return null
   if (result.success===false && result.error) {
     return <div className="ai-card ai-error"><small>{result.error}</small></div>
@@ -136,9 +231,13 @@ export function ToolResultRenderer({ name, result, onApplyPlan, onCancelPlan, on
   if (name.includes('Budget')) return <AiBudgetCard data={result}/>
   if (name.includes('Goal')) return <AiGoalCard data={result}/>
   if (name==='getSafeDailySpend' || name==='simulateDailySpend') return <AiSafeDailyCard data={result}/>
+  if (name==='getFreeMoney' || name==='getFreeMoneyBreakdown') return <AiFreeMoneyCard data={result}/>
+  if (name==='getCommittedAmount') return <AiCommittedCard data={result}/>
+  if (name==='preparePaymentAllocationPlan' || name==='getPaymentAllocationPlan') return <AiPaymentPlanCard data={result} onApply={id=> onApplyPlan?.(id)} onCancel={id=> onCancelPlan?.(id)}/>
+  if (name==='applyPaymentAllocationPlan' || name==='cancelPaymentAllocationPlan' || name==='updatePaymentAllocationItem') return <AiPaymentPlanCard data={result} onApply={id=> onApplyPlan?.(id)} onCancel={id=> onCancelPlan?.(id)}/>
   if (name==='createAllocationPlan') return <AiPlanCard data={result} onApply={id=> onApplyPlan?.(id)} onCancel={()=> onCancelPlan?.()}/>
   if (name==='getSpendingAnalysis' || name==='getSpendingAnomalies' || name==='getFinancialSummary' || name==='getCashFlowForecast') return <AiAnalysisCard data={result}/>
-  if (name==='getAvailableMoney' || name==='getCommittedAmount') return <AiAnalysisCard data={{ totalFormatted: result.availableFormatted ?? result.committedFormatted, breakdown: result.breakdown ?? [], ...result }}/>
+  if (name==='getAvailableMoney') return <AiAnalysisCard data={{ totalFormatted: result.availableFormatted ?? result.committedFormatted, breakdown: result.breakdown ?? [], ...result }}/>
   // fallback generic
   if (typeof result==='object') {
     return <div className="ai-card ai-generic"><pre className="ai-json">{JSON.stringify(result, null, 2).slice(0, 900)}</pre></div>

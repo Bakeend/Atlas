@@ -1,5 +1,5 @@
-import { accountBalance, money, today } from '../../domain'
-import type { FinanceData } from '../../domain'
+import { accountBalance, money, today, uid } from '../../domain'
+import type { FinanceData, PaymentAllocationPlan, PaymentAllocationItem } from '../../domain'
 import { useFinanceStore } from '../../store'
 import { calculateCommittedAmount, getUnrecordedOccurrencesBetween } from '../../recurring'
 import { calculateForecast, getAverageDailyVariable, summarizeForecast } from '../../forecast/calculate'
@@ -16,14 +16,303 @@ export function getTotalBalance(data?: FinanceData): number {
   return s.accounts.filter(a => !a.archived).reduce((sum, a) => sum + accountBalance(a, live), 0)
 }
 
+export function getVirtualReservesTotal(data?: FinanceData): number {
+  const s = data ?? (useFinanceStore.getState() as unknown as FinanceData)
+  const plans = (s as any).paymentAllocationPlans ?? []
+  let total = 0
+  for (const plan of plans) {
+    if (plan.status !== 'applied') continue
+    for (const it of plan.items) {
+      if (it.isConsumed) continue
+      if (it.type === 'bill' || it.type === 'free') continue
+      total += it.amountInCents
+    }
+  }
+  return total
+}
+
+export function getVirtualReservesBreakdown(data?: FinanceData) {
+  const s = data ?? (useFinanceStore.getState() as unknown as FinanceData)
+  const plans = (s as any).paymentAllocationPlans ?? []
+  let budgetEssential = 0
+  let budgetOther = 0
+  let goalReserve = 0
+  let safety = 0
+  let other = 0
+  const essentialSet = new Set(['Alimentação', 'Moradia', 'Transporte', 'Saúde', 'Educação'])
+  for (const plan of plans) {
+    if (plan.status !== 'applied') continue
+    for (const it of plan.items) {
+      if (it.isConsumed) continue
+      if (it.type === 'bill' || it.type === 'free') continue
+      if (it.type === 'budget') {
+        if (it.categoryId && essentialSet.has(it.categoryId)) budgetEssential += it.amountInCents
+        else if (it.categoryId) budgetOther += it.amountInCents
+        else budgetOther += it.amountInCents
+      } else if (it.type === 'goal' || it.type === 'reserve') {
+        goalReserve += it.amountInCents
+      } else if (it.type === 'safety') {
+        safety += it.amountInCents
+      } else {
+        other += it.amountInCents
+      }
+    }
+  }
+  return { budgetEssential, budgetOther, goalReserve, safety, other, total: budgetEssential + budgetOther + goalReserve + safety + other }
+}
+
+/* ── Dinheiro Livre helpers ── */
+const ESSENTIAL_BUDGET_CATEGORIES = new Set(['Alimentação', 'Moradia', 'Transporte', 'Saúde', 'Educação'])
+
+function lastDayOfMonthIso(dateIso: string): string {
+  const d = new Date(`${dateIso}T12:00:00`)
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0)
+  return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`
+}
+
+function estimateVariableAmount(expense: import('../../domain').RecurringExpense, data: FinanceData): { amount: number; isEstimated: boolean } {
+  if (!expense.isVariable) return { amount: expense.amountInCents, isEstimated: false }
+  // 1) média histórica dos últimos 90 dias para mesma categoria
+  const t = today()
+  const start = addDaysIso(t, -90)
+  const live = data.transactions.filter(tx => !tx.deletedAt && tx.type === 'expense' && tx.category === expense.category && tx.date >= start && tx.date <= t)
+  if (live.length >= 2) {
+    const sum = live.reduce((s, tx) => s + tx.amountCents, 0)
+    const avg = Math.round(sum / live.length)
+    // se média difere mais de 15% do cadastrado, considera estimado
+    if (Math.abs(avg - expense.amountInCents) > expense.amountInCents * 0.15) {
+      return { amount: avg, isEstimated: true }
+    }
+    return { amount: avg, isEstimated: true }
+  }
+  // 2) estimativa cadastrada (amountInCents) como fallback
+  return { amount: expense.amountInCents, isEstimated: live.length > 0 }
+}
+
+function getFreeMoneyPeriodBounds(
+  period: 'nextIncome' | 'thisMonth' | 'next30' | 'custom' = 'nextIncome',
+  opts: { customStart?: string; customEnd?: string } = {},
+  data?: FinanceData
+): { start: string; end: string; label: string; days: number; hasNextIncome: boolean; nextIncomeDate: string | null } {
+  const s = data ?? (useFinanceStore.getState() as unknown as FinanceData)
+  const t = today()
+  if (period === 'thisMonth') {
+    const end = lastDayOfMonthIso(t)
+    const days = diffDays(t, end) + 1
+    return { start: t, end, label: 'Este mês', days, hasNextIncome: false, nextIncomeDate: null }
+  }
+  if (period === 'next30') {
+    const end = addDaysIso(t, 30)
+    return { start: t, end, label: 'Próximos 30 dias', days: 31, hasNextIncome: false, nextIncomeDate: null }
+  }
+  if (period === 'custom') {
+    const start = opts.customStart ?? t
+    const end = opts.customEnd ?? addDaysIso(t, 30)
+    const days = diffDays(start, end) + 1
+    return { start, end, label: `Personalizado ${start} → ${end}`, days, hasNextIncome: false, nextIncomeDate: null }
+  }
+  // nextIncome default
+  const next = calculateNextIncome(s)
+  if (next.found && next.nextDate && next.nextDate >= t) {
+    const end = addDaysIso(next.nextDate, -1)
+    // se end < start (salário hoje), usa 1 dia
+    const actualEnd = end >= t ? end : t
+    const days = diffDays(t, actualEnd) + 1
+    return { start: t, end: actualEnd, label: `Até seu próximo pagamento em ${diffDays(t, next.nextDate)} dias`, days, hasNextIncome: true, nextIncomeDate: next.nextDate }
+  }
+  // fallback sem próximo recebimento
+  const end = addDaysIso(t, 30)
+  return { start: t, end, label: 'Próximos 30 dias (sem próximo recebimento)', days: 31, hasNextIncome: false, nextIncomeDate: null }
+}
+
+function calculateCommittedBillsDetailed(start: string, end: string, data: FinanceData) {
+  const details: Array<{ id: string; name: string; amountCents: number; amountFormatted: string; dueDate: string; category: string; isEstimated: boolean; isVariable: boolean }> = []
+  let total = 0
+  for (const exp of data.recurringExpenses) {
+    if (!exp.isActive) continue
+    const occs = getUnrecordedOccurrencesBetween(exp as any, start, end, data.transactions)
+    if (!occs.length) continue
+    const est = estimateVariableAmount(exp, data)
+    for (const due of occs) {
+      const amt = est.amount
+      total += amt
+      details.push({
+        id: exp.id,
+        name: exp.name,
+        amountCents: amt,
+        amountFormatted: money(amt),
+        dueDate: due,
+        category: exp.category,
+        isEstimated: est.isEstimated,
+        isVariable: exp.isVariable,
+      })
+    }
+  }
+  // ordenar por data
+  details.sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+  return { total, details }
+}
+
+function getEssentialBudgetsDetails(data: FinanceData, period: { start: string; end: string }) {
+  const months = new Set<string>()
+  // coleta meses entre start e end (inclui ambos)
+  let cur = period.start.slice(0, 7)
+  const endMonth = period.end.slice(0, 7)
+  // simples: se start e end meses diferentes, inclui ambos, se periodo > 60 dias inclui intermediários
+  // para MVP, inclui startMonth e endMonth (se diferentes)
+  months.add(cur)
+  months.add(endMonth)
+  // se diff > 31 dias e tem mês intermediário, inclui
+  const startD = new Date(`${period.start}T12:00:00`)
+  const endD = new Date(`${period.end}T12:00:00`)
+  const monthDiff = (endD.getFullYear() - startD.getFullYear()) * 12 + (endD.getMonth() - startD.getMonth())
+  if (monthDiff > 1) {
+    for (let i = 1; i < monthDiff; i++) {
+      const d = new Date(startD)
+      d.setMonth(d.getMonth() + i)
+      months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+    }
+  }
+  let total = 0
+  const details: Array<{ category: string; month: string; limitCents: number; limitFormatted: string }> = []
+  for (const b of data.budgets) {
+    if (!ESSENTIAL_BUDGET_CATEGORIES.has(b.category)) continue
+    if (!months.has(b.month)) continue
+    total += b.limitCents
+    details.push({ category: b.category, month: b.month, limitCents: b.limitCents, limitFormatted: money(b.limitCents) })
+  }
+  return { total, details }
+}
+
+function getGoalsReserveDetails(data: FinanceData) {
+  const virtual = getVirtualReservesBreakdown(data)
+  let total = virtual.goalReserve
+  const details: Array<{ id: string; title: string; amountCents: number; amountFormatted: string; isVirtual: boolean }> = []
+  // detalhes virtuais são agregados, não por meta individual — para breakdown, distribui por metas existentes se houver
+  if (virtual.goalReserve > 0 && data.goals.length) {
+    // distribui proporcionalmente? para MVP, cria um detalhe agregado
+    details.push({ id: 'virtual-goals', title: 'Metas e reservas (virtual)', amountCents: virtual.goalReserve, amountFormatted: money(virtual.goalReserve), isVirtual: true })
+  } else if (virtual.goalReserve > 0) {
+    details.push({ id: 'virtual-reserve', title: 'Reserva', amountCents: virtual.goalReserve, amountFormatted: money(virtual.goalReserve), isVirtual: true })
+  }
+  // se não há virtual mas há metas com deadline, estima mensal necessário
+  if (total === 0 && data.goals.length) {
+    const t = today()
+    for (const g of data.goals) {
+      if (!g.deadline) continue
+      const deadline = g.deadline
+      if (deadline <= t) continue
+      const remaining = Math.max(0, g.targetAmountInCents - g.currentAmountInCents)
+      if (remaining <= 0) continue
+      // meses até deadline — usa dias para não quebrar em virada de mês (30 dias = 1 mês)
+      const daysToDeadline = diffDays(t, deadline)
+      const months = Math.max(1, Math.ceil(daysToDeadline / 30))
+      const monthly = Math.round(remaining / months)
+      if (monthly > 0) {
+        total += monthly
+        details.push({ id: g.id, title: g.title, amountCents: monthly, amountFormatted: money(monthly), isVirtual: false })
+      }
+    }
+  }
+  return { total, details, virtualTotal: virtual.goalReserve }
+}
+
+export interface FreeMoneyResult {
+  totalCents: number
+  totalFormatted: string
+  committedCents: number
+  committedFormatted: string
+  committedDetails: Array<{ id: string; name: string; amountCents: number; amountFormatted: string; dueDate: string; category: string; isEstimated: boolean; isVariable: boolean }>
+  essentialBudgetsCents: number
+  essentialBudgetsFormatted: string
+  essentialBudgetsDetails: Array<{ category: string; month: string; limitCents: number; limitFormatted: string }>
+  goalsCents: number
+  goalsFormatted: string
+  goalsDetails: Array<{ id: string; title: string; amountCents: number; amountFormatted: string; isVirtual: boolean }>
+  virtualReservesCents: number
+  virtualReservesFormatted: string
+  safetyMarginCents: number
+  safetyMarginFormatted: string
+  safetyMarginPercent: number
+  freeCents: number
+  freeFormatted: string
+  isNegative: boolean
+  deficitCents: number
+  deficitFormatted: string | null
+  period: { start: string; end: string; label: string; days: number; hasNextIncome: boolean; nextIncomeDate: string | null }
+  isInsufficientData: boolean
+}
+
+export function calculateFreeMoney(
+  opts: { period?: 'nextIncome' | 'thisMonth' | 'next30' | 'custom'; customStart?: string; customEnd?: string; data?: FinanceData } = {}
+): FreeMoneyResult {
+  const s = opts.data ?? (useFinanceStore.getState() as unknown as FinanceData)
+  const period = getFreeMoneyPeriodBounds(opts.period ?? 'nextIncome', { customStart: opts.customStart, customEnd: opts.customEnd }, s)
+  const total = getTotalBalance(s)
+  const committed = calculateCommittedBillsDetailed(period.start, period.end, s)
+  const essential = getEssentialBudgetsDetails(s, period)
+  const goals = getGoalsReserveDetails(s)
+  const virtual = getVirtualReservesBreakdown(s)
+  const marginPct = s.safetyMarginPercent ?? 10
+
+  // Effective values: evita dupla contagem com virtual
+  const effectiveEssential = Math.max(essential.total, virtual.budgetEssential)
+  const effectiveGoals = Math.max(goals.total, virtual.goalReserve)
+  // safety: se já há virtual safety, usa virtual, senão calcula sobre o que sobra
+  const baseForSafety = Math.max(0, total - committed.total - effectiveEssential - effectiveGoals)
+  const computedSafety = marginPct > 0 && baseForSafety > 0 ? Math.round(baseForSafety * (marginPct / 100)) : 0
+  const effectiveSafety = Math.max(computedSafety, virtual.safety)
+
+  // virtualOther (budgetOther + other) não entra no cálculo essencial, mas se for reserva já está em goals; budgetOther (lazer) é discricionário e não deve reduzir livre, então ignoramos
+  // free = total - committed - effectiveEssential - effectiveGoals - effectiveSafety
+  // Não subtrai virtualOther propositalmente para não punir lazer
+  const free = total - committed.total - effectiveEssential - effectiveGoals - effectiveSafety
+
+  const isNegative = free < 0
+  const deficit = isNegative ? Math.abs(free) : 0
+  const isInsufficientData = total === 0 && committed.total === 0 && essential.total === 0 && goals.total === 0 && virtual.total === 0
+
+  return {
+    totalCents: total,
+    totalFormatted: money(total),
+    committedCents: committed.total,
+    committedFormatted: money(committed.total),
+    committedDetails: committed.details,
+    essentialBudgetsCents: effectiveEssential,
+    essentialBudgetsFormatted: money(effectiveEssential),
+    essentialBudgetsDetails: essential.details,
+    goalsCents: effectiveGoals,
+    goalsFormatted: money(effectiveGoals),
+    goalsDetails: goals.details,
+    virtualReservesCents: virtual.total,
+    virtualReservesFormatted: money(virtual.total),
+    safetyMarginCents: effectiveSafety,
+    safetyMarginFormatted: money(effectiveSafety),
+    safetyMarginPercent: marginPct,
+    freeCents: free,
+    freeFormatted: money(free),
+    isNegative,
+    deficitCents: deficit,
+    deficitFormatted: deficit ? money(deficit) : null,
+    period,
+    isInsufficientData,
+  }
+}
+
+// aliases para tools IA — mantém compatibilidade com nomes do spec
+export const getFreeMoney = calculateFreeMoney
+export const getFreeMoneyBreakdown = calculateFreeMoney
+export const calculateFreeMoneyDetailed = calculateFreeMoney
+
 export function calculateAvailableMoney(untilDate?: string, data?: FinanceData) {
   const s = data ?? (useFinanceStore.getState() as unknown as FinanceData)
   const t = today()
   const end = untilDate ?? addDaysIso(t, 30)
   const total = getTotalBalance(s)
-  const committed = calculateCommittedAmount(s.recurringExpenses, t, end, s.transactions)
-  const available = total - committed
-  return { totalCents: total, committedCents: committed, availableCents: available, totalFormatted: money(total), committedFormatted: money(committed), availableFormatted: money(available), period: { start: t, end } }
+  const committed = calculateCommittedBillsDetailed(t, end, s).total
+  const virtualReserves = getVirtualReservesTotal(s)
+  const available = total - committed - virtualReserves
+  return { totalCents: total, committedCents: committed, virtualReservesCents: virtualReserves, availableCents: available, totalFormatted: money(total), committedFormatted: money(committed), virtualReservesFormatted: money(virtualReserves), availableFormatted: money(available), period: { start: t, end } }
 }
 
 export function calculateCommitted(start?: string, end?: string, data?: FinanceData) {
@@ -31,8 +320,8 @@ export function calculateCommitted(start?: string, end?: string, data?: FinanceD
   const t = today()
   const startIso = start ?? t
   const endIso = end ?? addDaysIso(t, 30)
-  const committed = calculateCommittedAmount(s.recurringExpenses, startIso, endIso, s.transactions)
-  return { committedCents: committed, committedFormatted: money(committed), period: { start: startIso, end: endIso } }
+  const detailed = calculateCommittedBillsDetailed(startIso, endIso, s)
+  return { committedCents: detailed.total, committedFormatted: money(detailed.total), period: { start: startIso, end: endIso }, details: detailed.details }
 }
 
 export function calculateNextIncome(data?: FinanceData) {
@@ -185,6 +474,7 @@ export function calculateSafeDailySpend(data?: FinanceData, overrideToday?: stri
   let freeMoney = total
   let committed = 0
 
+  const virtualReserves = getVirtualReservesTotal(s)
   if (hasNextIncome) {
     nextDate = nextIncome.nextDate!
     days = diffDays(t, nextDate)
@@ -193,17 +483,17 @@ export function calculateSafeDailySpend(data?: FinanceData, overrideToday?: stri
     // comprometido até véspera do recebimento (não contar o dia do salário como gasto)
     const endForFree = addDaysIso(nextDate, -1)
     if (endForFree >= t) {
-      committed = calculateCommittedAmount(s.recurringExpenses, t, endForFree, s.transactions)
+      committed = calculateCommittedBillsDetailed(t, endForFree, s).total
     } else {
       committed = 0
     }
-    freeMoney = total - committed
+    freeMoney = total - committed - virtualReserves
   } else {
     // sem próxima receita: usa 30 dias como estimativa mas marca hasNextIncome false
     days = null
     // free = total - committed próximos 30 dias (para exibir)
-    committed = calculateCommittedAmount(s.recurringExpenses, t, addDaysIso(t, 30), s.transactions)
-    freeMoney = total - committed
+    committed = calculateCommittedBillsDetailed(t, addDaysIso(t, 30), s).total
+    freeMoney = total - committed - virtualReserves
   }
 
   // gasto de hoje (discricionário + essencial, sem reserved) — calculado antes para ajustar freeMoney
@@ -214,7 +504,7 @@ export function calculateSafeDailySpend(data?: FinanceData, overrideToday?: stri
 
   // freeMoney inclui o gasto de hoje já descontado do total; para distribuir o dia de hoje, devolve o gasto não-reservado
   const totalBeforeTodaySpends = total + spentToday
-  const freeMoneyBeforeToday = totalBeforeTodaySpends - committed
+  const freeMoneyBeforeToday = totalBeforeTodaySpends - committed - virtualReserves
 
   const baseForReserve = hasNextIncome ? freeMoneyBeforeToday : freeMoney
   const safetyReserve = hasNextIncome && baseForReserve > 0 ? Math.round(baseForReserve * margin) : 0
@@ -324,4 +614,166 @@ export function simulateDailySpend(amountInCents: number, data?: FinanceData, ov
     isSimulation: true as const,
     nextIncomeDate: base.nextIncomeDate,
   }
+}
+
+// ── Prioridades configuráveis ──
+const DEFAULT_PRIORITY: import('../../domain').AllocationPriority[] = ['overdue','essential','bills','food','transport','goals','reserve','leisure','free']
+
+export function getEffectivePriority(data?: FinanceData): import('../../domain').AllocationPriority[] {
+  const s = data ?? (useFinanceStore.getState() as unknown as FinanceData)
+  return (s as any).paymentAllocationPriority ?? DEFAULT_PRIORITY
+}
+
+function getAlreadyReservedBillIds(data: FinanceData): Set<string> {
+  const plans = (data as any).paymentAllocationPlans ?? []
+  const ids = new Set<string>()
+  for (const p of plans) {
+    if (p.status !== 'applied') continue
+    for (const it of p.items) {
+      if (it.isConsumed) continue
+      if (it.recurringExpenseId) ids.add(it.recurringExpenseId)
+    }
+  }
+  return ids
+}
+
+export function preparePaymentAllocationPlan(
+  params: { receivedAmountInCents: number; sourceTransactionId?: string; periodEnd?: string; safetyMarginPercent?: number },
+  data?: FinanceData
+): PaymentAllocationPlan {
+  const s = data ?? (useFinanceStore.getState() as unknown as FinanceData)
+  const t = today()
+  const received = params.receivedAmountInCents
+  if (!Number.isInteger(received) || received <= 0) throw new Error('Valor recebido deve ser maior que zero')
+  const periodStart = t
+  let periodEnd = params.periodEnd
+  if (!periodEnd) {
+    const next = calculateNextIncome(s)
+    periodEnd = next.found && next.nextDate ? addDaysIso(next.nextDate, -1) : addDaysIso(t, 30)
+    if (periodEnd < periodStart) periodEnd = addDaysIso(t, 30)
+  }
+  const safetyPct = params.safetyMarginPercent ?? (s.safetyMarginPercent ?? 10)
+  const safetyAmount = Math.round(received * (safetyPct / 100))
+  let remaining = received
+  const items: PaymentAllocationItem[] = []
+  const addItem = (label: string, type: PaymentAllocationItem['type'], amount: number, extra?: Partial<PaymentAllocationItem>) => {
+    if (amount <= 0) return
+    items.push({ id: uid(), label, type, amountInCents: amount, ...extra })
+    remaining -= amount
+  }
+  const alreadyReserved = getAlreadyReservedBillIds(s)
+  const priority = getEffectivePriority(s)
+  const has = (p: import('../../domain').AllocationPriority) => priority.includes(p)
+
+  // Helper to check if we should skip bills já reservados (evita duplicar reserva virtual)
+  const isAlreadyReserved = (id: string) => alreadyReserved.has(id)
+
+  // 1. Contas vencidas (overdue)
+  if (has('overdue')) {
+    const overdue = s.recurringExpenses.filter(r => r.isActive && !isAlreadyReserved(r.id)).flatMap(r => {
+      const dates = getUnrecordedOccurrencesBetween(r as any, r.startDate, addDaysIso(t, -1), s.transactions)
+      return dates.map(date => ({ r, date }))
+    }).sort((a, b) => a.date.localeCompare(b.date))
+    for (const { r } of overdue) addItem(r.name, 'bill', r.amountInCents, { recurringExpenseId: r.id, categoryId: r.category })
+  }
+  // 2-3. Obrigações recorrentes próximas (essential + bills)
+  if (has('essential') || has('bills')) {
+    const upcoming = s.recurringExpenses.filter(r => r.isActive && !isAlreadyReserved(r.id)).flatMap(r => {
+      const occ = getUnrecordedOccurrencesBetween(r as any, t, periodEnd!, s.transactions)
+      return occ.map(date => ({ r, date }))
+    }).filter(({ r }) => !items.some(it => it.recurringExpenseId === r.id)).sort((a, b) => a.date.localeCompare(b.date))
+    const seen = new Set<string>()
+    for (const { r } of upcoming) {
+      if (seen.has(r.id)) continue
+      seen.add(r.id)
+      if (items.some(it => it.recurringExpenseId === r.id)) continue
+      // se for essencial, prioriza; senão bills normais
+      addItem(r.name, 'bill', r.amountInCents, { recurringExpenseId: r.id, categoryId: r.category })
+    }
+  }
+  // 4. Alimentação
+  if (has('food')) {
+    const month = t.slice(0, 7)
+    const foodBudget = s.budgets.find(b => b.category === 'Alimentação' && b.month === month)
+    // se preferência explícita existe, respeita (ex: 600 reais fixo)
+    const prefFood = (s as any).paymentAllocationPreferences?.find((p:any)=> p.rule?.toLowerCase().includes('alimenta'))
+    let foodAmount = foodBudget ? foodBudget.limitCents : 60000
+    if (prefFood) {
+      // tenta extrair valor da regra se houver — fallback mantém budget
+      const m = prefFood.rule.match(/R\$\s*([\d\.,]+)/)
+      if (m) { const cents = Math.round(Number(m[1].replace(/\./g,'').replace(',','.'))*100); if (cents>0) foodAmount = cents }
+    }
+    addItem('Alimentação', 'budget', foodAmount, { categoryId: 'Alimentação' })
+  }
+  // 5. Transporte
+  if (has('transport')) {
+    const month = t.slice(0, 7)
+    const transpBudget = s.budgets.find(b => b.category === 'Transporte' && b.month === month)
+    const transpAmount = transpBudget ? transpBudget.limitCents : 30000
+    addItem('Transporte', 'budget', transpAmount, { categoryId: 'Transporte' })
+  }
+  // 6. Metas prioritárias + Reserva
+  if (has('goals') || has('reserve')) {
+    const goals = (s.goals ?? []).slice(0, 2)
+    if (goals.length && has('goals')) {
+      for (const g of goals) {
+        const need = Math.max(0, g.targetAmountInCents - g.currentAmountInCents)
+        // preferência "guarda 10%" já é padrão 11%; se houver regra de percent reserva, usa
+        const prefReserve = (s as any).paymentAllocationPreferences?.find((p:any)=> p.rule?.toLowerCase().includes('guarda') || p.rule?.toLowerCase().includes('reserva'))
+        let pct = 0.11
+        if (prefReserve) {
+          const m = prefReserve.rule.match(/(\d+)\s*%/)
+          if (m) pct = Number(m[1])/100
+          const mv = prefReserve.rule.match(/R\$\s*([\d\.,]+)/)
+          if (mv) {
+            const fixed = Math.round(Number(mv[1].replace(/\./g,'').replace(',','.'))*100)
+            const allocFixed = Math.min(need, fixed)
+            if (allocFixed>0) { addItem(g.title, 'goal', allocFixed, { goalId: g.id }); continue }
+          }
+        }
+        const alloc = Math.min(need, Math.round(received * pct))
+        if (alloc > 0) addItem(g.title, 'goal', alloc, { goalId: g.id })
+      }
+    }
+    if (!goals.length && has('reserve')) {
+      const pref = (s as any).paymentAllocationPreferences?.find((p:any)=> p.rule?.toLowerCase().includes('reserva'))
+      let pct = 0.11
+      if (pref) {
+        const m = pref.rule.match(/(\d+)\s*%/)
+        if (m) pct = Number(m[1])/100
+      }
+      addItem('Reserva', 'reserve', Math.round(received * pct))
+    } else if (!goals.length && !has('reserve') && has('goals')) {
+      // fallback se reserve desabilitado mas sem metas
+    }
+  }
+  // 7. Margem de segurança (safety)
+  if (has('reserve') || has('free')) {
+    // margem sempre antes de livre, respeitando safetyMarginPercent
+    addItem('Margem de segurança', 'safety', safetyAmount)
+  }
+  // 8. Lazer (se houver orçamento e prioridade leisure habilitada)
+  if (has('leisure')) {
+    const month = t.slice(0, 7)
+    const leisureBudget = s.budgets.find(b => b.category === 'Lazer' && b.month === month)
+    if (leisureBudget) addItem('Lazer', 'budget', leisureBudget.limitCents, { categoryId: 'Lazer' })
+  }
+  // 9. Livre é o restante (pode ser negativo para indicar déficit)
+  const totalAllocated = items.reduce((sum, it) => sum + it.amountInCents, 0)
+  const freeAmount = received - totalAllocated
+  const freeItem = Math.max(0, freeAmount)
+  items.push({ id: uid(), label: 'Livre', type: 'free', amountInCents: freeItem })
+  const plan: PaymentAllocationPlan = {
+    id: uid(),
+    sourceTransactionId: params.sourceTransactionId,
+    receivedAmountInCents: received,
+    periodStart,
+    periodEnd: periodEnd!,
+    items,
+    freeAmountInCents: freeAmount,
+    status: 'draft',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  return plan
 }

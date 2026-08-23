@@ -311,16 +311,6 @@ export const readTools: ToolDef[] = [
   {
     type: 'function',
     function: {
-      name: 'getCommittedAmount',
-      description: 'Valor total comprometido com recorrências no intervalo.',
-      parameters: { type: 'object', properties: { startDate: { type: 'string' }, endDate: { type: 'string' } }, required: [] },
-    },
-    _zod: getCommittedAmountSchema,
-    _execute: async (args:any) => calculateCommitted(args.startDate, args.endDate)
-  },
-  {
-    type: 'function',
-    function: {
       name: 'getSpendingAnalysis',
       description: 'Análise de gastos agrupada por categoria ou mês.',
       parameters: { type: 'object', properties: { startDate: { type: 'string' }, endDate: { type: 'string' }, groupBy: { type: 'string', enum: ['category','month'] } }, required: [] },

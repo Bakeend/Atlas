@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { indexedDbRepository } from './data/repository'
-import type { Account, AiActionLog, AiConversation, AiMessage, AiRule, AllocationPlan, Budget, FinanceData, FinanceTransaction, Goal, RecurringIncome } from './domain'
+import type { Account, AiActionLog, AiConversation, AiMessage, AiRule, AllocationPlan, Budget, FinanceData, FinanceTransaction, Goal, PaymentAllocationPlan, RecurringIncome } from './domain'
 import { seededData, uid } from './domain'
 import type { RecurringExpense } from './domain'
 import { isOccurrenceRecorded } from './recurring'
@@ -33,6 +33,14 @@ type State = FinanceData & {
   deleteGoal: (id: string) => void
   saveAllocationPlan: (plan: AllocationPlan) => void
   deleteAllocationPlan: (id: string) => void
+  savePaymentAllocationPlan: (plan: PaymentAllocationPlan) => void
+  deletePaymentAllocationPlan: (id: string) => void
+  applyPaymentAllocationPlan: (id: string) => void
+  cancelPaymentAllocationPlan: (id: string) => void
+  updatePaymentAllocationItem: (planId: string, itemId: string, amountInCents: number) => void
+  removePaymentAllocationItem: (planId: string, itemId: string) => void
+  reorderPaymentAllocationItems: (planId: string, orderedItemIds: string[]) => void
+  updatePaymentAllocationItemMeta: (planId: string, itemId: string, patch: { label?: string; goalId?: string; categoryId?: string }) => void
   addCustomCategory: (name: string, icon?: string) => void
   setCustomCategoryIcon: (name: string, icon: string) => void
   renameCategory: (oldName: string, newName: string) => void
@@ -50,6 +58,9 @@ type State = FinanceData & {
   toggleBalances: () => void
   setForecastRealistic: (value: boolean) => void
   setSafetyMarginPercent: (value: number) => void
+  setPaymentAllocationPriority: (order: import('./domain').AllocationPriority[]) => void
+  addPaymentAllocationPreference: (rule: string) => void
+  removePaymentAllocationPreference: (id: string) => void
 }
 
 const persist = (state: FinanceData) => { void indexedDbRepository.save(state) }
@@ -61,6 +72,7 @@ const data = (s: State): FinanceData => ({
   recurringIncomes: s.recurringIncomes ?? [],
   goals: s.goals ?? [],
   allocationPlans: s.allocationPlans ?? [],
+  paymentAllocationPlans: (s as any).paymentAllocationPlans ?? [],
   customCategories: s.customCategories ?? [],
   customCategoryIcons: (s as any).customCategoryIcons ?? {},
   aiConversations: s.aiConversations ?? [],
@@ -71,6 +83,8 @@ const data = (s: State): FinanceData => ({
   readNotificationIds: s.readNotificationIds,
   forecastRealistic: s.forecastRealistic,
   safetyMarginPercent: s.safetyMarginPercent ?? 10,
+  paymentAllocationPriority: (s as any).paymentAllocationPriority ?? ['overdue','essential','bills','food','transport','goals','reserve','leisure','free'],
+  paymentAllocationPreferences: (s as any).paymentAllocationPreferences ?? [],
 })
 
 export const useFinanceStore = create<State>((set, get) => ({
@@ -87,6 +101,7 @@ export const useFinanceStore = create<State>((set, get) => ({
       recurringIncomes: (loaded as any).recurringIncomes ?? [],
       goals: (loaded as any).goals ?? [],
       allocationPlans: (loaded as any).allocationPlans ?? [],
+      paymentAllocationPlans: (loaded as any).paymentAllocationPlans ?? [],
       customCategories: (loaded as any).customCategories ?? [],
       customCategoryIcons: (loaded as any).customCategoryIcons ?? {},
       aiConversations: (loaded as any).aiConversations ?? [],
@@ -96,6 +111,8 @@ export const useFinanceStore = create<State>((set, get) => ({
       readNotificationIds: loaded.readNotificationIds ?? [],
       forecastRealistic: (loaded as Partial<FinanceData>).forecastRealistic ?? true,
       safetyMarginPercent: (loaded as any).safetyMarginPercent ?? 10,
+      paymentAllocationPriority: (loaded as any).paymentAllocationPriority ?? (seededData() as any).paymentAllocationPriority,
+      paymentAllocationPreferences: (loaded as any).paymentAllocationPreferences ?? [],
     }
     const needsPersist =
       !loaded.recurringExpenses ||
@@ -103,18 +120,41 @@ export const useFinanceStore = create<State>((set, get) => ({
       (loaded as Partial<FinanceData>).forecastRealistic === undefined ||
       (loaded as any).safetyMarginPercent === undefined ||
       (loaded as any).customCategoryIcons === undefined ||
+      (loaded as any).paymentAllocationPlans === undefined ||
       (loaded as any).recurringIncomes === undefined ||
       (loaded as any).goals === undefined ||
       (loaded as any).allocationPlans === undefined ||
       (loaded as any).customCategories === undefined ||
       (loaded as any).aiConversations === undefined ||
+      (loaded as any).paymentAllocationPriority === undefined ||
+      (loaded as any).paymentAllocationPreferences === undefined ||
       migrated.accounts.some((account, index) => account.color !== (loaded.accounts ?? [])[index]?.color)
     if (needsPersist) persist(migrated)
     set({ ...migrated, ready: true })
   },
   addAccount: account => set(s => { const next = { ...s, accounts: [...s.accounts, account] }; persist(data(next)); return next }),
   updateAccount: account => set(s => { const next = { ...s, accounts: s.accounts.map(a => a.id === account.id ? account : a) }; persist(data(next)); return next }),
-  addTransaction: transaction => set(s => { const next = { ...s, transactions: [transaction, ...s.transactions] }; persist(data(next)); return next }),
+  addTransaction: transaction => set(s => {
+    let nextPlans = (s as any).paymentAllocationPlans ?? []
+    // consome reserva virtual se pagar conta reservada — por recurringExpenseId ou por label/categoria aproximado
+    if (transaction.type === 'expense') {
+      const matchFn = (it: any) => !it.isConsumed && (
+        (transaction.recurringExpenseId && it.recurringExpenseId === transaction.recurringExpenseId) ||
+        (!transaction.recurringExpenseId && it.type === 'bill' && it.label.toLowerCase() === transaction.description.toLowerCase() && Math.abs(it.amountInCents - transaction.amountCents) < 500)
+      )
+      const needsUpdate = nextPlans.some((plan: any) => plan.status === 'applied' && plan.items.some(matchFn))
+      if (needsUpdate) {
+        nextPlans = nextPlans.map((plan: any) => {
+          if (plan.status !== 'applied') return plan
+          if (!plan.items.some(matchFn)) return plan
+          const items = plan.items.map((it: any) => matchFn(it) ? { ...it, isConsumed: true } : it)
+          return { ...plan, items, updatedAt: new Date().toISOString() }
+        })
+      }
+    }
+    const next = { ...s, transactions: [transaction, ...s.transactions], paymentAllocationPlans: nextPlans }
+    persist(data(next as any)); return next as any
+  }),
   updateTransaction: transaction => set(s => { const next = { ...s, transactions: s.transactions.map(t => t.id === transaction.id ? transaction : t) }; persist(data(next)); return next }),
   softDeleteTransaction: id => set(s => { const next = { ...s, transactions: s.transactions.map(t => t.id === id ? { ...t, deletedAt: new Date().toISOString() } : t) }; persist(data(next)); return next }),
   restoreTransaction: id => {
@@ -151,6 +191,91 @@ export const useFinanceStore = create<State>((set, get) => ({
     persist(data(next)); return next
   }),
   deleteAllocationPlan: id => set(s => { const next = { ...s, allocationPlans: (s.allocationPlans ?? []).filter(p => p.id!==id) }; persist(data(next)); return next }),
+  savePaymentAllocationPlan: plan => set(s => {
+    const list = (s as any).paymentAllocationPlans ?? []
+    const exists = list.some((p: any) => p.id === plan.id)
+    const nextList = exists ? list.map((p: any) => p.id === plan.id ? plan : p) : [...list, plan]
+    const next = { ...s, paymentAllocationPlans: nextList }
+    persist(data(next as any)); return next as any
+  }),
+  deletePaymentAllocationPlan: id => set(s => {
+    const next = { ...s, paymentAllocationPlans: ((s as any).paymentAllocationPlans ?? []).filter((p: any) => p.id !== id) }
+    persist(data(next as any)); return next as any
+  }),
+  applyPaymentAllocationPlan: id => set(s => {
+    const list = (s as any).paymentAllocationPlans ?? []
+    const nextList = list.map((p: any) => p.id === id ? { ...p, status: 'applied' as const, updatedAt: new Date().toISOString() } : p)
+    const next = { ...s, paymentAllocationPlans: nextList }
+    persist(data(next as any)); return next as any
+  }),
+  cancelPaymentAllocationPlan: id => set(s => {
+    const list = (s as any).paymentAllocationPlans ?? []
+    const nextList = list.map((p: any) => p.id === id ? { ...p, status: 'cancelled' as const, updatedAt: new Date().toISOString() } : p)
+    const next = { ...s, paymentAllocationPlans: nextList }
+    persist(data(next as any)); return next as any
+  }),
+  updatePaymentAllocationItem: (planId, itemId, amountInCents) => set(s => {
+    const list = (s as any).paymentAllocationPlans ?? []
+    const nextList = list.map((p: any) => {
+      if (p.id !== planId) return p
+      if (p.status !== 'draft') return p
+      const items = p.items.map((it: any) => it.id === itemId ? { ...it, amountInCents } : it)
+      const total = items.reduce((sum: number, it: any) => sum + (it.type !== 'free' ? it.amountInCents : 0), 0)
+      const free = items.find((it: any) => it.type === 'free')
+      const freeAmount = p.receivedAmountInCents - total
+      const nextItems = free ? items.map((it: any) => it.type === 'free' ? { ...it, amountInCents: Math.max(0, freeAmount) } : it) : items
+      return { ...p, items: nextItems, freeAmountInCents: freeAmount, updatedAt: new Date().toISOString() }
+    })
+    const next = { ...s, paymentAllocationPlans: nextList }
+    persist(data(next as any)); return next as any
+  }),
+  removePaymentAllocationItem: (planId, itemId) => set(s => {
+    const list = (s as any).paymentAllocationPlans ?? []
+    const nextList = list.map((p: any) => {
+      if (p.id !== planId) return p
+      if (p.status !== 'draft') return p
+      const items = p.items.filter((it: any) => it.id !== itemId)
+      // garante que livre existe
+      const hasFree = items.some((it: any) => it.type === 'free')
+      const total = items.reduce((sum: number, it: any) => sum + (it.type !== 'free' ? it.amountInCents : 0), 0)
+      const freeAmount = p.receivedAmountInCents - total
+      let nextItems = items
+      if (hasFree) {
+        nextItems = items.map((it: any) => it.type === 'free' ? { ...it, amountInCents: Math.max(0, freeAmount) } : it)
+      } else {
+        // recria livre se foi removido
+        nextItems = [...items, { id: uid(), label: 'Livre', type: 'free', amountInCents: Math.max(0, freeAmount) }]
+      }
+      return { ...p, items: nextItems, freeAmountInCents: freeAmount, updatedAt: new Date().toISOString() }
+    })
+    const next = { ...s, paymentAllocationPlans: nextList }
+    persist(data(next as any)); return next as any
+  }),
+  reorderPaymentAllocationItems: (planId, orderedItemIds) => set(s => {
+    const list = (s as any).paymentAllocationPlans ?? []
+    const nextList = list.map((p: any) => {
+      if (p.id !== planId) return p
+      if (p.status !== 'draft') return p
+      const map = new Map(p.items.map((it: any) => [it.id, it]))
+      const ordered = orderedItemIds.map(id => map.get(id)).filter(Boolean)
+      // mantém itens não listados no final (ex: free)
+      const remaining = p.items.filter((it: any) => !orderedItemIds.includes(it.id))
+      return { ...p, items: [...ordered, ...remaining], updatedAt: new Date().toISOString() }
+    })
+    const next = { ...s, paymentAllocationPlans: nextList }
+    persist(data(next as any)); return next as any
+  }),
+  updatePaymentAllocationItemMeta: (planId, itemId, patch) => set(s => {
+    const list = (s as any).paymentAllocationPlans ?? []
+    const nextList = list.map((p: any) => {
+      if (p.id !== planId) return p
+      if (p.status !== 'draft') return p
+      const items = p.items.map((it: any) => it.id === itemId ? { ...it, ...patch } : it)
+      return { ...p, items, updatedAt: new Date().toISOString() }
+    })
+    const next = { ...s, paymentAllocationPlans: nextList }
+    persist(data(next as any)); return next as any
+  }),
   addCustomCategory: (name, icon) => set(s => {
     const n = name.trim()
     if (!n || (s.customCategories ?? []).some(c=> c.toLowerCase()===n.toLowerCase())) return s
@@ -209,7 +334,19 @@ export const useFinanceStore = create<State>((set, get) => ({
       recurringExpenseId: expense.id, recurringOccurrenceDate: input.occurrenceDate,
       plannedAmountCents: expense.amountInCents, createdAt: new Date().toISOString(),
     }
-    set(s => { const next = { ...s, transactions: [transaction, ...s.transactions] }; persist(data(next)); return next })
+    set(s => {
+      // consome reserva virtual correspondente
+      let nextPlans = (s as any).paymentAllocationPlans ?? []
+      nextPlans = nextPlans.map((plan: any) => {
+        if (plan.status !== 'applied') return plan
+        const hasItem = plan.items.some((it: any) => it.recurringExpenseId === expense.id && !it.isConsumed)
+        if (!hasItem) return plan
+        const items = plan.items.map((it: any) => it.recurringExpenseId === expense.id && !it.isConsumed ? { ...it, isConsumed: true } : it)
+        return { ...plan, items, updatedAt: new Date().toISOString() }
+      })
+      const next = { ...s, transactions: [transaction, ...s.transactions], paymentAllocationPlans: nextPlans }
+      persist(data(next as any)); return next as any
+    })
     return true
   },
   markNotificationRead: id => set(s => {
@@ -241,5 +378,20 @@ export const useFinanceStore = create<State>((set, get) => ({
     if (s.safetyMarginPercent === v) return s
     const next = { ...s, safetyMarginPercent: v }
     persist(data(next)); return next
+  }),
+  setPaymentAllocationPriority: order => set(s => {
+    const next = { ...s, paymentAllocationPriority: order }
+    persist(data(next as any)); return next as any
+  }),
+  addPaymentAllocationPreference: rule => set(s => {
+    const pref = { id: uid(), rule: rule.trim(), createdAt: new Date().toISOString() }
+    if (!pref.rule) return s
+    // nunca inferir regra permanente sem autorização — só adiciona se usuário explicitamente pediu
+    const next = { ...s, paymentAllocationPreferences: [...((s as any).paymentAllocationPreferences ?? []), pref] }
+    persist(data(next as any)); return next as any
+  }),
+  removePaymentAllocationPreference: id => set(s => {
+    const next = { ...s, paymentAllocationPreferences: ((s as any).paymentAllocationPreferences ?? []).filter((p:any)=> p.id!==id) }
+    persist(data(next as any)); return next as any
   }),
 }))

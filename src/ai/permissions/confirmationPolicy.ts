@@ -20,6 +20,12 @@ const destructiveTools = new Set([
 const bulkTools = new Set([
   'createAllocationPlan',
   'applyAllocationPlan',
+  'preparePaymentAllocationPlan',
+])
+
+const explicitTools = new Set([
+  'applyPaymentAllocationPlan',
+  'cancelPaymentAllocationPlan',
 ])
 
 // Tools that are read-only never need confirmation
@@ -40,6 +46,8 @@ const readTools = new Set([
   'getCashFlowForecast',
   'getAvailableMoney',
   'getCommittedAmount',
+  'getFreeMoney',
+  'getFreeMoneyBreakdown',
   'getSpendingAnalysis',
   'getSpendingAnomalies',
   'getNextIncome',
@@ -48,6 +56,7 @@ const readTools = new Set([
 export function requiresConfirmation(toolName: string, args?: Record<string, unknown>): ConfirmationLevel {
   if (readTools.has(toolName)) return 'none'
   if (destructiveTools.has(toolName)) return 'explicit'
+  if (explicitTools.has(toolName)) return 'explicit'
   if (bulkTools.has(toolName)) return 'preview'
   // Heuristic: large batch via create* with many? we treat single creates as none if explicitly requested
   // But if tool is createTransaction with explicit user intent, allow none — UI will still show undo

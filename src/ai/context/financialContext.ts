@@ -3,6 +3,7 @@ import type { FinanceData } from '../../domain'
 import { useFinanceStore } from '../../store'
 import { calculateCommittedAmount } from '../../recurring'
 import { calculateForecast, getAverageDailyVariable, summarizeForecast } from '../../forecast/calculate'
+import { calculateFreeMoney } from '../services/financialEngine'
 
 export interface FinancialContext {
   today: string
@@ -18,6 +19,7 @@ export interface FinancialContext {
   categoryList: string[]
   recentTransactionsCount: number
   forecastNext30: { endBalanceCents: number; minBalanceCents: number }
+  freeMoney: { freeCents: number; freeFormatted: string; totalFormatted: string; committedFormatted: string; periodLabel: string; isNegative: boolean; hasNextIncome: boolean }
 }
 
 function addDaysIso(dateIso: string, days: number): string {
@@ -59,6 +61,13 @@ export function buildFinancialContext(data?: FinanceData): FinancialContext {
     forecastNext30 = { endBalanceCents: summary.endBalance, minBalanceCents: summary.minBalance }
   } catch {}
 
+  // free money summary (deterministic)
+  let freeMoney = { freeCents: totalBalanceCents, freeFormatted: money(totalBalanceCents), totalFormatted: money(totalBalanceCents), committedFormatted: money(0), periodLabel: 'Próximos 30 dias', isNegative: false, hasNextIncome: false }
+  try {
+    const fm = calculateFreeMoney({ period: 'nextIncome', data: state })
+    freeMoney = { freeCents: fm.freeCents, freeFormatted: fm.freeFormatted, totalFormatted: fm.totalFormatted, committedFormatted: fm.committedFormatted, periodLabel: fm.period.label, isNegative: fm.isNegative, hasNextIncome: fm.period.hasNextIncome }
+  } catch {}
+
   return {
     today: t,
     currency: 'BRL',
@@ -73,6 +82,7 @@ export function buildFinancialContext(data?: FinanceData): FinancialContext {
     categoryList,
     recentTransactionsCount: live.length,
     forecastNext30,
+    freeMoney,
   }
 }
 
@@ -82,6 +92,10 @@ export function sanitizeContextForPrompt(ctx: FinancialContext): string {
     today: ctx.today,
     currency: ctx.currency,
     totalBalance: ctx.totalBalanceFormatted,
+    freeMoney: ctx.freeMoney.freeFormatted,
+    freeMoneyPeriod: ctx.freeMoney.periodLabel,
+    freeMoneyIsNegative: ctx.freeMoney.isNegative,
+    totalCommitted: ctx.freeMoney.committedFormatted,
     currentMonth: ctx.currentMonth,
     monthIncome: ctx.currentMonthSummary.incomeFormatted,
     monthExpense: ctx.currentMonthSummary.expenseFormatted,

@@ -7,6 +7,8 @@ import { goalTools } from './goalTools'
 import { accountTools } from './accountTools'
 import { allocationTools } from './allocationTools'
 import { safeSpendTools } from './safeSpendTools'
+import { paymentAllocationTools } from './paymentAllocationTools'
+import { freeMoneyTools } from './freeMoneyTools'
 
 export const allToolDefs = [
   ...readTools,
@@ -18,6 +20,8 @@ export const allToolDefs = [
   ...accountTools,
   ...allocationTools,
   ...safeSpendTools,
+  ...paymentAllocationTools,
+  ...freeMoneyTools,
 ]
 
 // Map for executor

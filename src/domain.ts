@@ -100,6 +100,43 @@ export interface AllocationPlan {
   note?: string
 }
 
+export type PaymentAllocationItemType = 'bill' | 'budget' | 'goal' | 'reserve' | 'safety' | 'free'
+
+export interface PaymentAllocationItem {
+  id: string
+  label: string
+  type: PaymentAllocationItemType
+  amountInCents: number
+  categoryId?: string
+  goalId?: string
+  recurringExpenseId?: string
+  isConsumed?: boolean
+}
+
+export interface PaymentAllocationPlan {
+  id: string
+  sourceTransactionId?: string
+  receivedAmountInCents: number
+  periodStart: string
+  periodEnd: string
+  items: PaymentAllocationItem[]
+  freeAmountInCents: number
+  status: 'draft' | 'applied' | 'cancelled'
+  createdAt: string
+  updatedAt: string
+}
+
+export type AllocationPriority =
+  | 'overdue'
+  | 'essential'
+  | 'bills'
+  | 'food'
+  | 'transport'
+  | 'goals'
+  | 'reserve'
+  | 'leisure'
+  | 'free'
+
 export interface AiConversation {
   id: string
   title: string
@@ -138,6 +175,15 @@ export interface AiRule {
   createdAt: string
 }
 
+export interface PaymentAllocationPreference {
+  id: string
+  rule: string
+  // ex: "Todo salário guarda 10%" -> { type: 'percent', percent: 10, target: 'reserve' }
+  // "Sempre separa R$600 para alimentação" -> { type: 'fixed', category: 'Alimentação', amountInCents: 60000 }
+  // "Minha prioridade é quitar cartão antes de lazer" -> priority override
+  createdAt: string
+}
+
 export interface FinanceData {
   accounts: Account[]
   transactions: FinanceTransaction[]
@@ -146,6 +192,7 @@ export interface FinanceData {
   recurringIncomes: RecurringIncome[]
   goals: Goal[]
   allocationPlans: AllocationPlan[]
+  paymentAllocationPlans: PaymentAllocationPlan[]
   customCategories: string[]
   customCategoryIcons: Record<string, string>
   aiConversations: AiConversation[]
@@ -156,6 +203,8 @@ export interface FinanceData {
   readNotificationIds: string[]
   forecastRealistic: boolean
   safetyMarginPercent: number
+  paymentAllocationPriority?: AllocationPriority[]
+  paymentAllocationPreferences?: PaymentAllocationPreference[]
 }
 
 export const categories = ['Alimentação', 'Moradia', 'Transporte', 'Saúde', 'Lazer', 'Educação', 'Assinaturas', 'Outros']
@@ -203,6 +252,7 @@ export function seededData(): FinanceData {
     recurringIncomes: [],
     goals: [],
     allocationPlans: [],
+    paymentAllocationPlans: [],
     customCategories: [],
     customCategoryIcons: {},
     aiConversations: [],
@@ -213,5 +263,7 @@ export function seededData(): FinanceData {
     readNotificationIds: [],
     forecastRealistic: true,
     safetyMarginPercent: 10,
+    paymentAllocationPriority: ['overdue','essential','bills','food','transport','goals','reserve','leisure','free'] as AllocationPriority[],
+    paymentAllocationPreferences: [],
   }
 }

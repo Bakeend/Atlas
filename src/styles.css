@@ -327,10 +327,35 @@
   .ai-error-banner small { @apply mt-1 block text-xs text-red-600; }
   .ai-error-actions { @apply mt-3 flex items-center gap-2; }
   .ai-input-bar { @apply sticky bottom-[76px] mt-auto bg-canvas pt-3 sm:bottom-0; }
-  .ai-input-wrap { @apply flex items-center gap-2 rounded-2xl border bg-white p-2 shadow-sm focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20; }
-  .ai-input-wrap input { @apply flex-1 bg-transparent px-2 py-1 text-sm outline-none placeholder:text-slate-400; }
+  .ai-input-wrap { @apply flex items-center gap-1.5 rounded-2xl border bg-white p-2 shadow-sm focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20; }
+  .ai-input-wrap input { @apply min-w-0 flex-1 bg-transparent px-2 py-1 text-sm outline-none placeholder:text-slate-400; }
   .ai-send { @apply grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand text-white transition hover:bg-blue-600 disabled:opacity-40; }
   .ai-input-hint { @apply mt-1.5 px-1 text-center text-[11px] text-muted; }
+
+  /* — Visual Blocks dentro do chat (01:54, 01:57) — */
+  .ai-visual-stack { @apply mt-3 space-y-3; }
+  .ai-visual-block { animation: fadeInUp 300ms cubic-bezier(.22,.8,.22,1) both; }
+  .ai-visual-block:nth-child(1) { animation-delay: 40ms; }
+  .ai-visual-block:nth-child(2) { animation-delay: 110ms; }
+  .ai-visual-block:nth-child(3) { animation-delay: 180ms; }
+  .ai-visual-in-chat { @apply mt-3; }
+  .ai-visual-actions { @apply mt-3 flex flex-wrap gap-2; }
+  .ai-metric { @apply bg-white border-brand/10; }
+
+  /* — Voice dentro do composer (01:63) — compacto para não quebrar input */
+  .ai-voice-wrap { @apply flex shrink-0 items-center gap-1; }
+  .ai-voice-btn { @apply grid h-9 w-9 shrink-0 place-items-center rounded-xl border bg-white text-brand transition hover:bg-blue-50 hover:border-blue-200 disabled:opacity-40; }
+  .ai-voice-btn.listening { @apply bg-red-500 border-red-500 text-white animate-pulse; }
+  .ai-voice-btn.processing { @apply bg-amber-100 border-amber-200 text-amber-700; }
+  .ai-voice-cancel { @apply shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-muted hover:bg-slate-200; }
+  .ai-wave-bar { @apply h-3 w-1 rounded-full bg-brand; animation: voiceWave 800ms ease-in-out infinite; }
+  .ai-wave-bar:nth-child(2) { height: 14px; }
+  .ai-wave-bar:nth-child(3) { height: 10px; }
+  .ai-voice-fallback { @apply hidden; }
+  .ai-voice-hint { @apply ml-2 text-xs font-medium text-brand; }
+
+  /* chat container desktop (01:74) */
+  .chat-container { @apply mx-auto max-w-[720px]; }
 }
 
 @keyframes select-popover-in {
@@ -352,6 +377,108 @@
 @keyframes money-panel-in {
   from { opacity: 0; transform: translateY(34px) scale(.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes softPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.02); opacity: .95; }
+}
+@keyframes checkPop {
+  0% { transform: scale(0); }
+  55% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes progressGrow {
+  from { width: 0; }
+}
+@keyframes voiceWave {
+  0%, 100% { transform: scaleY(0.6); opacity: 0.8; }
+  50% { transform: scaleY(1.2); opacity: 1; }
+}
+
+.animate-enter { animation: fadeInUp 520ms cubic-bezier(.22,.8,.22,1) both; }
+.animate-slide { animation: slideIn 380ms cubic-bezier(.22,.8,.22,1) both; }
+.animate-scale { animation: scaleIn 300ms cubic-bezier(.22,.8,.22,1) both; }
+
+/* — Dashboard staggered entrance — */
+.balance-card { animation: fadeInUp 600ms cubic-bezier(.22,.8,.22,1) both; }
+.summary-grid > *:nth-child(1) { animation: fadeInUp 520ms cubic-bezier(.22,.8,.22,1) both 80ms; }
+.summary-grid > *:nth-child(2) { animation: fadeInUp 520ms cubic-bezier(.22,.8,.22,1) both 150ms; }
+.dashboard-card { animation: fadeInUp 560ms cubic-bezier(.22,.8,.22,1) both; }
+.dashboard-card:nth-of-type(1) { animation-delay: 90ms; }
+.dashboard-card:nth-of-type(2) { animation-delay: 150ms; }
+.dashboard-card:nth-of-type(3) { animation-delay: 210ms; }
+.dashboard-card:nth-of-type(4) { animation-delay: 270ms; }
+
+/* — List stagger — */
+.transaction-list > *:nth-child(1) { animation: slideIn 360ms ease both 0ms; }
+.transaction-list > *:nth-child(2) { animation: slideIn 360ms ease both 55ms; }
+.transaction-list > *:nth-child(3) { animation: slideIn 360ms ease both 110ms; }
+.transaction-list > *:nth-child(4) { animation: slideIn 360ms ease both 165ms; }
+.transaction-list > *:nth-child(5) { animation: slideIn 360ms ease both 220ms; }
+.transaction-list > *:nth-child(n+6) { animation: slideIn 360ms ease both 260ms; }
+
+.recurring-row, .recurring-mini-row { animation: slideIn 340ms ease both; }
+.budget-list > *:nth-child(1) { animation: fadeInUp 400ms ease both 0ms; }
+.budget-list > *:nth-child(2) { animation: fadeInUp 400ms ease both 70ms; }
+.budget-list > *:nth-child(3) { animation: fadeInUp 400ms ease both 140ms; }
+
+/* — Payment allocation preview stagger — */
+.payment-alloc-item { animation: slideIn 340ms ease both; }
+.payment-alloc-item:nth-child(1) { animation-delay: 30ms; }
+.payment-alloc-item:nth-child(2) { animation-delay: 80ms; }
+.payment-alloc-item:nth-child(3) { animation-delay: 130ms; }
+.payment-alloc-item:nth-child(4) { animation-delay: 180ms; }
+.payment-alloc-item:nth-child(5) { animation-delay: 230ms; }
+.payment-alloc-item:nth-child(n+6) { animation-delay: 270ms; }
+
+/* — Balance value subtle — */
+.balance-value { transition: opacity 300ms ease; }
+.balance-value.updating { animation: softPulse 600ms ease; }
+
+/* — Progress bars grow on mount — */
+.budget-list .h-2 > div, .h-2 > div { animation: progressGrow 700ms cubic-bezier(.22,.8,.22,1) both; }
+
+/* — Deficit shake — */
+.shake { animation: shake 420ms cubic-bezier(.36,.07,.19,.97) both; }
+
+/* — Check pop on apply — */
+.check-pop { animation: checkPop 420ms cubic-bezier(.34,1.56,.64,1) both; }
+
+/* — AI messages — */
+.ai-msg.assistant .ai-bubble { animation: slideIn 360ms ease both; }
+.ai-msg.user .ai-bubble { animation: fadeInUp 340ms ease both; }
+.ai-card { animation: scaleIn 300ms ease both; }
+
+/* — Modal polish already has overlay-fade-in / money-panel-in — */
+.card:hover { transition: transform 200ms ease, box-shadow 200ms ease; }
+
+/* — Reduced motion — */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 
 @media (max-width: 390px) {

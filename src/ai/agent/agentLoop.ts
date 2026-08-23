@@ -83,14 +83,15 @@ export async function runAgentLoop(userMessage: string, history: ChatMessage[], 
       }
       if (level==='preview' && !isConfirmed) {
         // For preview tools, first call creates draft and needs user to apply. We still execute create but apply needs confirmation.
-        // createAllocationPlan is draft, okay to execute without confirm, but apply needs confirm.
-        // So only block applyAllocationPlan
-        if (tc.name==='applyAllocationPlan') {
-          const result = { success: false, error: 'Preview necessário: apresente o plano ao usuário e peça [Aplicar] antes de executar applyAllocationPlan.' }
+        // createAllocationPlan and preparePaymentAllocationPlan are drafts, okay to execute without confirm, but apply needs confirm.
+        // So only block applyAllocationPlan / applyPaymentAllocationPlan
+        if (tc.name==='applyAllocationPlan' || tc.name==='applyPaymentAllocationPlan') {
+          const result = { success: false, error: 'Preview necessário: apresente o plano ao usuário e peça [Aplicar] antes de executar ' + tc.name + '.' }
           messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) })
           executed.push({ name: tc.name, args: tc.arguments, result })
           continue
         }
+        // preparePaymentAllocationPlan is allowed without confirmation (it creates draft+preview), so continue to execution
       }
 
       opts.onStep?.(toolLabel(tc.name))
@@ -118,6 +119,9 @@ function toolLabel(name: string): string {
     getBudgetStatus: 'Analisando orçamentos...',
     getCashFlowForecast: 'Calculando previsão...',
     getAvailableMoney: 'Calculando disponível...',
+    getFreeMoney: 'Calculando dinheiro livre...',
+    getFreeMoneyBreakdown: 'Detalhando dinheiro livre...',
+    getCommittedAmount: 'Calculando comprometido...',
     getSpendingAnalysis: 'Analisando gastos...',
     getSpendingAnomalies: 'Detectando variações...',
     createTransaction: 'Registrando movimentação...',
@@ -126,6 +130,13 @@ function toolLabel(name: string): string {
     createCategory: 'Organizando categorias...',
     createAllocationPlan: 'Preparando organização...',
     applyAllocationPlan: 'Aplicando organização...',
+    preparePaymentAllocationPlan: 'Organizando seu pagamento...',
+    getPaymentAllocationPlan: 'Buscando plano...',
+    applyPaymentAllocationPlan: 'Aplicando organização...',
+    cancelPaymentAllocationPlan: 'Cancelando plano...',
+    updatePaymentAllocationItem: 'Ajustando plano...',
+    getSafeDailySpend: 'Calculando limite diário...',
+    simulateDailySpend: 'Simulando gasto...',
   }
   return map[name] ?? `Executando ${name}...`
 }
