@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Mic, MicOff, Square } from 'lucide-react'
 import { WebSpeechRecognitionAdapter, NoopSpeechRecognitionService } from '../voice/WebSpeechRecognitionAdapter'
+import { CapacitorSpeechRecognitionAdapter } from '../voice/CapacitorSpeechRecognitionAdapter'
 import type { SpeechRecognitionService } from '../voice/SpeechRecognitionService'
 
 export function ChatVoiceButton({
@@ -16,51 +17,66 @@ export function ChatVoiceButton({
   const [state, setState] = useState<'idle' | 'listening' | 'processing'>('idle')
   const [supported, setSupported] = useState(true)
   const [interim, setInterim] = useState('')
+  const [voiceError, setVoiceError] = useState('')
 
   useEffect(() => {
-    const svc = new WebSpeechRecognitionAdapter()
-    if (!svc.isSupported()) {
-      serviceRef.current = new NoopSpeechRecognitionService()
-      setSupported(false)
-    } else {
-      serviceRef.current = svc
-      setSupported(true)
-      svc.onResult = (transcript, isFinal) => {
-        setInterim(transcript)
-        if (isFinal && transcript.trim()) {
-          // auto stop will handle
-        }
-      }
-      svc.onStateChange = s => {
-        setState(s)
-        onStateChange?.(s)
-      }
-      svc.onError = () => {
-        setState('idle')
-        onStateChange?.('idle')
-      }
+    const native = new CapacitorSpeechRecognitionAdapter()
+    const web = new WebSpeechRecognitionAdapter()
+    const svc: SpeechRecognitionService = native.isSupported()
+      ? native
+      : web.isSupported()
+        ? web
+        : new NoopSpeechRecognitionService()
+
+    serviceRef.current = svc
+    setSupported(svc.isSupported())
+
+    if (!svc.isSupported()) return
+
+    svc.onResult = (transcript) => {
+      setInterim(transcript)
+    }
+    svc.onStateChange = s => {
+      setState(s)
+      onStateChange?.(s)
+    }
+    svc.onError = (message) => {
+      setVoiceError(message)
+      setState('idle')
+      onStateChange?.('idle')
     }
   }, [onStateChange])
 
   const handleToggle = async () => {
     const svc = serviceRef.current
     if (!svc || disabled) return
+
+    setVoiceError('')
+
     if (state === 'idle') {
       setInterim('')
-      setState('listening')
       try {
         await svc.start()
-      } catch {
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Não foi possível iniciar o microfone'
+        setVoiceError(message)
         setState('idle')
+        onStateChange?.('idle')
       }
-    } else if (state === 'listening') {
+      return
+    }
+
+    if (state === 'listening') {
       setState('processing')
       try {
         const text = await svc.stop()
         setState('idle')
         setInterim('')
         if (text.trim()) onTranscript(text.trim())
-      } catch {
+        else setVoiceError('Não consegui identificar sua fala. Tente novamente.')
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Falha ao finalizar gravação'
+        setVoiceError(message)
         setState('idle')
       }
     }
@@ -70,17 +86,17 @@ export function ChatVoiceButton({
     serviceRef.current?.cancel()
     setState('idle')
     setInterim('')
+    setVoiceError('')
   }
 
   if (!supported) {
-    // Fallback compacto dentro do composer: só ícone desabilitado, texto fica no hint abaixo (não quebra layout)
     return (
       <button
         type="button"
         className="ai-voice-btn"
         disabled
-        aria-label="Reconhecimento de voz não disponível neste navegador"
-        title="Seu navegador não oferece reconhecimento de voz. Você ainda pode escrever."
+        aria-label="Reconhecimento de voz não disponível neste dispositivo"
+        title="Reconhecimento de voz não disponível. Você ainda pode escrever."
       >
         <MicOff size={18} className="text-slate-400" />
       </button>
@@ -93,15 +109,18 @@ export function ChatVoiceButton({
         type="button"
         className={`ai-voice-btn ${state}`}
         onClick={handleToggle}
-        disabled={disabled}
+        disabled={disabled || state === 'processing'}
         aria-label={state === 'listening' ? 'Parar gravação' : 'Iniciar conversa por voz'}
         aria-pressed={state === 'listening'}
+        title={voiceError || (state === 'listening' ? 'Toque para finalizar' : 'Falar com a assistente')}
       >
         {state === 'listening' ? <Square size={18} className="text-white" /> : <Mic size={18} />}
       </button>
       {state === 'listening' && (
         <button className="ai-voice-cancel" onClick={handleCancel} aria-label="Cancelar gravação">Cancelar</button>
       )}
+      {voiceError && <span className="sr-only" role="alert">{voiceError}</span>}
+      {interim && <span className="sr-only" aria-live="polite">{interim}</span>}
     </div>
   )
 }
