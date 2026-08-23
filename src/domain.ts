@@ -147,6 +147,7 @@ export interface FinanceData {
   goals: Goal[]
   allocationPlans: AllocationPlan[]
   customCategories: string[]
+  customCategoryIcons: Record<string, string>
   aiConversations: AiConversation[]
   aiMessages: AiMessage[]
   aiLogs: AiActionLog[]
@@ -203,6 +204,7 @@ export function seededData(): FinanceData {
     goals: [],
     allocationPlans: [],
     customCategories: [],
+    customCategoryIcons: {},
     aiConversations: [],
     aiMessages: [],
     aiLogs: [],

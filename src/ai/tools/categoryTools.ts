@@ -22,8 +22,8 @@ export const categoryTools = [
     type: 'function' as const,
     function: {
       name: 'createCategory',
-      description: 'Cria categoria nova. ANTES chame getCategories e tente reutilizar existente. Evite duplicatas (Mercado/Supermercado → Alimentação).',
-      parameters: { type: 'object', properties: { name: { type: 'string', description: 'nome da categoria, 2-32 chars' } }, required: ['name'] },
+      description: 'Cria categoria nova com ícone do pack. ANTES chame getCategories e tente reutilizar existente. Evite duplicatas (Mercado/Supermercado → Alimentação). Icone deve ser um nome do pack: ShoppingCart, House, Car, HeartPulse, Gamepad2, GraduationCap, Tv, Package, PawPrint, Baby, etc.',
+      parameters: { type: 'object', properties: { name: { type: 'string', description: 'nome da categoria, 2-32 chars' }, icon: { type: 'string', description: 'nome do ícone do pack, ex: PawPrint, ShoppingCart, Package' } }, required: ['name'] },
     },
     _zod: createCategorySchema,
     _execute: async (args:any) => {
@@ -39,7 +39,8 @@ export const categoryTools = [
       if ((s.customCategories ?? []).some((c:string)=> c.toLowerCase()===lower) || defaultCategories.some(c=>c.toLowerCase()===lower)) {
         return { success: false, reused: true, category: name, message: 'Categoria já existe (case-insensitive).' }
       }
-      useFinanceStore.getState().addCustomCategory?.(name)
+      const icon = (parsed as any).icon?.trim()
+      useFinanceStore.getState().addCustomCategory?.(name, icon)
       // fallback if method doesn't exist (older store)
       if (!useFinanceStore.getState().addCustomCategory) {
         // persist via patching FinanceData directly

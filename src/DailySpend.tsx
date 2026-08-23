@@ -43,7 +43,7 @@ export function DailySpendCard() {
       <Card className="dashboard-card daily-spend-card !p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <span className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><Calculator size={15} /></span>
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><Wallet size={15} /></span>
             <div>
               <h2 className="text-sm font-semibold leading-none">Hoje</h2>
               <p className="mt-0.5 text-xs text-muted">{d.hasNextIncome ? `${d.daysUntilNextIncome} dias até receber` : 'Sem recebimento'}</p>

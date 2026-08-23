@@ -52,7 +52,7 @@ export const getNextIncomeSchema = z.object({})
 export const getUpcomingCommitmentsSchema = z.object({ days: z.number().int().min(1).max(90).optional().default(30) })
 
 // --- WRITE schemas ---
-export const createCategorySchema = z.object({ name: z.string().trim().min(2).max(32) })
+export const createCategorySchema = z.object({ name: z.string().trim().min(2).max(32), icon: z.string().trim().min(2).max(32).optional() })
 export const updateCategorySchema = z.object({ oldName: z.string().min(1), newName: z.string().trim().min(2).max(32) })
 
 export const createTransactionSchema = z.object({

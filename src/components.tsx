@@ -1,11 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CreditCard, Delete, Eye, EyeOff, Fuel, Gamepad2, GraduationCap, HeartPulse, House, Landmark, MoreHorizontal, Palette, Pencil, Receipt, ShoppingCart, Trash2, Tv, Wallet, WalletCards, X, type LucideIcon } from 'lucide-react'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CreditCard, Delete, Eye, EyeOff, Fuel, Gamepad2, GraduationCap, HeartPulse, House, Landmark, MoreHorizontal, Package, Palette, Pencil, Receipt, ShoppingCart, Trash2, Tv, Wallet, WalletCards, X, type LucideIcon } from 'lucide-react'
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { accountBalance, categories, currentMonth, money, parseMoney, today, uid, type Account, type AccountType, type FinanceTransaction, type TransactionType } from './domain'
 import { useFinanceStore } from './store'
+import { iconByName } from './lib/categoryIcons'
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) { return <section className={`card ${className}`}>{children}</section> }
 
@@ -109,7 +110,9 @@ type TransactionForm = z.infer<typeof transactionSchema>
 
 export function TransactionModal({ close, item }: { close: () => void; item?: FinanceTransaction }) {
   const { accounts, addTransaction, updateTransaction } = useFinanceStore()
-  const active = accounts.filter(a => !a.archived)
+  const { customCategories } = useFinanceStore() as any
+  const allCats = [...categories, ...((customCategories ?? []) as string[])]
+  const active = (accounts as Account[]).filter((a: Account) => !a.archived)
   const form = useForm<TransactionForm>({ resolver: zodResolver(transactionSchema), defaultValues: item ? { ...item, amount: String(item.amountCents / 100) } : { type: 'expense', amount: '', description: '', category: 'Alimentação', accountId: active[0]?.id ?? '', date: today(), note: '' } })
   const type = form.watch('type')
   const onSubmit = (values: TransactionForm) => {
@@ -120,7 +123,7 @@ export function TransactionModal({ close, item }: { close: () => void; item?: Fi
     <div className="grid grid-cols-3 gap-2">{([['expense', 'Despesa', ArrowUpRight], ['income', 'Receita', ArrowDownLeft], ['transfer', 'Transferir', ChevronRight]] as const).map(([value, label, Icon]) => <button type="button" key={value} onClick={() => form.setValue('type', value)} className={`flex flex-col items-center gap-1 rounded-xl border p-2.5 text-xs font-semibold ${type === value ? 'border-brand bg-blue-50 text-blue-700' : 'text-muted'}`}><Icon size={18}/>{label}</button>)}</div>
     <Field label="Valor" error={form.formState.errors.amount?.message}><MoneyInput ariaLabel="Valor da movimentação" value={form.watch('amount')} onChange={value => form.setValue('amount', value, { shouldDirty: true, shouldValidate: true })}/></Field>
     <Field label="Descrição" error={form.formState.errors.description?.message}><input placeholder={type === 'transfer' ? 'Ex.: Reserva mensal' : 'Ex.: Mercado'} className="field" {...form.register('description')} /></Field>
-    {type !== 'transfer' && <Field label="Categoria"><SelectMenu ariaLabel="Categoria" value={form.watch('category')} onChange={value => form.setValue('category', value, { shouldDirty: true, shouldValidate: true })} options={categories.map(category => ({ value: category, label: category }))}/></Field>}
+    {type !== 'transfer' && <Field label="Categoria"><SelectMenu ariaLabel="Categoria" value={form.watch('category')} onChange={value => form.setValue('category', value, { shouldDirty: true, shouldValidate: true })} options={allCats.map(category => ({ value: category, label: category }))}/></Field>}
     <div className="grid gap-4 sm:grid-cols-2"><Field label={type === 'transfer' ? 'Origem' : 'Conta'} error={form.formState.errors.accountId?.message}><SelectMenu ariaLabel={type === 'transfer' ? 'Conta de origem' : 'Conta'} value={form.watch('accountId')} onChange={value => form.setValue('accountId', value, { shouldDirty: true, shouldValidate: true })} options={[{ value: '', label: 'Selecione' }, ...active.map(account => ({ value: account.id, label: account.name }))]}/></Field>{type === 'transfer' && <Field label="Destino" error={form.formState.errors.destinationAccountId?.message}><SelectMenu ariaLabel="Conta de destino" value={form.watch('destinationAccountId') ?? ''} onChange={value => form.setValue('destinationAccountId', value, { shouldDirty: true, shouldValidate: true })} options={[{ value: '', label: 'Selecione' }, ...active.map(account => ({ value: account.id, label: account.name }))]}/></Field>}</div>
     <Field label="Data"><DatePicker ariaLabel="Data da movimentação" value={form.watch('date')} onChange={value => form.setValue('date', value, { shouldDirty: true, shouldValidate: true })}/></Field><Field label="Observação (opcional)"><textarea rows={2} className="field resize-none" {...form.register('note')} /></Field>
     <button className="btn-primary w-full" type="submit"><Check size={18}/>Salvar movimentação</button>
@@ -210,6 +213,11 @@ export function TransactionRow({ item, onEdit, onDelete, isMenuOpen, onMenuToggl
 function transactionVisual(item: FinanceTransaction): { Icon: LucideIcon; AmountIcon: LucideIcon; amountTone: string; color: string; background: string } {
   if (item.type === 'income') return { Icon: WalletCards, AmountIcon: ArrowDownLeft, amountTone: 'income', color: '#16A36A', background: '#E5F8EF' }
   if (item.type === 'transfer') return { Icon: Wallet, AmountIcon: ArrowLeftRight, amountTone: 'transfer', color: '#2F80ED', background: '#E8F1FE' }
+  // custom category icon pack
+  try {
+    const custom = (useFinanceStore.getState() as any).customCategoryIcons?.[item.category]
+    if (custom && iconByName[custom]) return { Icon: iconByName[custom], AmountIcon: ArrowUpRight, amountTone: 'expense', color: '#2F80ED', background: '#E8F1FE' }
+  } catch {}
   const text = `${item.category} ${item.description}`.toLowerCase()
   if (/aliment|mercado|supermerc/.test(text)) return { Icon: ShoppingCart, AmountIcon: ArrowUpRight, amountTone: 'expense', color: '#2563EB', background: '#DBEAFE' }
   if (/transporte|posto|combust|gasolina/.test(text)) return { Icon: Fuel, AmountIcon: ArrowUpRight, amountTone: 'expense', color: '#2F80ED', background: '#E8F1FE' }
@@ -218,7 +226,7 @@ function transactionVisual(item: FinanceTransaction): { Icon: LucideIcon; Amount
   if (/assinatura|stream|tv/.test(text)) return { Icon: Tv, AmountIcon: ArrowUpRight, amountTone: 'expense', color: '#9164E8', background: '#F0EAFE' }
   if (/saúde|saude/.test(text)) return { Icon: HeartPulse, AmountIcon: ArrowUpRight, amountTone: 'expense', color: '#E65D75', background: '#FCECEF' }
   if (/educação|educacao/.test(text)) return { Icon: GraduationCap, AmountIcon: ArrowUpRight, amountTone: 'expense', color: '#F1A91B', background: '#FFF5DC' }
-  return { Icon: Receipt, AmountIcon: ArrowUpRight, amountTone: 'expense', color: '#6B7280', background: '#F0F1F3' }
+  return { Icon: Package, AmountIcon: ArrowUpRight, amountTone: 'expense', color: '#6B7280', background: '#F0F1F3' }
 }
 
 function formatLongDate(date: string) {

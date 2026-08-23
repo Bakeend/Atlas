@@ -33,7 +33,8 @@ type State = FinanceData & {
   deleteGoal: (id: string) => void
   saveAllocationPlan: (plan: AllocationPlan) => void
   deleteAllocationPlan: (id: string) => void
-  addCustomCategory: (name: string) => void
+  addCustomCategory: (name: string, icon?: string) => void
+  setCustomCategoryIcon: (name: string, icon: string) => void
   renameCategory: (oldName: string, newName: string) => void
   deleteCustomCategory: (name: string) => void
   addAiConversation: (conv: AiConversation) => void
@@ -61,6 +62,7 @@ const data = (s: State): FinanceData => ({
   goals: s.goals ?? [],
   allocationPlans: s.allocationPlans ?? [],
   customCategories: s.customCategories ?? [],
+  customCategoryIcons: (s as any).customCategoryIcons ?? {},
   aiConversations: s.aiConversations ?? [],
   aiMessages: s.aiMessages ?? [],
   aiLogs: s.aiLogs ?? [],
@@ -86,6 +88,7 @@ export const useFinanceStore = create<State>((set, get) => ({
       goals: (loaded as any).goals ?? [],
       allocationPlans: (loaded as any).allocationPlans ?? [],
       customCategories: (loaded as any).customCategories ?? [],
+      customCategoryIcons: (loaded as any).customCategoryIcons ?? {},
       aiConversations: (loaded as any).aiConversations ?? [],
       aiMessages: (loaded as any).aiMessages ?? [],
       aiLogs: (loaded as any).aiLogs ?? [],
@@ -99,6 +102,7 @@ export const useFinanceStore = create<State>((set, get) => ({
       !loaded.readNotificationIds ||
       (loaded as Partial<FinanceData>).forecastRealistic === undefined ||
       (loaded as any).safetyMarginPercent === undefined ||
+      (loaded as any).customCategoryIcons === undefined ||
       (loaded as any).recurringIncomes === undefined ||
       (loaded as any).goals === undefined ||
       (loaded as any).allocationPlans === undefined ||
@@ -147,11 +151,18 @@ export const useFinanceStore = create<State>((set, get) => ({
     persist(data(next)); return next
   }),
   deleteAllocationPlan: id => set(s => { const next = { ...s, allocationPlans: (s.allocationPlans ?? []).filter(p => p.id!==id) }; persist(data(next)); return next }),
-  addCustomCategory: name => set(s => {
+  addCustomCategory: (name, icon) => set(s => {
     const n = name.trim()
     if (!n || (s.customCategories ?? []).some(c=> c.toLowerCase()===n.toLowerCase())) return s
-    const next = { ...s, customCategories: [...(s.customCategories ?? []), n] }
-    persist(data(next)); return next
+    const icons = { ...((s as any).customCategoryIcons ?? {}) }
+    if (icon) icons[n] = icon
+    const next = { ...s, customCategories: [...(s.customCategories ?? []), n], customCategoryIcons: icons }
+    persist(data(next as any)); return next as any
+  }),
+  setCustomCategoryIcon: (name, icon) => set(s => {
+    const icons = { ...((s as any).customCategoryIcons ?? {}), [name]: icon }
+    const next = { ...s, customCategoryIcons: icons }
+    persist(data(next as any)); return next as any
   }),
   renameCategory: (oldName, newName) => set(s => {
     const n = newName.trim()
@@ -161,12 +172,16 @@ export const useFinanceStore = create<State>((set, get) => ({
     const nextRec = s.recurringExpenses.map(r => r.category===oldName ? { ...r, category: n, updatedAt: new Date().toISOString() } : r)
     const nextInc = (s.recurringIncomes ?? []).map((r:any) => r.category===oldName ? { ...r, category: n, updatedAt: new Date().toISOString() } : r)
     const nextCats = (s.customCategories ?? []).map(c => c===oldName? n : c)
-    const next = { ...s, transactions: nextTx, budgets: nextBudgets, recurringExpenses: nextRec, recurringIncomes: nextInc, customCategories: nextCats }
-    persist(data(next)); return next
+    const icons = { ...((s as any).customCategoryIcons ?? {}) }
+    if (icons[oldName]) { icons[n] = icons[oldName]; delete icons[oldName] }
+    const next = { ...s, transactions: nextTx, budgets: nextBudgets, recurringExpenses: nextRec, recurringIncomes: nextInc, customCategories: nextCats, customCategoryIcons: icons }
+    persist(data(next as any)); return next as any
   }),
   deleteCustomCategory: name => set(s => {
-    const next = { ...s, customCategories: (s.customCategories ?? []).filter(c=> c!==name) }
-    persist(data(next)); return next
+    const icons = { ...((s as any).customCategoryIcons ?? {}) }
+    delete icons[name]
+    const next = { ...s, customCategories: (s.customCategories ?? []).filter(c=> c!==name), customCategoryIcons: icons }
+    persist(data(next as any)); return next as any
   }),
   addAiConversation: conv => set(s => { const next = { ...s, aiConversations: [...(s.aiConversations ?? []), conv] }; persist(data(next)); return next }),
   updateAiConversation: conv => set(s => { const next = { ...s, aiConversations: (s.aiConversations ?? []).map(c=> c.id===conv.id? conv : c) }; persist(data(next)); return next }),

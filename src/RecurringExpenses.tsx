@@ -1,8 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
-  AlertTriangle, BellRing, CalendarClock, CalendarRange, Check, CheckCircle2, ChevronLeft,
-  ChevronRight, CirclePause, Clock3, Pencil, Play, Plus, ReceiptText, Repeat2, Search, Trash2,
-  WalletCards, Wifi, House, Zap, Droplets, GraduationCap, Tv, Dumbbell, HeartPulse, Car, Smartphone,
+  AlertTriangle, BellRing, CalendarClock, CalendarRange, Car, Check, CheckCircle2, ChevronLeft,
+  ChevronRight, CirclePause, Clock3, Gamepad2, GraduationCap, HeartPulse, House, Package,
+  Pencil, Play, Plus, Repeat2, Search, ShoppingCart, Trash2, Tv,
   type LucideIcon,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -10,7 +10,8 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { Card, CategoryIcon, DatePicker, Empty, Field, Modal, MoneyInput, SelectMenu, TransactionRow } from './components'
-import { categories, money, parseMoney, today, uid } from './domain'
+import { categories, money, parseMoney, today, uid, type Account, type FinanceTransaction } from './domain'
+import { getCategoryIcon } from './lib/categoryIcons'
 import {
   calculateCommittedAmount, frequencyLabel, getNextUnrecordedOccurrence, getOccurrencesBetween,
   getUnrecordedOccurrencesBetween, recurrenceFrequencies, type RecurrenceFrequency, type RecurringExpense,
@@ -34,8 +35,14 @@ type ItemStatus = 'upcoming' | 'overdue' | 'paid' | 'paused'
 type ExpenseFilter = 'all' | 'active' | ItemStatus
 
 const categoryIcons: Record<string, LucideIcon> = {
-  Moradia: House, Assinaturas: Wifi, Educação: GraduationCap, Saúde: HeartPulse,
-  Transporte: Car, Alimentação: ReceiptText, Lazer: Tv, Outros: WalletCards,
+  Moradia: House,
+  Alimentação: ShoppingCart,
+  Transporte: Car,
+  Saúde: HeartPulse,
+  Lazer: Gamepad2,
+  Educação: GraduationCap,
+  Assinaturas: Tv,
+  Outros: Package,
 }
 
 const addDays = (value: string, amount: number) => { const date = new Date(`${value}T12:00:00`); date.setDate(date.getDate() + amount); return date.toISOString().slice(0, 10) }
@@ -117,19 +124,19 @@ export function RecurringExpensesPage() {
 function SummaryStat({ icon, label, value }: { icon: LucideIcon; label: string; value: string }) { return <Card className="recurring-stat"><CategoryIcon icon={icon}/><div><span>{label}</span><strong>{value}</strong></div></Card> }
 
 function RecurringRow({ expense, date, status, hidden, onClick }: { expense: RecurringExpense; date?: string; status: ItemStatus; hidden: boolean; onClick: () => void }) {
-  const meta = statusMeta[status]; const StatusIcon = meta.icon; const account = useFinanceStore(state => state.accounts.find(value => value.id === expense.accountId))
-  return <button className="recurring-row" onClick={onClick}><CategoryIcon icon={categoryIcons[expense.category] ?? Repeat2}/><div className="min-w-0 flex-1 text-left"><div className="flex items-center gap-2"><strong className="truncate">{expense.name}</strong><span className={meta.className}><StatusIcon size={12}/>{meta.label}</span></div><span>{expense.category} · {frequencyLabel(expense.frequency)} · {account?.name ?? 'Conta removida'} · {formatDate(date)}</span></div><div className="text-right"><b>{money(expense.amountInCents, hidden)}</b><small>{expense.isVariable ? 'estimativa' : 'planejado'}</small></div><ChevronRight size={18} className="text-slate-300"/></button>
+  const meta = statusMeta[status]; const StatusIcon = meta.icon; const account = useFinanceStore(state => state.accounts.find(value => value.id === expense.accountId)); const customIcons = useFinanceStore(state => (state as any).customCategoryIcons)
+  return <button className="recurring-row" onClick={onClick}><CategoryIcon icon={getCategoryIcon(expense.category, customIcons)}/><div className="min-w-0 flex-1 text-left"><div className="flex items-center gap-2"><strong className="truncate">{expense.name}</strong><span className={meta.className}><StatusIcon size={12}/>{meta.label}</span></div><span>{expense.category} · {frequencyLabel(expense.frequency)} · {account?.name ?? 'Conta removida'} · {formatDate(date)}</span></div><div className="text-right"><b>{money(expense.amountInCents, hidden)}</b><small>{expense.isVariable ? 'estimativa' : 'planejado'}</small></div><ChevronRight size={18} className="text-slate-300"/></button>
 }
 
 function RecurringExpenseModal({ item, close }: { item?: RecurringExpense; close: () => void }) {
-  const { accounts, saveRecurringExpense } = useFinanceStore(); const activeAccounts = accounts.filter(account => !account.archived)
+  const { accounts, saveRecurringExpense } = useFinanceStore(); const { customCategories } = useFinanceStore() as any; const activeAccounts = (accounts as Account[]).filter((account: Account) => !account.archived); const allCats = [...categories, ...((customCategories ?? []) as string[])]
   const form = useForm<FormValues>({ resolver: zodResolver(formSchema), defaultValues: item ? { name: item.name, amount: String(item.amountInCents / 100), category: item.category, accountId: item.accountId, frequency: item.frequency, dueDay: String(item.dueDay ?? ''), startDate: item.startDate, endDate: item.endDate ?? '', description: item.description ?? '', notes: item.notes ?? '', isVariable: item.isVariable, reminderEnabled: item.reminderEnabled, reminderDaysBefore: String(item.reminderDaysBefore ?? 3) } : { name: '', amount: '', category: 'Moradia', accountId: activeAccounts[0]?.id ?? '', frequency: 'monthly', dueDay: '10', startDate: today(), endDate: '', description: '', notes: '', isVariable: false, reminderEnabled: true, reminderDaysBefore: '3' } })
   const frequency = form.watch('frequency'); const reminder = form.watch('reminderEnabled')
   const onSubmit = (values: FormValues) => { const timestamp = new Date().toISOString(); saveRecurringExpense({ id: item?.id ?? uid(), name: values.name.trim(), amountInCents: parseMoney(values.amount), category: values.category, accountId: values.accountId, frequency: values.frequency as RecurrenceFrequency, dueDay: ['weekly', 'biweekly'].includes(values.frequency) ? undefined : Number(values.dueDay), startDate: values.startDate, endDate: values.endDate || undefined, description: values.description.trim() || undefined, notes: values.notes.trim() || undefined, isVariable: values.isVariable, isActive: item?.isActive ?? true, reminderEnabled: values.reminderEnabled, reminderDaysBefore: values.reminderEnabled ? Number(values.reminderDaysBefore || 0) : undefined, createdAt: item?.createdAt ?? timestamp, updatedAt: timestamp }); close() }
   return <Modal title={item ? 'Editar gasto recorrente' : 'Novo gasto recorrente'} close={close}><form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
     <Field label="Nome" error={form.formState.errors.name?.message}><input className="field" placeholder="Ex.: Conta de luz" {...form.register('name')}/></Field>
     <Field label="Valor planejado" error={form.formState.errors.amount?.message}><MoneyInput ariaLabel="Valor planejado" value={form.watch('amount')} onChange={value => form.setValue('amount', value, { shouldValidate: true, shouldDirty: true })}/></Field>
-    <div className="grid gap-4 sm:grid-cols-2"><Field label="Categoria"><SelectMenu ariaLabel="Categoria" value={form.watch('category')} onChange={value => form.setValue('category', value)} options={categories.map(value => ({ value, label: value }))}/></Field><Field label="Conta" error={form.formState.errors.accountId?.message}><SelectMenu ariaLabel="Conta de pagamento" value={form.watch('accountId')} onChange={value => form.setValue('accountId', value, { shouldValidate: true })} options={activeAccounts.map(account => ({ value: account.id, label: account.name }))}/></Field></div>
+    <div className="grid gap-4 sm:grid-cols-2"><Field label="Categoria"><SelectMenu ariaLabel="Categoria" value={form.watch('category')} onChange={value => form.setValue('category', value)} options={allCats.map(value => ({ value, label: value }))}/></Field><Field label="Conta" error={form.formState.errors.accountId?.message}><SelectMenu ariaLabel="Conta de pagamento" value={form.watch('accountId')} onChange={value => form.setValue('accountId', value, { shouldValidate: true })} options={activeAccounts.map(account => ({ value: account.id, label: account.name }))}/></Field></div>
     <div className="grid gap-4 sm:grid-cols-2"><Field label="Frequência"><SelectMenu ariaLabel="Frequência" value={frequency} onChange={value => form.setValue('frequency', value as RecurrenceFrequency, { shouldValidate: true })} options={recurrenceFrequencies}/></Field>{!['weekly', 'biweekly'].includes(frequency) && <Field label="Dia do vencimento" error={form.formState.errors.dueDay?.message}><SelectMenu ariaLabel="Dia do vencimento" value={form.watch('dueDay')} onChange={value => form.setValue('dueDay', value, { shouldValidate: true })} options={Array.from({ length: 31 }, (_, index) => ({ value: String(index + 1), label: `Dia ${index + 1}` }))}/></Field>}</div>
     <div className="grid gap-4 sm:grid-cols-2"><Field label="Início"><DatePicker ariaLabel="Data inicial" value={form.watch('startDate')} onChange={value => form.setValue('startDate', value, { shouldValidate: true })}/></Field><Field label="Término (opcional)"><DatePicker ariaLabel="Data final" value={form.watch('endDate')} onChange={value => form.setValue('endDate', value, { shouldValidate: true })}/>{form.watch('endDate') && <button type="button" className="mt-1 text-xs font-semibold text-brand" onClick={() => form.setValue('endDate', '')}>Remover término</button>}</Field></div>
     <Field label="Descrição (opcional)"><input className="field" placeholder="Ex.: Contrato residencial" {...form.register('description')}/></Field><Field label="Observações (opcional)"><textarea className="field resize-none" rows={2} {...form.register('notes')}/></Field>
@@ -143,13 +150,13 @@ function RecurringExpenseModal({ item, close }: { item?: RecurringExpense; close
 function ToggleRow({ active, onClick, title, text }: { active: boolean; onClick: () => void; title: string; text: string }) { return <button type="button" className="settings-row !mt-0" onClick={onClick}><div><p className="font-semibold">{title}</p><p className="mt-1 text-xs text-muted">{text}</p></div><span className={`toggle ${active ? 'active' : ''}`}><span/></span></button> }
 
 function RecurringDetailModal({ item, close, edit }: { item: RecurringExpense; close: () => void; edit: () => void }) {
-  const { transactions, accounts, hideBalances, toggleRecurringExpense, deleteRecurringExpense } = useFinanceStore()
+  const { transactions, accounts, hideBalances, toggleRecurringExpense, deleteRecurringExpense } = useFinanceStore(); const { customCategoryIcons } = useFinanceStore() as any
   const [payment, setPayment] = useState(false); const [confirmDelete, setConfirmDelete] = useState(false)
   const linked = transactions.filter(transaction => !transaction.deletedAt && transaction.recurringExpenseId === item.id).sort((a, b) => b.date.localeCompare(a.date))
   const occurrence = earliestOpenOccurrence(item, transactions); const status = expenseStatus(item, transactions); const meta = statusMeta[status]; const account = accounts.find(value => value.id === item.accountId)
   const realized = linked[0]?.amountCents
   if (confirmDelete) return <Modal title="Excluir gasto recorrente?" close={() => setConfirmDelete(false)}><div className="rounded-2xl bg-red-50 p-4 text-red-700"><AlertTriangle/><p className="mt-3 text-sm leading-6">Essa ação removerá os próximos lançamentos planejados desta recorrência. As transações já registradas não serão excluídas.</p></div><div className="mt-6 grid grid-cols-2 gap-3"><button className="btn-secondary" onClick={() => setConfirmDelete(false)}>Cancelar</button><button className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white" onClick={() => { deleteRecurringExpense(item.id); close() }}>Excluir</button></div></Modal>
-  return <><Modal title={item.name} close={close}><div className="recurring-detail-hero"><CategoryIcon icon={categoryIcons[item.category] ?? Repeat2} size={25}/><div><span className={meta.className}>{meta.label}</span><strong>{money(item.amountInCents, hideBalances)}</strong><p>{item.category} · {frequencyLabel(item.frequency)}</p></div></div>
+  return <><Modal title={item.name} close={close}><div className="recurring-detail-hero"><CategoryIcon icon={getCategoryIcon(item.category, customCategoryIcons)} size={25}/><div><span className={meta.className}>{meta.label}</span><strong>{money(item.amountInCents, hideBalances)}</strong><p>{item.category} · {frequencyLabel(item.frequency)}</p></div></div>
     <div className="recurring-detail-grid"><div><span>Próximo vencimento</span><strong>{formatDate(occurrence)}</strong></div><div><span>Conta</span><strong>{account?.name ?? 'Conta removida'}</strong></div><div><span>Planejado</span><strong>{money(item.amountInCents, hideBalances)}</strong></div><div><span>Último realizado</span><strong>{realized == null ? 'Ainda não pago' : money(realized, hideBalances)}</strong></div></div>
     {item.description && <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{item.description}</p>}
     <div className="mt-5 grid grid-cols-2 gap-3"><button className="btn-secondary" onClick={edit}><Pencil size={16}/>Editar</button><button className="btn-secondary" onClick={() => { toggleRecurringExpense(item.id); close() }}>{item.isActive ? <CirclePause size={16}/> : <Play size={16}/>} {item.isActive ? 'Pausar' : 'Reativar'}</button>{item.isActive && occurrence && <button className="btn-primary col-span-2" onClick={() => setPayment(true)}><CheckCircle2 size={18}/>Marcar como pago</button>}<button className="col-span-2 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50" onClick={() => setConfirmDelete(true)}><Trash2 size={16}/>Excluir recorrência</button></div>
