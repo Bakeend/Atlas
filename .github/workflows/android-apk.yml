@@ -64,3 +64,5 @@ jobs:
           path: Atlas-Financas-debug.apk
           if-no-files-found: error
           retention-days: 7
+
+      # This workflow change intentionally triggers a fresh APK build for the latest mobile fixes.
