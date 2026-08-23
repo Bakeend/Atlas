@@ -1,7 +1,26 @@
-import type { RecurringExpense } from './recurring'
-
 export type TransactionType = 'income' | 'expense' | 'transfer'
 export type AccountType = 'checking' | 'savings' | 'cash' | 'wallet' | 'investment'
+export type RecurrenceFrequency = 'weekly' | 'biweekly' | 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'yearly'
+
+export interface RecurringExpense {
+  id: string
+  name: string
+  amountInCents: number
+  category: string
+  accountId: string
+  frequency: RecurrenceFrequency
+  dueDay?: number
+  startDate: string
+  endDate?: string
+  description?: string
+  notes?: string
+  isVariable: boolean
+  isActive: boolean
+  reminderEnabled: boolean
+  reminderDaysBefore?: number
+  createdAt: string
+  updatedAt: string
+}
 
 export interface Account {
   id: string
@@ -32,7 +51,111 @@ export interface FinanceTransaction {
 
 export interface Budget { id: string; category: string; month: string; limitCents: number }
 
-export interface FinanceData { accounts: Account[]; transactions: FinanceTransaction[]; budgets: Budget[]; recurringExpenses: RecurringExpense[]; hideBalances: boolean }
+export interface Goal {
+  id: string
+  title: string
+  targetAmountInCents: number
+  currentAmountInCents: number
+  category?: string
+  accountId?: string
+  deadline?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface RecurringIncome {
+  id: string
+  name: string
+  amountInCents: number
+  category: string
+  accountId: string
+  frequency: RecurrenceFrequency
+  dueDay?: number
+  startDate: string
+  endDate?: string
+  description?: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AllocationItem {
+  id: string
+  type: 'bill' | 'budget' | 'goal' | 'reserve' | 'free'
+  label: string
+  amountInCents: number
+  categoryId?: string
+  recurringExpenseId?: string
+  goalId?: string
+}
+
+export interface AllocationPlan {
+  id: string
+  periodStart: string
+  periodEnd: string
+  availableAmountInCents: number
+  allocations: AllocationItem[]
+  createdAt: string
+  status: 'draft' | 'applied'
+  note?: string
+}
+
+export interface AiConversation {
+  id: string
+  title: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AiMessage {
+  id: string
+  conversationId: string
+  role: 'user' | 'assistant' | 'tool'
+  content: string
+  toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown> }>
+  toolResults?: Array<{ toolCallId: string; name: string; result: unknown }>
+  createdAt: string
+}
+
+export interface AiActionLog {
+  id: string
+  timestamp: string
+  conversationId: string
+  action: string
+  entityType: string
+  entityId: string
+  status: 'success' | 'failed' | 'pending_confirmation'
+  requiresConfirmation: boolean
+  detail?: string
+}
+
+export interface AiRule {
+  id: string
+  type: 'category_mapping'
+  pattern: string
+  targetId: string
+  enabled: boolean
+  createdAt: string
+}
+
+export interface FinanceData {
+  accounts: Account[]
+  transactions: FinanceTransaction[]
+  budgets: Budget[]
+  recurringExpenses: RecurringExpense[]
+  recurringIncomes: RecurringIncome[]
+  goals: Goal[]
+  allocationPlans: AllocationPlan[]
+  customCategories: string[]
+  aiConversations: AiConversation[]
+  aiMessages: AiMessage[]
+  aiLogs: AiActionLog[]
+  aiRules: AiRule[]
+  hideBalances: boolean
+  readNotificationIds: string[]
+  forecastRealistic: boolean
+  safetyMarginPercent: number
+}
 
 export const categories = ['Alimentação', 'Moradia', 'Transporte', 'Saúde', 'Lazer', 'Educação', 'Assinaturas', 'Outros']
 export const uid = () => crypto.randomUUID()
@@ -76,6 +199,17 @@ export function seededData(): FinanceData {
     ],
     budgets: [{ id: 'budget-food', category: 'Alimentação', month, limitCents: 80000 }, { id: 'budget-leisure', category: 'Lazer', month, limitCents: 40000 }],
     recurringExpenses,
+    recurringIncomes: [],
+    goals: [],
+    allocationPlans: [],
+    customCategories: [],
+    aiConversations: [],
+    aiMessages: [],
+    aiLogs: [],
+    aiRules: [],
     hideBalances: false,
+    readNotificationIds: [],
+    forecastRealistic: true,
+    safetyMarginPercent: 10,
   }
 }

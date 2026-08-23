@@ -1,0 +1,482 @@
+Implemente no aplicativo financeiro existente a funcionalidade:
+
+# Quanto posso gastar hoje?
+
+A feature deve responder uma pergunta simples:
+
+> **Quanto posso gastar hoje sem comprometer minhas contas e planejamento?**
+
+O valor precisa ser calculado pelo motor financeiro, nunca inventado pela IA.
+
+---
+
+# Conceito
+
+Não utilizar simplesmente:
+
+```text
+dinheiroLivre / 30
+```
+
+O cálculo deve considerar quantos dias faltam até o próximo recebimento relevante.
+
+Exemplo:
+
+```text
+Dinheiro livre
+R$ 900
+
+Dias até próximo salário
+15
+```
+
+Base:
+
+```text
+R$ 900 / 15
+= R$ 60/dia
+```
+
+Porém a regra deve ser mais inteligente.
+
+---
+
+# Elementos considerados
+
+Considerar:
+
+```text
+dinheiro livre atual
+próximo pagamento
+dias restantes
+contas futuras
+gastos já reservados
+orçamento diário já consumido
+eventos financeiros próximos
+margem de segurança
+```
+
+---
+
+# Motor financeiro
+
+Criar:
+
+```ts
+calculateSafeDailySpend()
+```
+
+Resultado possível:
+
+```ts
+{
+  freeMoneyInCents: 90000,
+  daysUntilNextIncome: 15,
+  safeDailySpendInCents: 6000,
+  spentTodayInCents: 2000,
+  remainingTodayInCents: 4000,
+  nextIncomeDate: "2026-09-05"
+}
+```
+
+---
+
+# Hoje
+
+Se o limite recomendado for:
+
+```text
+R$ 60
+```
+
+e o usuário já gastou:
+
+```text
+R$ 20
+```
+
+mostrar:
+
+```text
+Pode gastar hoje
+
+R$ 40
+
+Seu limite recomendado hoje é R$ 60.
+Você já utilizou R$ 20.
+```
+
+---
+
+# Dashboard
+
+Criar card:
+
+```text
+Quanto posso gastar hoje?
+
+R$ 40,00
+
+R$ 20 de R$ 60 usados
+
+████████░░░░░
+```
+
+Adicionar:
+
+```text
+Próximo pagamento em 15 dias
+```
+
+Botão:
+
+```text
+Ver cálculo
+```
+
+---
+
+# Visual
+
+Utilizar:
+
+* card clean;
+* ícone apropriado;
+* barra de progresso;
+* verde quando confortável;
+* amarelo quando próximo;
+* vermelho apenas quando ultrapassado.
+
+Nunca depender apenas das cores.
+
+---
+
+# Estados
+
+## Normal
+
+```text
+R$ 60 disponíveis hoje
+```
+
+## Próximo do limite
+
+```text
+Restam R$ 12 hoje
+```
+
+## Limite alcançado
+
+```text
+Você atingiu o valor recomendado para hoje.
+```
+
+## Acima do recomendado
+
+```text
+Você gastou R$ 35 acima do recomendado hoje.
+```
+
+Não bloquear transações.
+
+É orientação financeira, não restrição.
+
+---
+
+# Ajuste dinâmico
+
+Se o usuário gastar menos hoje:
+
+```text
+limite R$ 60
+gasto R$ 30
+sobra R$ 30
+```
+
+essa sobra pode ser redistribuída entre os próximos dias.
+
+Exemplo:
+
+```text
+Ontem você gastou R$ 30 abaixo do planejado.
+
+Seu limite diário foi reajustado
+de R$ 60 para R$ 62.
+```
+
+O cálculo deve ser determinístico.
+
+---
+
+# Gastar mais em um dia
+
+Se o usuário gastar:
+
+```text
+R$ 100
+```
+
+com limite:
+
+```text
+R$ 60
+```
+
+o sistema recalcula os próximos dias.
+
+Exemplo:
+
+```text
+Você utilizou R$ 40 a mais hoje.
+
+Para manter seu planejamento,
+o valor médio recomendado passa para R$ 57/dia.
+```
+
+---
+
+# Gastos reservados
+
+Não considerar como gasto diário valores que já fazem parte de uma reserva obrigatória quando forem pagos.
+
+Exemplo:
+
+```text
+Aluguel
+R$ 1.425
+```
+
+Se já estava reservado, pagar o aluguel não deve destruir o cálculo de limite diário como se fosse gasto livre inesperado.
+
+Diferenciar:
+
+```text
+gasto reservado
+```
+
+de:
+
+```text
+gasto discricionário
+```
+
+---
+
+# Classificação
+
+Criar ou aproveitar classificação:
+
+```text
+essential
+discretionary
+reserved
+```
+
+Exemplo:
+
+```text
+Aluguel
+reserved
+
+Internet
+reserved
+
+Mercado
+essential
+
+Restaurante
+discretionary
+```
+
+Não depender exclusivamente da IA para essa classificação.
+
+---
+
+# IA
+
+Criar tool:
+
+```text
+getSafeDailySpend
+```
+
+Perguntas suportadas:
+
+```text
+Quanto posso gastar hoje?
+```
+
+```text
+Posso gastar R$ 200 hoje?
+```
+
+```text
+Se eu gastar R$ 150 hoje, como fica?
+```
+
+```text
+Quanto posso gastar por dia até receber?
+```
+
+---
+
+# Simulação
+
+Adicionar tool:
+
+```text
+simulateDailySpend
+```
+
+Usuário:
+
+```text
+Posso gastar R$ 300 hoje?
+```
+
+Não registrar nenhuma despesa.
+
+Simular:
+
+```text
+Se você gastar R$ 300 hoje:
+
+Dinheiro livre:
+R$ 900 → R$ 600
+
+Novo limite médio:
+R$ 42,85/dia
+
+Seu próximo pagamento acontece em 14 dias.
+```
+
+---
+
+# Não criar culpa
+
+As mensagens devem ser objetivas.
+
+Evitar:
+
+```text
+Você gastou demais!
+```
+
+Preferir:
+
+```text
+Você ultrapassou o valor recomendado de hoje em R$ 35.
+
+O limite médio para os próximos 9 dias
+foi ajustado para R$ 48.
+```
+
+---
+
+# Centro Hoje
+
+Criar ou preparar uma seção:
+
+```text
+Hoje
+```
+
+Exemplo:
+
+```text
+Disponível hoje
+R$ 58
+
+Dinheiro livre
+R$ 920
+
+Próxima conta
+Internet
+Amanhã — R$ 119,90
+
+Próximo recebimento
+Salário
+12 dias — R$ 4.500
+```
+
+---
+
+# Configuração
+
+Permitir margem de segurança.
+
+Exemplo:
+
+```text
+Margem de segurança
+10%
+```
+
+Se o usuário tiver:
+
+```text
+R$ 1.000 livres
+```
+
+o sistema pode considerar:
+
+```text
+R$ 900 distribuíveis
+R$ 100 protegidos
+```
+
+---
+
+# Limites
+
+Se não houver receita futura cadastrada:
+
+não inventar período.
+
+Mostrar:
+
+```text
+Cadastre seu próximo recebimento
+para calcular um limite diário mais preciso.
+```
+
+Pode oferecer uma estimativa mensal somente se estiver claramente identificada como estimativa.
+
+---
+
+# Testes
+
+Testar:
+
+* dinheiro livre positivo;
+* dinheiro livre zero;
+* déficit;
+* gasto parcial durante o dia;
+* gasto acima do recomendado;
+* pagamento amanhã;
+* salário amanhã;
+* salário em 30 dias;
+* conta já reservada;
+* gasto inesperado;
+* margem de segurança;
+* simulação sem persistência;
+* ausência de próxima receita.
+
+---
+
+# Critério de conclusão
+
+A feature está pronta quando:
+
+* cálculo for preciso;
+* utilizar Dinheiro Livre;
+* considerar próximo pagamento;
+* atualizar após cada transação;
+* distinguir gasto reservado de livre;
+* recalcular automaticamente;
+* dashboard exibir valor;
+* IA conseguir consultá-lo;
+* IA conseguir simular despesas;
+* simulação não modificar dados reais;
+* persistência funcionar;
+* testes passarem.

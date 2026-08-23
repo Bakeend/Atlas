@@ -1,26 +1,5 @@
-import type { FinanceTransaction } from './domain'
-
-export type RecurrenceFrequency = 'weekly' | 'biweekly' | 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'yearly'
-
-export interface RecurringExpense {
-  id: string
-  name: string
-  amountInCents: number
-  category: string
-  accountId: string
-  frequency: RecurrenceFrequency
-  dueDay?: number
-  startDate: string
-  endDate?: string
-  description?: string
-  notes?: string
-  isVariable: boolean
-  isActive: boolean
-  reminderEnabled: boolean
-  reminderDaysBefore?: number
-  createdAt: string
-  updatedAt: string
-}
+import type { FinanceTransaction, RecurrenceFrequency, RecurringExpense } from './domain'
+export type { RecurrenceFrequency, RecurringExpense } from './domain'
 
 export const recurrenceFrequencies: Array<{ value: RecurrenceFrequency; label: string }> = [
   { value: 'weekly', label: 'Semanal' },

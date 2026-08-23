@@ -104,6 +104,25 @@
   .dashboard-header p { @apply mt-1 text-sm text-muted sm:text-[15px]; }
   .notification-button { @apply relative grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink transition hover:bg-white hover:shadow-sm; }
   .notification-dot { @apply absolute right-[9px] top-[8px] h-2.5 w-2.5 rounded-full border-2 border-canvas bg-blue-500; }
+  .notification-overlay { @apply fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/35 p-0 backdrop-blur-[2px] sm:items-center sm:p-6; animation: overlay-fade-in 160ms ease-out; }
+  .notification-panel { @apply w-full max-w-[520px] rounded-t-[30px] border border-white/70 bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.30)] sm:rounded-[30px] sm:p-6; animation: money-panel-in 220ms cubic-bezier(.2,.8,.2,1); }
+  .notification-panel-heading { @apply flex items-center justify-between gap-4; }
+  .notification-panel-heading p { @apply text-sm font-medium text-brand; }
+  .notification-panel-heading h2 { @apply mt-0.5 text-xl font-bold tracking-tight text-ink; }
+  .notification-mark-all { @apply mt-5 inline-flex items-center gap-2 text-sm font-semibold text-blue-600 transition hover:text-blue-700; }
+  .notification-list { @apply mt-4 max-h-[62vh] space-y-2 overflow-y-auto pr-1; }
+  .notification-item { @apply relative flex w-full items-start gap-3 rounded-2xl border border-slate-100 bg-white p-3.5 text-left transition hover:border-blue-100 hover:bg-blue-50/50; }
+  .notification-item.unread { @apply border-blue-100 bg-blue-50/45; }
+  .notification-item-icon { @apply grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-600; }
+  .notification-item.overdue .notification-item-icon, .notification-item.budget-exceeded .notification-item-icon { @apply bg-red-100 text-red-600; }
+  .notification-item.budget-warning .notification-item-icon { @apply bg-amber-100 text-amber-600; }
+  .notification-item-content { @apply min-w-0 flex-1; }
+  .notification-item-content strong { @apply block text-sm font-semibold text-ink; }
+  .notification-item-content small { @apply mt-1 block text-xs leading-5 text-muted; }
+  .notification-unread-dot { @apply mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-500; }
+  .notification-empty { @apply flex min-h-[220px] flex-col items-center justify-center text-center text-slate-400; }
+  .notification-empty strong { @apply mt-3 text-sm font-semibold text-ink; }
+  .notification-empty p { @apply mt-1 text-sm text-muted; }
 
   .balance-card { @apply relative min-h-[178px] overflow-hidden rounded-[24px] p-6 text-white; background: linear-gradient(135deg, #4c94f3 0%, #2f80ed 100%); box-shadow: 0 10px 25px rgba(47, 128, 237, 0.20); }
   .balance-card::before { content: ''; @apply pointer-events-none absolute inset-0; background: radial-gradient(circle at 35% -20%, rgba(255,255,255,.22), transparent 42%); }
@@ -170,13 +189,13 @@
   .recurring-summary-grid { @apply grid grid-cols-2 gap-3; }
   .recurring-stat { @apply flex min-w-0 items-center gap-3 p-4; }
   .recurring-stat > div { @apply min-w-0; }
-  .recurring-stat span { @apply block text-[11px] leading-4 text-muted sm:text-xs; }
+  .recurring-stat > div > span { @apply block text-[11px] leading-4 text-muted sm:text-xs; }
   .recurring-stat strong { @apply mt-1 block truncate text-base font-bold tabular-nums sm:text-lg; }
   .recurring-stat-primary { @apply col-span-2 p-5; }
   .recurring-stat-primary .category-icon { @apply h-12 w-12; }
   .recurring-stat .category-icon svg { stroke-width: 2.1; }
   .recurring-stat-primary > div { @apply flex-1; }
-  .recurring-stat-primary span { @apply text-xs font-medium text-slate-500; }
+  .recurring-stat-primary > div > span { @apply text-xs font-medium text-slate-500; }
   .recurring-stat-primary strong { @apply mt-1 text-2xl sm:text-[28px]; }
   .recurring-stat-primary small { @apply mt-1 block text-xs text-muted; }
   .recurring-search { @apply flex items-center gap-2 rounded-xl border bg-white px-3 text-slate-400 transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15; }
@@ -212,6 +231,106 @@
   .toggle > span { @apply block h-5 w-5 rounded-full bg-white shadow transition; }
   .toggle.active { @apply bg-brand; }
   .toggle.active > span { @apply translate-x-5; }
+
+  .import-dropzone { @apply flex flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-blue-200 bg-blue-50/40 px-5 py-8 text-center transition hover:border-blue-300 hover:bg-blue-50/70; }
+  .import-dropzone.drag-over { @apply border-blue-500 bg-blue-50; }
+  .import-dropzone-icon { @apply mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-white text-blue-600 shadow-sm; }
+  .import-dropzone strong { @apply text-sm font-semibold text-ink; }
+  .import-dropzone span { @apply mt-1 text-xs text-muted; }
+  .import-summary-grid { @apply mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4; }
+  .import-stat { @apply p-4 text-center; }
+  .import-stat span { @apply block text-xs font-medium text-muted; }
+  .import-stat strong { @apply mt-1 block text-xl font-bold tabular-nums; }
+  .import-stat small { @apply mt-0.5 block text-[11px] text-muted; }
+  .import-stat.ok strong { @apply text-emerald-600; }
+  .import-stat.warn strong { @apply text-amber-600; }
+  .import-stat.err strong { @apply text-red-600; }
+  .import-search { @apply flex items-center gap-2 rounded-xl border bg-white px-3 text-slate-400 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15; }
+  .import-search input { @apply min-h-10 w-full bg-transparent text-sm text-ink outline-none placeholder:text-slate-400; }
+   .import-row { @apply flex gap-3 px-4 py-4 sm:px-5; }
+  .import-row.dup { @apply bg-amber-50/40; }
+  .import-row.invalid { @apply bg-red-50/50; }
+  .import-check { @apply pt-0.5; }
+  .import-check input { @apply h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/20; }
+  .import-type { @apply inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold; }
+  .import-type.income { @apply bg-emerald-50 text-emerald-700; }
+  .import-type.expense { @apply bg-red-50 text-red-700; }
+  .import-row-actions { @apply shrink-0 text-right; }
+
+  /* Assistant */
+  .ai-fab { @apply inline-flex items-center gap-1.5 rounded-full bg-gradient-to-br from-blue-600 to-blue-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:brightness-110; }
+  .ai-header-fab { @apply inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-600; }
+  .ai-hero-card { @apply mt-5 flex items-center gap-3 bg-gradient-to-br from-blue-50 to-white !p-4; }
+  .ai-hero-icon { @apply grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand text-white; }
+  .ai-hero-card strong { @apply block text-sm font-semibold text-ink; }
+  .ai-hero-card p { @apply mt-0.5 text-xs leading-5 text-muted; }
+  .ai-hero-cta { @apply shrink-0 !px-4 !py-2 text-xs; }
+  .ai-page { @apply flex min-h-[calc(100vh-140px)] flex-col; }
+  .ai-header { @apply flex items-center gap-3 px-1 py-2; }
+  .ai-back { @apply grid h-9 w-9 place-items-center rounded-full bg-white shadow-sm; }
+  .ai-header-title { @apply flex-1 min-w-0; }
+  .ai-header-title h1 { @apply flex items-center gap-1.5 text-lg font-bold tracking-tight; }
+  .ai-header-title p { @apply text-xs text-muted; }
+  .ai-header-actions { @apply flex items-center gap-1; }
+  .ai-history { @apply mt-2; }
+  .ai-history-head { @apply flex items-center justify-between; }
+  .ai-history-list { @apply mt-3 space-y-2 max-h-64 overflow-y-auto; }
+  .ai-history-item { @apply flex items-center gap-2 rounded-xl border bg-white p-2; }
+  .ai-history-item.active { @apply border-brand bg-blue-50; }
+  .ai-history-select { @apply flex-1 text-left; }
+  .ai-history-select strong { @apply block truncate text-sm font-semibold; }
+  .ai-history-select small { @apply text-xs text-muted; }
+  .ai-history-delete { @apply grid h-7 w-7 place-items-center rounded-full text-red-500 hover:bg-red-50; }
+  .ai-empty { @apply flex flex-1 flex-col items-center justify-center px-4 py-10 text-center; }
+  .ai-empty-icon { @apply mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-blue-100 text-brand; }
+  .ai-empty h2 { @apply text-lg font-bold; }
+  .ai-empty p { @apply mt-1 text-sm text-muted; }
+  .ai-suggestions { @apply mt-6 grid w-full gap-2 sm:grid-cols-2; }
+  .ai-suggestion { @apply flex items-center gap-2 rounded-2xl border bg-white p-3 text-left text-sm font-medium transition hover:border-blue-200 hover:bg-blue-50/50; }
+  .ai-tip { @apply mt-4 max-w-md !p-3; }
+  .ai-messages { @apply flex-1 space-y-4 overflow-y-auto px-1 py-4; max-height: calc(100vh - 260px); }
+  .ai-msg { @apply flex; }
+  .ai-msg.user { @apply justify-end; }
+  .ai-msg.assistant { @apply justify-start; }
+  .ai-bubble { @apply max-w-[86%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm; }
+  .ai-bubble.user { @apply bg-brand text-white; }
+  .ai-bubble.assistant { @apply bg-white border; }
+  .ai-bubble.streaming { @apply flex items-center gap-2 bg-blue-50 border-brand text-brand; }
+  .ai-bubble-content { @apply whitespace-pre-wrap break-words; }
+  .ai-time { @apply mt-1 block text-[10px] opacity-60; }
+  .ai-tool-cards { @apply mt-3 space-y-2; }
+  .ai-card { @apply rounded-xl border bg-slate-50 p-3; }
+  .ai-card-header { @apply flex items-center gap-2 text-xs font-semibold text-ink; }
+  .ai-card-body { @apply mt-2 flex flex-col gap-1; }
+  .ai-card-body strong { @apply text-sm font-semibold; }
+  .ai-card-body small { @apply text-xs text-muted; }
+  .ai-badge { @apply ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold; }
+  .ai-badge.income { @apply bg-emerald-100 text-emerald-700; }
+  .ai-badge.expense { @apply bg-red-100 text-red-700; }
+  .ai-undo { @apply mt-2 inline-flex rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-200; }
+  .ai-analysis-row { @apply flex justify-between gap-2 text-xs; }
+  .ai-plan { @apply bg-white border-brand/20; }
+  .ai-plan-subtitle { @apply mt-1 text-xs text-muted; }
+  .ai-plan-list { @apply mt-3 space-y-2; }
+  .ai-plan-item { @apply flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2; }
+  .ai-plan-item span { @apply text-sm font-medium; }
+  .ai-plan-item small { @apply ml-1 text-[10px] text-muted; }
+  .ai-plan-item strong { @apply text-sm font-bold tabular-nums; }
+  .ai-plan-free { @apply mt-3 text-sm font-semibold text-emerald-700; }
+  .ai-plan-warn { @apply mt-2 text-xs font-medium text-amber-600; }
+  .ai-plan-actions { @apply mt-4 grid grid-cols-2 gap-2; }
+  .ai-error { @apply border-red-200 bg-red-50 text-red-700; }
+  .ai-generic { @apply bg-white; }
+  .ai-json { @apply max-h-48 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-4; }
+  .ai-error-banner { @apply rounded-2xl border border-red-200 bg-red-50 p-4; }
+  .ai-error-banner p { @apply text-sm font-medium text-red-700; }
+  .ai-error-banner small { @apply mt-1 block text-xs text-red-600; }
+  .ai-error-actions { @apply mt-3 flex items-center gap-2; }
+  .ai-input-bar { @apply sticky bottom-[76px] mt-auto bg-canvas pt-3 sm:bottom-0; }
+  .ai-input-wrap { @apply flex items-center gap-2 rounded-2xl border bg-white p-2 shadow-sm focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20; }
+  .ai-input-wrap input { @apply flex-1 bg-transparent px-2 py-1 text-sm outline-none placeholder:text-slate-400; }
+  .ai-send { @apply grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand text-white transition hover:bg-blue-600 disabled:opacity-40; }
+  .ai-input-hint { @apply mt-1.5 px-1 text-center text-[11px] text-muted; }
 }
 
 @keyframes select-popover-in {
@@ -249,7 +368,7 @@
   .transaction-row { gap: 9px; }
   .recurring-stat:not(.recurring-stat-primary) { gap: 8px; padding: 14px 12px; }
   .recurring-stat:not(.recurring-stat-primary) .category-icon { width: 36px; height: 36px; }
-  .recurring-stat:not(.recurring-stat-primary) span { font-size: 10px; line-height: 14px; }
+  .recurring-stat:not(.recurring-stat-primary) > div > span { font-size: 10px; line-height: 14px; }
   .recurring-stat:not(.recurring-stat-primary) strong { overflow: visible; font-size: 14px; white-space: nowrap; }
 }
 

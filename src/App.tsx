@@ -1,15 +1,20 @@
 import {
-  ArrowDownLeft, ArrowUpRight, Bell, Car, ChartPie, Check, ChevronDown, ChevronRight,
-  Download, Eye, EyeOff, Gamepad2, House, MoreHorizontal, Plus, ReceiptText, Settings,
-  TrendingDown, TrendingUp, UserRound, Utensils, Wallet, type LucideIcon,
+  AlertTriangle, ArrowDownLeft, ArrowUpRight, Bell, BellRing, Car, ChartPie, Check, CheckCheck, ChevronDown, ChevronRight,
+  Download, Eye, EyeOff, FileUp, Gamepad2, House, MoreHorizontal, Plus, ReceiptText, Settings, Sparkles,
+  TrendingDown, TrendingUp, UserRound, Utensils, Wallet, X, type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { AccountIcon, AccountModal, Card, CategoryIcon, Empty, MoneyInput, SelectMenu, TransactionModal, TransactionRow } from './components'
-import { accountBalance, categories, currentMonth, money, parseMoney, uid, type FinanceTransaction } from './domain'
+import { accountBalance, categories, currentMonth, money, parseMoney, today, uid, type FinanceTransaction } from './domain'
 import { useFinanceStore } from './store'
 import { RecurringDashboardCard, RecurringExpensesPage } from './RecurringExpenses'
+import { ImportPage } from './ImportPage'
+import { ForecastDashboardCard, ForecastPage } from './ForecastPage'
+import { DailySpendCard } from './DailySpend'
+import { AiAssistantPage } from './ai/components/AiAssistantPage'
+import { getFinanceNotifications, type FinanceNotification } from './notifications'
 
 const navigation = [
   { to: '/', label: 'Início', icon: House },
@@ -24,7 +29,7 @@ function Shell() {
   useEffect(() => { void hydrate() }, [hydrate])
   if (!ready) return <div className="grid min-h-screen place-items-center"><div className="text-center"><div className="mx-auto h-11 w-11 animate-pulse rounded-full bg-brand"/><p className="mt-3 text-sm text-muted">Carregando suas finanças…</p></div></div>
   return <div className="min-h-screen"><main className="app-content"><Routes>
-    <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/recurring" element={<RecurringExpensesPage/>}/><Route path="/profile" element={<Profile/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
+    <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/import" element={<ImportPage/>}/><Route path="/forecast" element={<ForecastPage/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/recurring" element={<RecurringExpensesPage/>}/><Route path="/assistant" element={<AiAssistantPage/>}/><Route path="/profile" element={<Profile/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
   </Routes></main><BottomNavigation onNew={() => setNewTransaction(true)}/>{newTransaction && <TransactionModal close={() => setNewTransaction(false)}/>}</div>
 }
 
@@ -40,8 +45,13 @@ function BottomNavItem({ to, label, icon: Icon }: { to: string; label: string; i
   return <NavLink end={to === '/'} to={to} className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}><Icon size={22} strokeWidth={1.9}/><span>{label}</span></NavLink>
 }
 
+function AiFab() {
+  return <NavLink to="/assistant" className="ai-fab" aria-label="Assistente financeiro"><Sparkles size={20}/><span>Assistente</span></NavLink>
+}
+
 function Dashboard() {
-  const { accounts, transactions, budgets, hideBalances, toggleBalances } = useFinanceStore()
+  const { accounts, transactions, budgets, recurringExpenses, readNotificationIds, markNotificationRead, markAllNotificationsRead, hideBalances, toggleBalances } = useFinanceStore()
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const live = transactions.filter(transaction => !transaction.deletedAt)
   const month = currentMonth()
   const total = accounts.filter(account => !account.archived).reduce((sum, account) => sum + accountBalance(account, live), 0)
@@ -56,16 +66,44 @@ function Dashboard() {
   const budgetData = budgetCategories(live, month)
   const expenseTotal = budgetData.reduce((sum, item) => sum + item.value, 0)
   const hasBudget = budgets.some(budget => budget.month === month)
+  const notifications = useMemo(() => getFinanceNotifications({ recurringExpenses, transactions, budgets, referenceDate: today() }), [recurringExpenses, transactions, budgets])
+  const unreadNotifications = notifications.filter(notification => !readNotificationIds.includes(notification.id))
 
   return <>
-    <header className="dashboard-header"><div><h1>Olá, Daniel <span aria-hidden="true">👋</span></h1><p>Aqui está o resumo das suas finanças</p></div><button className="notification-button" aria-label="Notificações"><Bell size={23} strokeWidth={1.9}/><span className="notification-dot"/></button></header>
+    <header className="dashboard-header"><div><h1>Olá, Daniel <span aria-hidden="true">👋</span></h1><p>Aqui está o resumo das suas finanças</p></div><div className="flex items-center gap-2"><NavLink to="/assistant" className="ai-header-fab"><Sparkles size={16}/> Assistente</NavLink><button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`Notificações${unreadNotifications.length ? `: ${unreadNotifications.length} não lidas` : ''}`} aria-haspopup="dialog" aria-expanded={notificationsOpen}><Bell size={23} strokeWidth={1.9}/>{unreadNotifications.length > 0 && <span className="notification-dot"/>}</button></div></header>
+    {notificationsOpen && <NotificationCenter notifications={notifications} unreadIds={readNotificationIds} close={() => setNotificationsOpen(false)} markRead={markNotificationRead} markAllRead={markAllNotificationsRead}/>}
+    <Card className="ai-hero-card"><div className="ai-hero-icon"><Sparkles size={22}/></div><div className="flex-1 min-w-0"><strong>Assistente financeiro</strong><p>Registre gastos, organize seu mês e entenda seus números com linguagem natural.</p></div><NavLink to="/assistant" className="btn-primary ai-hero-cta"><Sparkles size={16}/> Abrir</NavLink></Card>
     <section className="balance-card"><Wallet className="balance-card-watermark" size={94} strokeWidth={1.8}/><div className="relative z-10 flex items-center gap-2"><span className="text-sm font-medium text-white/90">Saldo total</span><button className="balance-eye" onClick={toggleBalances} aria-label={hideBalances ? 'Mostrar valores' : 'Ocultar valores'}>{hideBalances ? <EyeOff size={19}/> : <Eye size={19}/>}</button></div><p className="balance-value">{money(total, hideBalances)}</p><div className="balance-trend">{balanceTrend >= 0 ? <TrendingUp size={16}/> : <TrendingDown size={16}/>}<span>{formatPercent(Math.abs(balanceTrend))} vs mês anterior</span></div></section>
+    <DailySpendCard />
     <section className="summary-grid"><SummaryCard title="Receitas" value={money(income, hideBalances)} trend={percentageChange(income, previousIncome)} icon={ArrowDownLeft} tone="income"/><SummaryCard title="Despesas" value={money(expense, hideBalances)} trend={percentageChange(expense, previousExpense)} icon={ArrowUpRight} tone="expense"/></section>
     <Card className="dashboard-card chart-card"><div className="card-heading"><h2>Despesas nos últimos 6 meses</h2><button className="period-button">6 meses <ChevronDown size={15}/></button></div><div className="expense-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}><defs><linearGradient id="expenseArea" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2F80ED" stopOpacity={0.18}/><stop offset="95%" stopColor="#2F80ED" stopOpacity={0.01}/></linearGradient></defs><CartesianGrid stroke="#E9EDF3" strokeDasharray="3 3" vertical={false}/><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#7A8392', fontSize: 12 }} dy={9}/><YAxis axisLine={false} tickLine={false} tick={{ fill: '#8A93A1', fontSize: 11 }} tickFormatter={shortMoney}/><Tooltip content={<ChartTooltip hidden={hideBalances}/>}/><Area type="monotone" dataKey="value" stroke="#2F80ED" strokeWidth={3} fill="url(#expenseArea)" activeDot={{ r: 5, fill: '#fff', stroke: '#2F80ED', strokeWidth: 3 }} dot={{ r: 4, fill: '#fff', stroke: '#2F80ED', strokeWidth: 2.5 }}/></AreaChart></ResponsiveContainer></div></Card>
     <Card className="dashboard-card budget-card"><div className="card-heading"><h2>Orçamento deste mês</h2><NavLink to="/planning">Ver tudo</NavLink></div><div className="budget-layout"><div className="donut-wrap"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={expenseTotal ? budgetData : [{ value: 1, color: '#E5E7EB' }]} dataKey="value" innerRadius="64%" outerRadius="91%" paddingAngle={expenseTotal ? 2 : 0} stroke="white" strokeWidth={2}>{(expenseTotal ? budgetData : [{ color: '#E5E7EB' }]).map((entry, index) => <Cell key={index} fill={entry.color}/>)}</Pie></PieChart></ResponsiveContainer><div className="donut-center"><strong>{money(expenseTotal, hideBalances)}</strong><span>Total</span></div></div><div className="budget-list">{budgetData.map(item => <BudgetRow key={item.name} item={item} total={expenseTotal} hidden={hideBalances}/>)}</div></div>{!hasBudget && <p className="budget-note">Defina limites por categoria em Orçamento.</p>}</Card>
     <RecurringDashboardCard/>
+    <ForecastDashboardCard/>
     <Card className="dashboard-card recent-card"><div className="card-heading"><h2>Transações recentes</h2><NavLink to="/transactions">Ver todas</NavLink></div><div className="transaction-list">{recent.length ? recent.map(transaction => <TransactionRow item={transaction} key={transaction.id}/>) : <p className="empty-inline">Nenhuma movimentação ainda.</p>}</div></Card>
   </>
+}
+
+function NotificationCenter({ notifications, unreadIds, close, markRead, markAllRead }: { notifications: FinanceNotification[]; unreadIds: string[]; close: () => void; markRead: (id: string) => void; markAllRead: (ids: string[]) => void }) {
+  const navigate = useNavigate()
+  const unread = notifications.filter(item => !unreadIds.includes(item.id))
+  const icon = (kind: FinanceNotification['kind']) => kind === 'overdue' || kind === 'budget-exceeded' ? AlertTriangle : kind === 'reminder' ? BellRing : ChartPie
+  const openNotification = (notification: FinanceNotification) => {
+    markRead(notification.id)
+    close()
+    navigate(notification.href)
+  }
+  return <div className="notification-overlay" role="presentation" onMouseDown={close}>
+    <section className="notification-panel" role="dialog" aria-modal="true" aria-labelledby="notifications-title" onMouseDown={event => event.stopPropagation()}>
+      <div className="notification-panel-heading"><div><p>Central de avisos</p><h2 id="notifications-title">Notificações</h2></div><button className="icon-button" onClick={close} aria-label="Fechar notificações"><X size={20}/></button></div>
+      {unread.length > 0 && <button className="notification-mark-all" onClick={() => markAllRead(unread.map(item => item.id))}><CheckCheck size={16}/>Marcar todas como lidas</button>}
+      <div className="notification-list">{notifications.length ? notifications.map(notification => {
+        const Icon = icon(notification.kind)
+        const unreadItem = !unreadIds.includes(notification.id)
+        return <button key={notification.id} onClick={() => openNotification(notification)} className={`notification-item ${notification.kind} ${unreadItem ? 'unread' : ''}`}><span className="notification-item-icon"><Icon size={19}/></span><span className="notification-item-content"><strong>{notification.title}</strong><small>{notification.message}</small></span>{unreadItem && <span className="notification-unread-dot" aria-label="Não lida"/>}</button>
+      }) : <div className="notification-empty"><Bell size={26}/><strong>Tudo em dia</strong><p>Você não tem notificações no momento.</p></div>}</div>
+    </section>
+  </div>
 }
 
 function SummaryCard({ title, value, trend, icon, tone }: { title: string; value: string; trend: number; icon: LucideIcon; tone: 'income' | 'expense' }) {
@@ -93,7 +131,7 @@ function Transactions() {
   const { transactions, accounts, softDeleteTransaction } = useFinanceStore()
   const [query, setQuery] = useState(''); const [type, setType] = useState('all'); const [account, setAccount] = useState('all'); const [edit, setEdit] = useState<FinanceTransaction>(); const [confirm, setConfirm] = useState<string>()
   const list = useMemo(() => transactions.filter(item => !item.deletedAt).filter(item => !query || item.description.toLowerCase().includes(query.toLowerCase())).filter(item => type === 'all' || item.type === type).filter(item => account === 'all' || item.accountId === account).sort((a, b) => b.date.localeCompare(a.date)), [transactions, query, type, account])
-  return <><PageTitle eyebrow="Histórico" title="Transações"/><Card><div className="filter-grid"><input className="field" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar por descrição…"/><SelectMenu ariaLabel="Filtrar por tipo" value={type} onChange={setType} options={[{ value: 'all', label: 'Todos os tipos' }, { value: 'income', label: 'Receitas' }, { value: 'expense', label: 'Despesas' }, { value: 'transfer', label: 'Transferências' }]}/><SelectMenu ariaLabel="Filtrar por conta" value={account} onChange={setAccount} options={[{ value: 'all', label: 'Todas as contas' }, ...accounts.map(item => ({ value: item.id, label: item.name }))]}/></div><div className="transaction-list mt-4">{list.length ? list.map(item => <TransactionRow key={item.id} item={item} onEdit={() => setEdit(item)} onDelete={() => setConfirm(item.id)}/>) : <p className="empty-inline">Nenhuma movimentação encontrada.</p>}</div></Card>{edit && <TransactionModal item={edit} close={() => setEdit(undefined)}/>} {confirm && <ConfirmDelete close={() => setConfirm(undefined)} confirm={() => { softDeleteTransaction(confirm); setConfirm(undefined) }}/>}</>
+  return <><div className="page-title"><div><p>Histórico</p><h1>Transações</h1></div><NavLink to="/import" className="btn-secondary"><FileUp size={16}/> Importar extrato</NavLink></div><Card><div className="filter-grid"><input className="field" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar por descrição…"/><SelectMenu ariaLabel="Filtrar por tipo" value={type} onChange={setType} options={[{ value: 'all', label: 'Todos os tipos' }, { value: 'income', label: 'Receitas' }, { value: 'expense', label: 'Despesas' }, { value: 'transfer', label: 'Transferências' }]}/><SelectMenu ariaLabel="Filtrar por conta" value={account} onChange={setAccount} options={[{ value: 'all', label: 'Todas as contas' }, ...accounts.map(item => ({ value: item.id, label: item.name }))]}/></div><div className="transaction-list mt-4">{list.length ? list.map(item => <TransactionRow key={item.id} item={item} onEdit={() => setEdit(item)} onDelete={() => setConfirm(item.id)}/>) : <p className="empty-inline">Nenhuma movimentação encontrada.</p>}</div></Card>{edit && <TransactionModal item={edit} close={() => setEdit(undefined)}/>} {confirm && <ConfirmDelete close={() => setConfirm(undefined)} confirm={() => { softDeleteTransaction(confirm); setConfirm(undefined) }}/>}</>
 }
 
 function Accounts() {
@@ -107,8 +145,8 @@ function Planning() {
 }
 
 function Profile() {
-  const { hideBalances, toggleBalances } = useFinanceStore()
-  return <><PageTitle eyebrow="Preferências" title="Perfil e configurações"/><div className="space-y-5"><Card><h2 className="section-title">Privacidade</h2><button onClick={toggleBalances} className="settings-row"><div><p className="font-semibold">Ocultar valores</p><p className="mt-1 text-sm text-muted">Esconde quantias em toda a interface.</p></div><span className={`toggle ${hideBalances ? 'active' : ''}`}><span/></span></button><div className="settings-row"><div><p className="font-semibold">Persistência local</p><p className="mt-1 text-sm text-muted">Dados armazenados em IndexedDB neste navegador.</p></div><Check className="text-brand" size={20}/></div><NavLink to="/accounts" className="settings-row"><div><p className="font-semibold">Contas e carteiras</p><p className="mt-1 text-sm text-muted">Gerencie saldos, contas ativas e arquivadas.</p></div><ChevronRight className="text-muted" size={20}/></NavLink></Card><Card><Download className="text-blue-500"/><h2 className="mt-4 section-title">Exportação</h2><p className="mt-2 text-sm leading-6 text-muted">A exportação e a sincronização em nuvem ficam preparadas como próxima etapa da arquitetura.</p><button disabled className="btn-secondary mt-5 w-full">Em breve</button></Card></div></>
+  const { hideBalances, toggleBalances, forecastRealistic, setForecastRealistic, safetyMarginPercent, setSafetyMarginPercent } = useFinanceStore() as any
+  return <><PageTitle eyebrow="Preferências" title="Perfil e configurações"/><div className="space-y-5"><Card><h2 className="section-title">Privacidade</h2><button onClick={toggleBalances} className="settings-row"><div><p className="font-semibold">Ocultar valores</p><p className="mt-1 text-sm text-muted">Esconde quantias em toda a interface.</p></div><span className={`toggle ${hideBalances ? 'active' : ''}`}><span/></span></button><div className="settings-row"><div><p className="font-semibold">Persistência local</p><p className="mt-1 text-sm text-muted">Dados armazenados em IndexedDB neste navegador.</p></div><Check className="text-brand" size={20}/></div><NavLink to="/accounts" className="settings-row"><div><p className="font-semibold">Contas e carteiras</p><p className="mt-1 text-sm text-muted">Gerencie saldos, contas ativas e arquivadas.</p></div><ChevronRight className="text-muted" size={20}/></NavLink></Card><Card><h2 className="section-title">Quanto posso gastar hoje?</h2><p className="mt-1 text-sm text-muted">Margem de segurança protege parte do dinheiro livre.</p><div className="mt-4"><div className="flex items-center justify-between"><span className="text-sm font-medium">Margem de segurança</span><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold">{safetyMarginPercent}%</span></div><input type="range" min={0} max={30} value={safetyMarginPercent} onChange={e => setSafetyMarginPercent(Number(e.target.value))} className="mt-3 w-full" /><div className="mt-1 flex justify-between text-[11px] text-muted"><span>0% (sem proteção)</span><span>30% (conservador)</span></div><p className="mt-2 text-xs text-muted">Com R$ 1.000 livres e 10%, R$ 900 distribuíveis e R$ 100 protegidos.</p></div></Card><Card><h2 className="section-title">Previsão de saldo</h2><p className="mt-1 text-sm text-muted">Escolha como calcular a projeção de 30/90 dias no Dashboard.</p><button onClick={() => setForecastRealistic(!forecastRealistic)} className="settings-row"><div><p className="font-semibold">Modo realista</p><p className="mt-1 text-sm text-muted">{forecastRealistic ? 'Recorrentes + média variável (90 dias)' : 'Só recorrentes (contas fixas)'}</p></div><span className={`toggle ${forecastRealistic ? 'active' : ''}`}><span/></span></button><NavLink to="/forecast" className="settings-row"><div><p className="font-semibold">Ver previsão detalhada</p><p className="mt-1 text-sm text-muted">Gráfico, saldo mínimo e detalhe por dia.</p></div><ChevronRight className="text-muted" size={20}/></NavLink></Card><Card><Download className="text-blue-500"/><h2 className="mt-4 section-title">Exportação</h2><p className="mt-2 text-sm leading-6 text-muted">A exportação e a sincronização em nuvem ficam preparadas como próxima etapa da arquitetura.</p><button disabled className="btn-secondary mt-5 w-full">Em breve</button></Card></div></>
 }
 
 function ConfirmDelete({ close, confirm }: { close: () => void; confirm: () => void }) { return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"><h2 className="text-lg font-bold">Excluir lançamento?</h2><p className="mt-2 text-sm leading-6 text-muted">Ele deixará de afetar seus saldos e relatórios. Esta ação pode ser revista no histórico técnico futuramente.</p><div className="mt-6 grid grid-cols-2 gap-3"><button className="btn-secondary" onClick={close}>Cancelar</button><button className="inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700" onClick={confirm}>Excluir</button></div></div></div> }
