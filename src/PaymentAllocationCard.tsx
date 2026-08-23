@@ -9,6 +9,20 @@ function formatDate(d: string) {
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${d}T12:00:00`)).replace('.', '')
 }
 
+function shortDate(d: string) {
+  const date = new Date(`${d}T12:00:00`)
+  const month = date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+  const year = date.getFullYear() !== new Date().getFullYear() ? ` ${date.getFullYear()}` : ''
+  return `${String(date.getDate()).padStart(2, '0')} ${month}${year}`
+}
+
+const itemTypeLabels: Record<string, string> = { bill: 'Conta', budget: 'Orçamento', goal: 'Meta', reserve: 'Reserva', safety: 'Margem', free: 'Livre' }
+const planStatusLabels: Record<string, string> = { draft: 'Rascunho', applied: 'Aplicado', cancelled: 'Cancelado' }
+const typeBadge = (item: { label: string; type: string }) => {
+  const label = itemTypeLabels[item.type] ?? item.type
+  return item.label.toLowerCase().includes(label.toLowerCase()) ? null : label
+}
+
 export function PaymentOrganizerCard() {
   const { transactions, paymentAllocationPlans } = useFinanceStore() as any
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
@@ -56,7 +70,7 @@ export function PaymentOrganizerCard() {
           <div className="mt-4 rounded-2xl bg-blue-50 p-4 animate-enter" style={{ animationDelay: '120ms' }}>
             <p className="text-xs font-semibold text-brand">Seu pagamento chegou</p>
             <p className="mt-1 text-lg font-bold">{money(recentIncomeNotOrganized.amountCents)} — {recentIncomeNotOrganized.description}</p>
-            <p className="mt-1 text-xs text-muted">{recentIncomeNotOrganized.date} • Quer organizar esse dinheiro até seu próximo recebimento?</p>
+            <p className="mt-1 text-xs text-muted">{formatDate(recentIncomeNotOrganized.date)} • Quer organizar esse dinheiro até seu próximo recebimento?</p>
             <button className="btn-primary mt-3 transition hover:scale-[1.02] active:scale-[0.98]" onClick={() => handleOrganize(recentIncomeNotOrganized)}><Sparkles size={16} /> Organizar agora</button>
           </div>
         )}
@@ -74,12 +88,12 @@ export function PaymentOrganizerCard() {
             {draftPlans.slice(0, 2).map((plan: any, idx: number) => (
               <div key={plan.id} className="rounded-xl border p-3 animate-slide bg-white" style={{ animationDelay: `${idx * 80}ms` }}>
                 <div className="flex items-center justify-between">
-                  <strong className="text-sm">{money(plan.receivedAmountInCents)} • {plan.periodStart} até {plan.periodEnd}</strong>
+                  <strong className="text-sm">{money(plan.receivedAmountInCents)} • {shortDate(plan.periodStart)} até {shortDate(plan.periodEnd)}</strong>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${plan.freeAmountInCents < 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{plan.freeAmountInCents < 0 ? `Déficit ${money(Math.abs(plan.freeAmountInCents))}` : `Livre ${money(plan.freeAmountInCents)}`}</span>
                 </div>
                 <div className="mt-2 space-y-1 text-xs">
                   {plan.items.slice(0, 4).map((it: any) => (
-                    <div key={it.id} className="flex justify-between"><span className="text-muted">{it.label} <small className="text-[10px]">{it.type}</small></span><span className={it.isConsumed ? 'line-through text-muted' : 'font-medium'}>{money(it.amountInCents)}</span></div>
+                    <div key={it.id} className="flex justify-between"><span className="text-muted">{it.label}{typeBadge(it) && <small className="text-[10px]"> {typeBadge(it)}</small>}</span><span className={it.isConsumed ? 'line-through text-muted' : 'font-medium'}>{money(it.amountInCents)}</span></div>
                   ))}
                   {plan.items.length > 4 && <p className="text-muted">+{plan.items.length - 4} itens</p>}
                 </div>
@@ -97,7 +111,7 @@ export function PaymentOrganizerCard() {
           <div className="mt-4 rounded-xl bg-emerald-50 p-3 animate-enter check-pop" style={{ animationDelay: '180ms' }}>
             <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1.5"><span className="grid h-5 w-5 place-items-center rounded-full bg-emerald-600 text-white"><Check size={12} strokeWidth={2.5} /></span> Pagamento organizado</p>
             <p className="mt-1 text-sm"><strong>{money(appliedPlans[0].items.filter((i: any) => i.type !== 'free' && !i.isConsumed).reduce((s: number, i: any) => s + i.amountInCents, 0))}</strong> reservado • <strong>{money(appliedPlans[0].freeAmountInCents)}</strong> livre</p>
-            <p className="mt-1 text-xs text-muted">{appliedPlans[0].periodStart} • {appliedPlans[0].items.length} itens</p>
+            <p className="mt-1 text-xs text-muted">{shortDate(appliedPlans[0].periodStart)} • {appliedPlans[0].items.length} itens</p>
           </div>
         )}
 
@@ -106,7 +120,7 @@ export function PaymentOrganizerCard() {
             <h3 className="text-sm font-semibold">Histórico</h3>
             {(paymentAllocationPlans ?? []).slice(-5).reverse().map((plan: any) => (
               <div key={plan.id} className="rounded-xl border bg-slate-50 p-3 text-xs">
-                <div className="flex justify-between"><span className="font-semibold">{formatDate(plan.periodStart)} • {money(plan.receivedAmountInCents)}</span><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${plan.status === 'applied' ? 'bg-emerald-100 text-emerald-700' : plan.status === 'draft' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600'}`}>{plan.status}</span></div>
+                <div className="flex justify-between"><span className="font-semibold">{formatDate(plan.periodStart)} • {money(plan.receivedAmountInCents)}</span><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${plan.status === 'applied' ? 'bg-emerald-100 text-emerald-700' : plan.status === 'draft' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600'}`}>{planStatusLabels[plan.status] ?? plan.status}</span></div>
                 <p className="mt-1 text-muted">Reservado {money(plan.items.filter((i: any) => i.type !== 'free').reduce((s: number, i: any) => s + i.amountInCents, 0))} • Livre {money(plan.freeAmountInCents)}</p>
                 <button className="mt-2 text-xs font-semibold text-brand" onClick={() => setEditingPlanId(plan.id)}>Ver detalhes</button>
               </div>
@@ -158,7 +172,7 @@ function PaymentAllocationPreview({ planId, close }: { planId: string; close: ()
       <div className="rounded-2xl bg-blue-50 p-4 text-center">
         <p className="text-xs font-semibold text-brand">Você recebeu</p>
         <p className="mt-1 text-2xl font-bold">{money(plan.receivedAmountInCents)}</p>
-        <p className="mt-1 text-xs text-muted">{plan.periodStart} até {plan.periodEnd}</p>
+        <p className="mt-1 text-xs text-muted">{shortDate(plan.periodStart)} até {shortDate(plan.periodEnd)}</p>
       </div>
 
       <div className="mt-4 divide-y divide-slate-100 rounded-2xl border overflow-hidden">
@@ -171,7 +185,7 @@ function PaymentAllocationPreview({ planId, close }: { planId: string; close: ()
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className={`truncate text-sm font-medium ${item.isConsumed ? 'line-through text-muted' : ''}`}>{item.label} <small className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px]">{item.type}</small> {item.isConsumed && <small className="text-emerald-600">• consumido</small>}</p>
+              <p className={`truncate text-sm font-medium ${item.isConsumed ? 'line-through text-muted' : ''}`}>{item.label}{typeBadge(item) && <small className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px]">{typeBadge(item)}</small>} {item.isConsumed && <small className="text-emerald-600">• consumido</small>}</p>
               {item.recurringExpenseId && <p className="truncate text-xs text-muted">conta • {item.categoryId}</p>}
               {item.type === 'goal' && goalPicker === item.id && (
                 <div className="mt-1">

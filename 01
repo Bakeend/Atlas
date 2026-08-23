@@ -1,482 +1,2894 @@
-Implemente no aplicativo financeiro existente a funcionalidade:
+Implemente no aplicativo financeiro existente um sistema de **assistente financeiro com IA, voz e dashboard dinâmico dentro do chat da assistente**, seguindo fielmente a referência visual fornecida.
 
-# Quanto posso gastar hoje?
+O objetivo NÃO é criar uma tela de voz separada nem apenas adicionar um botão de microfone.
 
-A feature deve responder uma pergunta simples:
+O sistema deve permanecer dentro do chat da assistente. O chat continua sendo o espaço principal da interação, mas cada solicitação do cliente deve gerar uma resposta visual dinâmica no dashboard da conversa.
 
-> **Quanto posso gastar hoje sem comprometer minhas contas e planejamento?**
+Tudo que o cliente pedir deve aparecer visualmente dentro do chat, incluindo:
 
-O valor precisa ser calculado pelo motor financeiro, nunca inventado pela IA.
-
----
-
-# Conceito
-
-Não utilizar simplesmente:
-
-```text
-dinheiroLivre / 30
-```
-
-O cálculo deve considerar quantos dias faltam até o próximo recebimento relevante.
+* resultados financeiros;
+* cards;
+* gráficos;
+* listas;
+* confirmações;
+* botões de ação;
+* formulários curtos;
+* estados de processamento;
+* mensagens de sucesso;
+* mensagens de erro;
+* solicitações de confirmação.
 
 Exemplo:
 
 ```text
-Dinheiro livre
-R$ 900
-
-Dias até próximo salário
-15
+Cliente:
+Crie uma categoria chamada Viagens.
 ```
 
-Base:
+A assistente deve responder dentro do chat e exibir um card de confirmação:
 
 ```text
-R$ 900 / 15
-= R$ 60/dia
+Nova categoria
+
+Viagens
+
+A categoria será criada para organizar
+suas despesas de viagem.
+
+[Cancelar] [Criar categoria]
 ```
 
-Porém a regra deve ser mais inteligente.
+Depois da confirmação:
+
+```text
+✓ Categoria criada
+
+Viagens
+
+Agora você pode usar essa categoria
+ao registrar novas despesas.
+```
+
+O dashboard dentro do chat deve mostrar exatamente o resultado ou a ação solicitada pelo cliente.
+
+O projeto atual já utiliza:
+
+```text
+React
+Vite
+TypeScript
+Zustand
+IndexedDB
+Lucide React
+Recharts
+DeepSeek via OpenRouter
+```
+
+Não recrie o projeto.
+
+Antes de implementar:
+
+1. analise a arquitetura existente;
+2. encontre o módulo da IA;
+3. encontre o agent loop;
+4. encontre as tools financeiras;
+5. encontre stores e repositories;
+6. reutilize os cálculos financeiros existentes;
+7. reutilize o design system atual;
+8. identifique como o chat da assistente é renderizado;
+9. identifique como mensagens e ações são armazenadas;
+10. faça mudanças incrementais;
+11. mantenha o sistema dentro do chat existente;
+12. não crie uma experiência paralela desconectada da assistente.
 
 ---
 
-# Elementos considerados
+# 1. Conceito principal
 
-Considerar:
+O usuário deve conversar com a assistente pelo chat, usando texto ou voz.
+
+Exemplo:
 
 ```text
-dinheiro livre atual
-próximo pagamento
-dias restantes
-contas futuras
-gastos já reservados
-orçamento diário já consumido
-eventos financeiros próximos
-margem de segurança
+Quanto gastei com mercado?
+```
+
+A assistente deve responder dentro do chat e inserir um dashboard visual na própria conversa:
+
+```text
+Mercado
+
+R$ 500,00
+
+↓ 12%
+vs. mês anterior
+```
+
+Abaixo do card:
+
+```text
+Aqui está seu resumo
+
+Você gastou R$ 500,00 em Mercado
+este mês, 12% menos que no mês anterior.
+```
+
+A interface de voz pode continuar disponível no campo de entrada do chat, mas o resultado deve aparecer dentro da conversa.
+
+A experiência deve combinar:
+
+```text
+CHAT
++
+VOZ
++
+IA
++
+DADOS FINANCEIROS
++
+DASHBOARD DINÂMICO
++
+AÇÕES CONFIRMÁVEIS
 ```
 
 ---
 
-# Motor financeiro
+# 2. O chat é o centro do sistema
 
-Criar:
+Não criar uma tela de voz independente como principal experiência.
+
+Não criar uma rota separada que substitua o chat.
+
+O sistema deve funcionar dentro do chat da assistente:
+
+```text
+pergunta do cliente
+↓
+mensagem aparece no chat
+↓
+IA entende
+↓
+consulta tools ou executa ação
+↓
+dashboard visual aparece na resposta da assistente
+↓
+cliente pode clicar em botões
+↓
+cliente pode continuar escrevendo ou falando
+```
+
+A rota `/voice` só deve ser criada se a arquitetura existente exigir isso, mas não deve substituir o chat principal.
+
+Se existir uma tela ou componente de chat da assistente, reutilizá-lo.
+
+---
+
+# 3. Não criar chat tradicional simples
+
+O sistema não deve parecer apenas:
+
+```text
+Cliente:
+Quanto gastei?
+
+Assistente:
+Você gastou R$ 500.
+```
+
+Também não deve transformar o chat em uma sequência de balões sem conteúdo visual.
+
+O foco deve ser:
+
+```text
+mensagem do cliente
+↓
+resposta da assistente
+↓
+dashboard contextual dentro da mensagem
+↓
+ações relacionadas
+↓
+confirmação quando necessário
+```
+
+O chat continua existindo, mas as respostas da assistente devem ser ricas e interativas.
+
+---
+
+# 4. Estrutura visual dentro do chat
+
+A composição deve seguir aproximadamente esta estrutura:
+
+```text
+┌────────────────────────────┐
+│ Assistente financeira      │
+│                            │
+│ Cliente                    │
+│ Quanto gastei no mercado?  │
+│                            │
+│ Assistente                 │
+│ Aqui está seu resumo       │
+│                            │
+│ ┌────────────────────────┐ │
+│ │ 🛒 Mercado             │ │
+│ │                        │ │
+│ │ R$ 500,00              │ │
+│ │ ↓ 12% vs mês anterior │ │
+│ │                        │ │
+│ │ gráfico      detalhes │ │
+│ └────────────────────────┘ │
+│                            │
+│ Você gastou R$ 500...      │
+│                            │
+│ [Ver transações]           │
+│ [Comparar com mês passado] │
+│                            │
+│ ┌────────────────────────┐ │
+│ │ Digite ou fale...      │ │
+│ │                 🎙      │ │
+│ └────────────────────────┘ │
+└────────────────────────────┘
+```
+
+O dashboard deve ser uma parte da resposta da assistente dentro do chat.
+
+Não colocar o dashboard fora da conversa como uma área independente sem relação com a mensagem.
+
+---
+
+# 5. Fidelidade visual
+
+A referência visual fornecida é a fonte principal para:
+
+* hierarquia;
+* posicionamento;
+* espaçamento;
+* tamanho dos componentes;
+* estilo dos cards;
+* relação entre texto e dashboard;
+* aparência da assistente;
+* posição do campo de entrada;
+* uso de voz;
+* destaque das ações;
+* estados de confirmação.
+
+Não transformar o chat em dashboard administrativo.
+
+Não adicionar sidebar.
+
+Não criar uma tela cheia de gráficos sem contexto.
+
+Não colocar vários dashboards simultaneamente sem necessidade.
+
+Não encher a interface de informações.
+
+O dashboard deve aparecer somente quando fizer sentido para o pedido do cliente.
+
+---
+
+# 6. Dashboard dentro da mensagem da assistente
+
+Criar uma estrutura de mensagem capaz de renderizar conteúdo visual.
+
+Exemplo:
 
 ```ts
-calculateSafeDailySpend()
+interface AssistantMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  text?: string;
+  presentation?: AiPresentation;
+  createdAt: number;
+}
 ```
 
-Resultado possível:
+A resposta da assistente pode conter:
+
+```ts
+interface AiPresentation {
+  speech?: string;
+  text?: string;
+  summary?: string;
+  blocks: AiVisualBlock[];
+  actions?: AiAction[];
+  requiresConfirmation?: boolean;
+}
+```
+
+O dashboard deve ser renderizado dentro da mensagem da assistente.
+
+Exemplo:
+
+```tsx
+<ChatMessage message={message}>
+  <AssistantText text={message.text} />
+  <AiVisualRenderer blocks={message.presentation?.blocks ?? []} />
+  <AiActionRenderer actions={message.presentation?.actions ?? []} />
+</ChatMessage>
+```
+
+Não criar um dashboard global separado para cada pergunta.
+
+---
+
+# 7. Tudo que o cliente pedir deve aparecer visualmente
+
+Esta é uma regra central.
+
+Se o cliente pedir uma informação, mostrar o resultado.
+
+Se o cliente pedir uma criação, mostrar o que será criado e a confirmação.
+
+Se o cliente pedir uma edição, mostrar os dados atuais e os novos dados.
+
+Se o cliente pedir uma exclusão, mostrar o item e os botões de confirmação.
+
+Se o cliente pedir uma análise, mostrar cards ou gráficos.
+
+Se o cliente pedir uma ação, mostrar o estado da ação.
+
+Exemplos:
+
+```text
+Criar categoria
+→ card de pré-visualização + botão Criar categoria
+```
+
+```text
+Editar categoria
+→ card com dados atuais + campos ou opções de edição
+```
+
+```text
+Excluir categoria
+→ card de confirmação + Cancelar + Excluir
+```
+
+```text
+Criar transação
+→ card com valor, categoria, data e descrição + Confirmar
+```
+
+```text
+Criar gasto recorrente
+→ card com valor, frequência e vencimento + Criar recorrência
+```
+
+```text
+Organizar salário
+→ plano financeiro visual + Editar + Aplicar
+```
+
+```text
+Quanto gastei?
+→ métrica, comparação, gráfico ou lista
+```
+
+Nunca responder apenas com texto quando a solicitação puder ser representada visualmente.
+
+---
+
+# 8. Ações não devem ser executadas automaticamente
+
+Para ações que alteram dados, exigir confirmação quando apropriado.
+
+Exemplos:
+
+* criar categoria;
+* editar categoria;
+* excluir categoria;
+* criar transação;
+* editar transação;
+* excluir transação;
+* criar recorrência;
+* aplicar planejamento;
+* alterar orçamento.
+
+Fluxo:
+
+```text
+cliente solicita ação
+↓
+IA interpreta
+↓
+tool prepara a ação
+↓
+dashboard de confirmação aparece no chat
+↓
+cliente toca em Confirmar
+↓
+ação é executada
+↓
+dashboard de sucesso aparece no chat
+```
+
+Não executar ações destrutivas ou relevantes apenas porque a IA interpretou a frase.
+
+---
+
+# 9. Exemplo: criar categoria
+
+Cliente:
+
+```text
+Crie uma categoria chamada Viagens.
+```
+
+A assistente deve responder:
+
+```text
+Posso criar esta categoria para você:
+```
+
+Dashboard:
+
+```text
+┌────────────────────────────┐
+│ Nova categoria             │
+│                            │
+│ Viagens                    │
+│                            │
+│ Ícone: Mala               │
+│ Cor: Azul                 │
+│                            │
+│ [Cancelar] [Criar categoria] │
+└────────────────────────────┘
+```
+
+Ao clicar em `Criar categoria`:
+
+```text
+┌────────────────────────────┐
+│ ✓ Categoria criada         │
+│                            │
+│ Viagens                    │
+│                            │
+│ A categoria está pronta    │
+│ para ser usada.            │
+└────────────────────────────┘
+```
+
+A assistente pode falar:
+
+```text
+A categoria Viagens foi criada.
+```
+
+Se o cliente disser por voz:
+
+```text
+Sim, pode criar.
+```
+
+a confirmação deve executar a mesma ação do botão.
+
+---
+
+# 10. Exemplo: editar categoria
+
+Cliente:
+
+```text
+Mude a cor da categoria Viagens para verde.
+```
+
+Dashboard:
+
+```text
+Editar categoria
+
+Viagens
+
+Cor atual: Azul
+Nova cor: Verde
+
+[Cancelar] [Salvar alteração]
+```
+
+Após salvar:
+
+```text
+✓ Categoria atualizada
+
+Viagens agora está na cor verde.
+```
+
+---
+
+# 11. Exemplo: excluir categoria
+
+Cliente:
+
+```text
+Apague a categoria Viagens.
+```
+
+Dashboard:
+
+```text
+Excluir categoria
+
+Viagens
+
+Essa ação pode afetar transações
+associadas a esta categoria.
+
+[Cancelar] [Excluir categoria]
+```
+
+A assistente deve pedir confirmação.
+
+Não excluir imediatamente.
+
+Após confirmação:
+
+```text
+✓ Categoria excluída
+
+A categoria Viagens foi removida.
+```
+
+Se houver transações associadas, mostrar essa informação no dashboard e solicitar uma decisão adicional quando necessário.
+
+---
+
+# 12. Exemplo: criar transação
+
+Cliente:
+
+```text
+Gastei 80 reais de gasolina hoje.
+```
+
+Dashboard:
+
+```text
+Nova despesa
+
+Gasolina
+R$ 80,00
+
+Categoria
+Transporte
+
+Data
+Hoje
+
+[Editar] [Cancelar] [Registrar despesa]
+```
+
+Após confirmação:
+
+```text
+✓ Despesa registrada
+
+Gasolina
+R$ 80,00
+
+Transporte
+Hoje
+```
+
+A assistente pode falar:
+
+```text
+Registrei a despesa de 80 reais em gasolina.
+```
+
+---
+
+# 13. Exemplo: criar gasto recorrente
+
+Cliente:
+
+```text
+Todo dia 10 pago 120 de internet.
+```
+
+Dashboard:
+
+```text
+Novo gasto recorrente
+
+Internet
+R$ 120,00
+
+Frequência
+Todo mês
+
+Vencimento
+Dia 10
+
+[Cancelar] [Criar recorrência]
+```
+
+Após confirmação:
+
+```text
+✓ Gasto recorrente criado
+
+Internet
+R$ 120,00
+Todo dia 10
+```
+
+---
+
+# 14. Exemplo: consultar gastos
+
+Cliente:
+
+```text
+Quanto gastei com mercado?
+```
+
+Dashboard dentro da resposta da assistente:
+
+```text
+Mercado
+
+R$ 500,00
+
+↓ 12%
+vs. mês anterior
+```
+
+Complemento:
+
+```text
+Você gastou R$ 500,00 em Mercado
+este mês, 12% menos que no mês anterior.
+```
+
+Ações:
+
+```text
+[Ver transações]
+[Comparar com mês passado]
+```
+
+---
+
+# 15. Exemplo: gráfico
+
+Cliente:
+
+```text
+Como meus gastos mudaram nos últimos 6 meses?
+```
+
+A assistente deve inserir no chat:
+
+```text
+Gastos nos últimos 6 meses
+
+[gráfico de linha]
+
+Total atual
+R$ 3.420
+
+Média mensal
+R$ 3.610
+```
+
+Não mostrar gráfico se a pergunta não se beneficiar dele.
+
+Usar Recharts já existente.
+
+---
+
+# 16. Exemplo: próximas contas
+
+Cliente:
+
+```text
+Quais são minhas próximas contas?
+```
+
+Dashboard:
+
+```text
+Próximos compromissos
+
+Internet
+Amanhã
+R$ 119,90
+
+Faculdade
+Em 5 dias
+R$ 450,00
+
+Energia
+Em 9 dias
+~ R$ 190,00
+
+[Ver todos]
+```
+
+A assistente deve resumir verbalmente, sem ler todos os detalhes de forma cansativa.
+
+---
+
+# 17. Exemplo: organização financeira
+
+Cliente:
+
+```text
+Organiza meus R$ 4.500.
+```
+
+Dashboard dentro do chat:
+
+```text
+Organização sugerida
+
+Contas
+R$ 1.995
+
+Alimentação
+R$ 600
+
+Transporte
+R$ 300
+
+Reserva
+R$ 500
+
+Margem
+R$ 300
+
+Livre
+R$ 805
+
+[Editar] [Aplicar]
+```
+
+A assistente:
+
+```text
+Preparei uma organização.
+R$ 3.695 ficam reservados
+e R$ 805 permanecem livres.
+```
+
+Não aplicar automaticamente.
+
+Ao tocar em `Aplicar`, executar a ação ou abrir confirmação final, conforme a regra do domínio.
+
+---
+
+# 18. Resposta multimodal
+
+O agente não deve retornar somente texto.
+
+Criar um modelo intermediário de apresentação:
+
+```ts
+interface AiPresentation {
+  speech?: string;
+  text?: string;
+  summary?: string;
+  blocks: AiVisualBlock[];
+  actions?: AiAction[];
+  confirmation?: AiConfirmation;
+}
+```
+
+A resposta deve ser adequada para:
+
+* renderização no chat;
+* leitura visual;
+* reprodução por voz;
+* interação por botões;
+* confirmação;
+* continuidade da conversa.
+
+---
+
+# 19. Visual Blocks
+
+Criar union tipada:
+
+```ts
+type AiVisualBlock =
+  | AiMetricBlock
+  | AiCategoryBlock
+  | AiTransactionsBlock
+  | AiChartBlock
+  | AiBudgetBlock
+  | AiRecurringBlock
+  | AiPlanBlock
+  | AiComparisonBlock
+  | AiEntityPreviewBlock
+  | AiConfirmationBlock
+  | AiSuccessBlock
+  | AiErrorBlock
+  | AiActionBlock
+  | AiFormBlock;
+```
+
+A IA não deve gerar HTML.
+
+A IA não deve gerar JSX.
+
+A IA não escolhe CSS.
+
+A IA apenas solicita componentes previamente definidos.
+
+---
+
+# 20. Tipos de blocos
+
+Os blocos devem cobrir tanto consultas quanto ações.
+
+Exemplos:
+
+```text
+metric
+category
+transactions
+chart
+budget
+recurring
+plan
+comparison
+entity-preview
+confirmation
+success
+error
+action
+form
+```
+
+---
+
+# 21. Metric Block
+
+Exemplo:
 
 ```ts
 {
-  freeMoneyInCents: 90000,
-  daysUntilNextIncome: 15,
-  safeDailySpendInCents: 6000,
-  spentTodayInCents: 2000,
-  remainingTodayInCents: 4000,
-  nextIncomeDate: "2026-09-05"
+  type: 'metric',
+  label: 'Dinheiro livre',
+  valueInCents: 184500,
+  helper: 'Até o próximo pagamento',
+  icon: 'wallet'
+}
+```
+
+Renderização:
+
+```text
+Dinheiro livre
+
+R$ 1.845,00
+
+Até o próximo pagamento
+```
+
+---
+
+# 22. Category Block
+
+Exemplo:
+
+```ts
+{
+  type: 'category',
+  categoryId: 'category-id',
+  label: 'Mercado',
+  valueInCents: 50000,
+  comparison: {
+    direction: 'down',
+    percentage: 12,
+    label: 'vs. mês anterior'
+  },
+  showSparkline: true,
+  actions: [
+    {
+      type: 'open-category',
+      entityId: 'category-id',
+      label: 'Ver detalhes'
+    }
+  ]
+}
+```
+
+Renderização:
+
+```text
+Mercado
+
+R$ 500,00
+
+↓ 12%
+vs. mês anterior
+
+[mini gráfico]
+[Ver detalhes]
+```
+
+---
+
+# 23. Chart Block
+
+Exemplo:
+
+```ts
+{
+  type: 'chart',
+  title: 'Gastos nos últimos 6 meses',
+  chartType: 'line',
+  data: [...]
+}
+```
+
+Renderizar com Recharts.
+
+---
+
+# 24. Transaction List Block
+
+Exemplo:
+
+```ts
+{
+  type: 'transactions',
+  title: 'Últimas compras no mercado',
+  items: [...],
+  maxItems: 5,
+  actions: [
+    {
+      type: 'open-transactions',
+      label: 'Ver todas'
+    }
+  ]
 }
 ```
 
 ---
 
-# Hoje
+# 25. Budget Block
 
-Se o limite recomendado for:
+Exemplo:
 
-```text
-R$ 60
+```ts
+{
+  type: 'budget',
+  categoryId: 'food',
+  label: 'Alimentação',
+  usedInCents: 62000,
+  limitInCents: 80000,
+  percentage: 77,
+  remainingInCents: 18000
+}
 ```
 
-e o usuário já gastou:
+Renderização:
 
 ```text
-R$ 20
-```
+Alimentação
 
-mostrar:
+R$ 620 de R$ 800
 
-```text
-Pode gastar hoje
+77% utilizado
 
-R$ 40
-
-Seu limite recomendado hoje é R$ 60.
-Você já utilizou R$ 20.
-```
-
----
-
-# Dashboard
-
-Criar card:
-
-```text
-Quanto posso gastar hoje?
-
-R$ 40,00
-
-R$ 20 de R$ 60 usados
-
-████████░░░░░
-```
-
-Adicionar:
-
-```text
-Próximo pagamento em 15 dias
-```
-
-Botão:
-
-```text
-Ver cálculo
+[barra de progresso]
 ```
 
 ---
 
-# Visual
+# 26. Recurring Block
 
-Utilizar:
+Exemplo:
 
-* card clean;
-* ícone apropriado;
-* barra de progresso;
-* verde quando confortável;
-* amarelo quando próximo;
-* vermelho apenas quando ultrapassado.
-
-Nunca depender apenas das cores.
+```ts
+{
+  type: 'recurring',
+  recurringId: 'recurring-id',
+  label: 'Internet',
+  amountInCents: 11990,
+  dueLabel: 'Vence amanhã',
+  actions: [
+    {
+      type: 'open-recurring',
+      entityId: 'recurring-id',
+      label: 'Ver compromisso'
+    }
+  ]
+}
+```
 
 ---
 
-# Estados
+# 27. Financial Plan Block
 
-## Normal
+Exemplo:
 
-```text
-R$ 60 disponíveis hoje
+```ts
+{
+  type: 'plan',
+  title: 'Organização sugerida',
+  items: [
+    {
+      label: 'Contas',
+      amountInCents: 199500
+    },
+    {
+      label: 'Alimentação',
+      amountInCents: 60000
+    }
+  ],
+  actions: [
+    {
+      type: 'edit-plan',
+      label: 'Editar'
+    },
+    {
+      type: 'apply-plan',
+      label: 'Aplicar'
+    }
+  ]
+}
 ```
-
-## Próximo do limite
-
-```text
-Restam R$ 12 hoje
-```
-
-## Limite alcançado
-
-```text
-Você atingiu o valor recomendado para hoje.
-```
-
-## Acima do recomendado
-
-```text
-Você gastou R$ 35 acima do recomendado hoje.
-```
-
-Não bloquear transações.
-
-É orientação financeira, não restrição.
 
 ---
 
-# Ajuste dinâmico
+# 28. Entity Preview Block
 
-Se o usuário gastar menos hoje:
+Usar para ações de criação ou edição antes da confirmação.
 
-```text
-limite R$ 60
-gasto R$ 30
-sobra R$ 30
+Exemplo:
+
+```ts
+{
+  type: 'entity-preview',
+  entityType: 'category',
+  operation: 'create',
+  title: 'Nova categoria',
+  fields: [
+    {
+      label: 'Nome',
+      value: 'Viagens'
+    },
+    {
+      label: 'Cor',
+      value: 'Azul'
+    }
+  ],
+  confirmationRequired: true
+}
 ```
 
-essa sobra pode ser redistribuída entre os próximos dias.
+---
+
+# 29. Confirmation Block
+
+Usar para ações que precisam de confirmação.
+
+Exemplo:
+
+```ts
+{
+  type: 'confirmation',
+  title: 'Criar categoria',
+  description: 'Confirme a criação da categoria Viagens.',
+  severity: 'normal',
+  confirmAction: {
+    type: 'create-category',
+    payload: {
+      name: 'Viagens'
+    },
+    label: 'Criar categoria'
+  },
+  cancelAction: {
+    type: 'cancel',
+    label: 'Cancelar'
+  }
+}
+```
+
+Para exclusões:
+
+```ts
+{
+  type: 'confirmation',
+  title: 'Excluir categoria',
+  description: 'Essa ação não poderá ser desfeita.',
+  severity: 'danger',
+  confirmAction: {
+    type: 'delete-category',
+    payload: {
+      categoryId: '...'
+    },
+    label: 'Excluir categoria'
+  }
+}
+```
+
+---
+
+# 30. Success Block
+
+Após uma ação concluída:
+
+```ts
+{
+  type: 'success',
+  title: 'Categoria criada',
+  description: 'A categoria Viagens está pronta para ser usada.',
+  entity: {
+    type: 'category',
+    id: '...'
+  }
+}
+```
+
+Renderização:
+
+```text
+✓ Categoria criada
+
+Viagens
+
+A categoria está pronta para ser usada.
+```
+
+---
+
+# 31. Error Block
+
+Se uma ação falhar:
+
+```ts
+{
+  type: 'error',
+  title: 'Não foi possível criar a categoria',
+  description: 'Tente novamente em alguns instantes.',
+  retryAction: {
+    type: 'retry',
+    label: 'Tentar novamente'
+  }
+}
+```
+
+---
+
+# 32. Form Block
+
+Quando o pedido estiver incompleto, mostrar um formulário curto dentro do chat.
+
+Exemplo:
+
+Cliente:
+
+```text
+Crie uma categoria.
+```
+
+Assistente:
+
+```text
+Qual nome você quer usar?
+```
+
+Se for melhor apresentar uma interface:
+
+```text
+Nova categoria
+
+Nome
+[Digite o nome]
+
+Cor
+[Selecionar cor]
+
+[Cancelar] [Continuar]
+```
+
+Não exigir que o cliente repita informações que já forneceu.
+
+---
+
+# 33. Regra crítica de segurança
+
+Nunca fazer:
+
+```text
+DeepSeek → HTML → dangerouslySetInnerHTML
+```
+
+Nunca deixar o modelo construir a interface arbitrariamente.
+
+Fluxo correto:
+
+```text
+DeepSeek
+↓
+JSON estruturado
+↓
+Zod
+↓
+AiVisualBlock
+↓
+React Component dentro da mensagem do chat
+```
+
+---
+
+# 34. Ações seguras
+
+A IA nunca recebe controle direto da UI.
+
+Não permitir:
+
+```text
+navigateTo arbitrary URL
+execute JS
+render HTML
+run code
+```
+
+Ações permitidas devem ser enumerações seguras.
+
+Exemplo:
+
+```ts
+type AiActionType =
+  | 'create-category'
+  | 'update-category'
+  | 'delete-category'
+  | 'create-transaction'
+  | 'update-transaction'
+  | 'delete-transaction'
+  | 'create-recurring'
+  | 'apply-plan'
+  | 'open-category'
+  | 'open-transactions'
+  | 'open-recurring'
+  | 'retry'
+  | 'cancel';
+```
+
+---
+
+# 35. Execução de ações
+
+O fluxo de ações deve ser:
+
+```text
+cliente solicita
+↓
+IA interpreta
+↓
+tool valida os dados
+↓
+dashboard de confirmação aparece no chat
+↓
+cliente confirma
+↓
+aplicação executa a tool
+↓
+resultado é salvo no repository/store
+↓
+mensagem de sucesso aparece no chat
+```
+
+O botão não deve executar lógica financeira diretamente dentro do componente visual.
+
+O botão deve disparar uma ação segura para o agent/action handler.
+
+---
+
+# 36. Agent loop existente
+
+O sistema deve utilizar o mesmo agente financeiro existente.
+
+Não criar um segundo sistema de IA separado para o chat.
+
+Fluxo para texto:
+
+```text
+mensagem do cliente
+↓
+chat agent
+↓
+DeepSeek
+↓
+tools financeiras
+↓
+JSON estruturado
+↓
+Zod
+↓
+mensagem da assistente
+↓
+dashboard dentro do chat
+```
+
+Fluxo para voz:
+
+```text
+fala
+↓
+STT
+↓
+mensagem do cliente no chat
+↓
+DeepSeek
+↓
+tools financeiras
+↓
+JSON estruturado
+↓
+dashboard dentro do chat
+↓
+TTS
+```
+
+---
+
+# 37. Mensagem de voz dentro do chat
+
+Quando o cliente fizer uma pergunta por voz, a transcrição deve aparecer como mensagem do cliente no chat.
 
 Exemplo:
 
 ```text
-Ontem você gastou R$ 30 abaixo do planejado.
-
-Seu limite diário foi reajustado
-de R$ 60 para R$ 62.
+Cliente
+Quanto gastei com mercado este mês?
 ```
 
-O cálculo deve ser determinístico.
+Depois a resposta da assistente aparece normalmente:
+
+```text
+Assistente
+Aqui está seu resumo.
+```
+
+Com o dashboard abaixo.
+
+Não esconder completamente a pergunta reconhecida.
+
+A transcrição pode ser compacta, mas deve fazer parte do histórico da conversa.
 
 ---
 
-# Gastar mais em um dia
+# 38. Speech-to-Text
 
-Se o usuário gastar:
+Criar uma abstração:
 
-```text
-R$ 100
+```ts
+SpeechRecognitionService
 ```
 
-com limite:
+Não colocar implementação de reconhecimento de voz diretamente no componente do chat.
 
-```text
-R$ 60
+Interface possível:
+
+```ts
+interface SpeechRecognitionService {
+  start(): Promise<void>;
+  stop(): Promise<string>;
+  cancel(): void;
+  isSupported(): boolean;
+}
 ```
 
-o sistema recalcula os próximos dias.
+---
+
+# 39. Implementação inicial Web
+
+Como o projeto roda no navegador, pode utilizar inicialmente APIs compatíveis com Web Speech quando disponíveis.
+
+Porém:
+
+* encapsular a implementação;
+* detectar suporte;
+* oferecer fallback;
+* não acoplar domínio à API do navegador;
+* integrar o resultado ao composer do chat.
+
+Estrutura:
+
+```text
+SpeechRecognitionService
+        ↓
+WebSpeechRecognitionAdapter
+        ↓
+ChatComposer
+        ↓
+Mensagem do cliente
+```
+
+Isso permitirá trocar posteriormente por:
+
+```text
+Whisper
+Deepgram
+Google Speech
+OpenAI Speech
+outro serviço
+```
+
+---
+
+# 40. Fallback de voz
+
+Se reconhecimento de voz não estiver disponível:
+
+mostrar no composer ou dentro do chat:
+
+```text
+Seu navegador não oferece reconhecimento de voz.
+
+Você ainda pode escrever sua pergunta.
+```
+
+Adicionar botão:
+
+```text
+Usar teclado
+```
+
+Nunca impedir o acesso à assistente.
+
+---
+
+# 41. Text-to-Speech
+
+Criar abstração:
+
+```ts
+TextToSpeechService
+```
 
 Exemplo:
 
-```text
-Você utilizou R$ 40 a mais hoje.
-
-Para manter seu planejamento,
-o valor médio recomendado passa para R$ 57/dia.
+```ts
+interface TextToSpeechService {
+  speak(text: string): Promise<void>;
+  stop(): void;
+  pause(): void;
+  resume(): void;
+}
 ```
+
+Inicialmente pode utilizar:
+
+```text
+SpeechSynthesis API
+```
+
+quando adequado.
+
+Não chamar diretamente:
+
+```ts
+window.speechSynthesis
+```
+
+dentro do componente do chat.
 
 ---
 
-# Gastos reservados
+# 42. Preparar TTS melhor
 
-Não considerar como gasto diário valores que já fazem parte de uma reserva obrigatória quando forem pagos.
-
-Exemplo:
+A arquitetura deve permitir futuramente usar:
 
 ```text
-Aluguel
-R$ 1.425
+ElevenLabs
+OpenAI TTS
+Google TTS
+Azure Speech
 ```
 
-Se já estava reservado, pagar o aluguel não deve destruir o cálculo de limite diário como se fosse gasto livre inesperado.
-
-Diferenciar:
-
-```text
-gasto reservado
-```
-
-de:
-
-```text
-gasto discricionário
-```
+sem reescrever a interface do chat.
 
 ---
 
-# Classificação
+# 43. Sincronização entre voz e dashboard
 
-Criar ou aproveitar classificação:
+Não esperar o TTS terminar para exibir o resultado.
 
-```text
-essential
-discretionary
-reserved
-```
-
-Exemplo:
+Fluxo:
 
 ```text
-Aluguel
-reserved
-
-Internet
-reserved
-
-Mercado
-essential
-
-Restaurante
-discretionary
+tools concluíram
+↓
+mensagem da assistente é adicionada ao chat
+↓
+dashboard é renderizado dentro da mensagem
+↓
+TTS reproduz o speech
 ```
 
-Não depender exclusivamente da IA para essa classificação.
+O cliente deve ver o resultado enquanto escuta a assistente.
 
 ---
 
-# IA
+# 44. Respostas curtas em voz
 
-Criar tool:
+O texto falado não deve ser uma leitura completa do dashboard.
 
-```text
-getSafeDailySpend
-```
-
-Perguntas suportadas:
+Exemplo ruim:
 
 ```text
-Quanto posso gastar hoje?
-```
-
-```text
-Posso gastar R$ 200 hoje?
-```
-
-```text
-Se eu gastar R$ 150 hoje, como fica?
-```
-
-```text
-Quanto posso gastar por dia até receber?
-```
-
----
-
-# Simulação
-
-Adicionar tool:
-
-```text
-simulateDailySpend
-```
-
-Usuário:
-
-```text
-Posso gastar R$ 300 hoje?
-```
-
-Não registrar nenhuma despesa.
-
-Simular:
-
-```text
-Se você gastar R$ 300 hoje:
-
-Dinheiro livre:
-R$ 900 → R$ 600
-
-Novo limite médio:
-R$ 42,85/dia
-
-Seu próximo pagamento acontece em 14 dias.
-```
-
----
-
-# Não criar culpa
-
-As mensagens devem ser objetivas.
-
-Evitar:
-
-```text
-Você gastou demais!
+Mercado, valor gasto 500 reais,
+queda de 12 por cento,
+ver transações,
+comparar com mês passado...
 ```
 
 Preferir:
 
 ```text
-Você ultrapassou o valor recomendado de hoje em R$ 35.
+Você gastou R$ 500 em mercado neste mês,
+12% menos que no mês passado.
+```
 
-O limite médio para os próximos 9 dias
-foi ajustado para R$ 48.
+O dashboard fornece os detalhes visualmente.
+
+---
+
+# 45. Separar speech de display
+
+Criar:
+
+```ts
+{
+  speech: 'Você gastou R$ 500 em mercado neste mês, 12% menos que no mês passado.',
+  text: 'Aqui está seu resumo.',
+  summary: 'Você gastou R$ 500,00 em Mercado este mês.',
+  blocks: [...],
+  actions: [...]
+}
+```
+
+`speech` deve ser otimizado para voz.
+
+`text` e `summary` devem ser otimizados para leitura no chat.
+
+---
+
+# 46. Estado do chat
+
+O chat deve possuir estados explícitos para processamento e ações.
+
+Exemplo:
+
+```ts
+type ChatRequestState =
+  | 'idle'
+  | 'transcribing'
+  | 'processing'
+  | 'awaiting-confirmation'
+  | 'executing-action'
+  | 'responding'
+  | 'error';
+```
+
+Evitar vários booleanos independentes que possam gerar estados impossíveis.
+
+---
+
+# 47. Feedback de processamento dentro do chat
+
+Enquanto a IA processa:
+
+```text
+Consultando seus gastos...
+```
+
+```text
+Comparando os meses...
+```
+
+```text
+Preparando sua categoria...
+```
+
+```text
+Validando os dados...
+```
+
+```text
+Preparando a confirmação...
+```
+
+Esses estados devem aparecer como mensagens temporárias ou indicadores da assistente dentro do chat.
+
+Nunca mostrar:
+
+```text
+getTransactionsByCategory()
+```
+
+ou nomes técnicos de tools.
+
+---
+
+# 48. Confirmação por botão ou voz
+
+Toda confirmação deve funcionar por:
+
+* botão dentro do dashboard;
+* texto no chat;
+* voz.
+
+Exemplo:
+
+Assistente:
+
+```text
+Preparei a categoria Viagens.
+Quer criar?
+```
+
+Cliente:
+
+```text
+Sim.
+```
+
+ou:
+
+```text
+[Cancelar] [Criar categoria]
+```
+
+Ambos devem executar a mesma ação segura.
+
+---
+
+# 49. Contexto da confirmação
+
+O agente deve saber que a resposta:
+
+```text
+Sim
+```
+
+refere-se à última ação pendente.
+
+Criar contexto semelhante a:
+
+```ts
+interface PendingAction {
+  id: string;
+  type: AiActionType;
+  payload: unknown;
+  confirmationRequired: boolean;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'failed';
+}
+```
+
+Não executar uma ação antiga ou ambígua.
+
+Se houver mais de uma ação pendente, pedir esclarecimento.
+
+---
+
+# 50. Contexto da conversa
+
+Manter contexto suficiente para follow-ups.
+
+Exemplo:
+
+```text
+Cliente:
+Quanto gastei no mercado?
+
+Assistente:
+[dashboard Mercado]
+
+Cliente:
+E mês passado?
+```
+
+O agente deve entender que:
+
+```text
+mês passado
+```
+
+refere-se a:
+
+```text
+Mercado
+```
+
+Outro exemplo:
+
+```text
+Cliente:
+Crie uma categoria chamada Viagens.
+
+Assistente:
+[confirmação]
+
+Cliente:
+Sim.
+```
+
+O agente deve entender que `Sim` confirma a criação da categoria.
+
+---
+
+# 51. Contexto visual
+
+O agente deve saber quais dashboards estão visíveis no chat e qual é o foco atual.
+
+Criar contexto semelhante a:
+
+```ts
+interface ChatVisualContext {
+  visibleBlocks: string[];
+  focusedEntity?: {
+    type: string;
+    id: string;
+  };
+  pendingAction?: PendingAction;
+  lastAssistantPresentation?: AiPresentation;
+}
+```
+
+Assim:
+
+```text
+E essa categoria?
+```
+
+pode referir-se ao card atual.
+
+---
+
+# 52. Histórico do chat
+
+O histórico deve manter:
+
+* mensagens do cliente;
+* mensagens da assistente;
+* dashboards;
+* confirmações;
+* resultados de ações;
+* erros relevantes.
+
+Não transformar o histórico em uma lista de dashboards desconectados.
+
+Cada dashboard deve permanecer associado à mensagem que o gerou.
+
+---
+
+# 53. Atualização dinâmica
+
+Quando uma nova pergunta chegar, adicionar uma nova mensagem da assistente com o dashboard correspondente.
+
+Não substituir silenciosamente o histórico anterior.
+
+Porém, dentro da mensagem atual, não empilhar dezenas de cards sem necessidade.
+
+Exemplo:
+
+```text
+Pergunta 1
+→ mensagem da assistente com CategoryBlock
+
+Pergunta 2
+→ nova mensagem da assistente com ChartBlock
+```
+
+O histórico permanece coerente.
+
+---
+
+# 54. Layout do dashboard dentro do chat
+
+Cada mensagem da assistente pode conter:
+
+```text
+1 texto curto
++
+1 dashboard principal
++
+1 bloco complementar
++
+2–3 ações contextuais
+```
+
+Evitar excesso de conteúdo.
+
+Exemplo adequado:
+
+```text
+texto da assistente
++
+CategoryBlock
++
+ComparisonBlock
++
+2 ações
+```
+
+Exemplo inadequado:
+
+```text
+texto
++
+5 gráficos
++
+4 listas
++
+10 botões
++
+3 formulários
 ```
 
 ---
 
-# Centro Hoje
+# 55. Animações de entrada
 
-Criar ou preparar uma seção:
+Quando uma mensagem da assistente ou dashboard surgir:
 
 ```text
+opacity 0 → 1
+translateY 8px → 0
+```
+
+Duração:
+
+```text
+180–300ms
+```
+
+Cards de confirmação e sucesso podem ter uma animação discreta.
+
+Não utilizar animações excessivas.
+
+---
+
+# 56. Componentes sugeridos
+
+Criar ou adaptar aproximadamente:
+
+```text
+AssistantChat
+ChatMessageList
+ChatMessage
+AssistantMessage
+UserMessage
+ChatComposer
+ChatVoiceButton
+ChatTypingIndicator
+ChatConfirmationHandler
+AiVisualRenderer
+AiMetricCard
+AiCategoryCard
+AiChartCard
+AiTransactionsCard
+AiBudgetCard
+AiRecurringCard
+AiPlanCard
+AiEntityPreviewCard
+AiConfirmationCard
+AiSuccessCard
+AiErrorCard
+AiFormCard
+AiActionButtons
+VoiceWaveform
+VoiceTranscript
+```
+
+Reutilizar componentes existentes quando possível.
+
+Não criar uma segunda interface de chat.
+
+---
+
+# 57. Visual Renderer dentro do chat
+
+Criar componente central:
+
+```tsx
+<AiVisualRenderer
+  blocks={message.presentation?.blocks ?? []}
+  actions={message.presentation?.actions ?? []}
+/>
+```
+
+Ele deve mapear:
+
+```text
+metric → AiMetricCard
+category → AiCategoryCard
+chart → AiChartCard
+transactions → AiTransactionsCard
+budget → AiBudgetCard
+recurring → AiRecurringCard
+plan → AiPlanCard
+entity-preview → AiEntityPreviewCard
+confirmation → AiConfirmationCard
+success → AiSuccessCard
+error → AiErrorCard
+form → AiFormCard
+```
+
+Não usar condições gigantes dentro de `AssistantChat`.
+
+---
+
+# 58. Validação
+
+Todo conteúdo vindo da IA deve passar por Zod.
+
+Fluxo:
+
+```text
+AI
+↓
+JSON
+↓
+Zod
+↓
+AiPresentation
+↓
+ChatMessage
+↓
+AiVisualRenderer
+```
+
+Se um bloco for inválido:
+
+* ignorar o bloco com segurança;
+* manter o texto da assistente;
+* mostrar fallback quando necessário;
+* não quebrar o chat.
+
+---
+
+# 59. Tools financeiras
+
+Reutilizar as tools existentes.
+
+As tools devem ser responsáveis por:
+
+* consultar transações;
+* consultar categorias;
+* criar categorias;
+* editar categorias;
+* excluir categorias;
+* criar transações;
+* editar transações;
+* excluir transações;
+* consultar recorrências;
+* criar recorrências;
+* editar recorrências;
+* excluir recorrências;
+* consultar orçamentos;
+* criar ou atualizar orçamentos;
+* gerar planejamento financeiro;
+* aplicar planejamento após confirmação.
+
+Não duplicar regras de negócio nos componentes visuais.
+
+---
+
+# 60. Separação de camadas
+
+Não misturar:
+
+```text
+STT
+TTS
+IA
+chat
+UI
+domínio financeiro
+persistência
+```
+
+em um único componente.
+
+Manter camadas separadas:
+
+```text
+Chat UI
+↓
+Chat Controller
+↓
+Agent Service
+↓
+Tool Executor
+↓
+Repositories / Stores
+```
+
+Para voz:
+
+```text
+Chat Voice Button
+↓
+SpeechRecognitionService
+↓
+Chat Controller
+```
+
+Para áudio da assistente:
+
+```text
+Chat Controller
+↓
+TextToSpeechService
+```
+
+---
+
+# 61. Privacidade
+
+Não gravar áudio permanentemente por padrão.
+
+Não salvar gravações no IndexedDB.
+
+Não enviar áudio para serviços externos quando a implementação atual estiver usando reconhecimento local/nativo do navegador.
+
+Se futuramente houver STT remoto, deixar explícito.
+
+---
+
+# 62. Permissão de microfone
+
+No primeiro uso:
+
+```text
+O microfone será utilizado apenas enquanto você estiver usando a assistente.
+```
+
+Depois solicitar permissão.
+
+Se a permissão for negada:
+
+```text
+Não conseguimos acessar o microfone.
+
+Você pode permitir o acesso nas configurações do navegador
+ou continuar usando o teclado.
+```
+
+Adicionar:
+
+```text
+Usar teclado
+```
+
+---
+
+# 63. Voice Button dentro do composer
+
+O botão de voz deve ficar dentro do campo de entrada do chat.
+
+Exemplo:
+
+```text
+┌────────────────────────────┐
+│ Digite sua mensagem...     │
+│                       Mic  │
+└────────────────────────────┘
+```
+
+Estados:
+
+```text
+idle
+listening
+processing
+responding
+error
+```
+
+Durante a gravação:
+
+```text
+Ouvindo...
+```
+
+Mostrar waveform compacta no composer ou acima dele.
+
+Não deslocar o dashboard para uma tela separada.
+
+---
+
+# 64. Interrupção
+
+Se a assistente estiver falando e o cliente tocar no botão de voz:
+
+```text
+TTS para
+↓
+começa a ouvir o cliente
+```
+
+Não obrigar o cliente a esperar toda a resposta terminar.
+
+Preparar arquitetura para futuramente permitir:
+
+```text
+barge-in
+```
+
+quando o cliente começar a falar durante a resposta.
+
+---
+
+# 65. Erro da IA
+
+Se OpenRouter falhar:
+
+```text
+Não consegui consultar a assistente agora.
+
+Seus dados continuam disponíveis normalmente.
+```
+
+Dentro do chat, adicionar:
+
+```text
+[Tentar novamente]
+[Usar aplicativo]
+```
+
+---
+
+# 66. Erro de ação
+
+Se uma criação, edição ou exclusão falhar:
+
+```text
+Não foi possível concluir essa ação.
+
+Nenhuma alteração foi feita.
+```
+
+Dashboard:
+
+```text
+[ Tentar novamente ]
+```
+
+Não mostrar sucesso se a persistência falhar.
+
+---
+
+# 67. Erro de voz
+
+Se STT falhar:
+
+```text
+Não consegui entender.
+
+Tente novamente ou use o teclado.
+```
+
+Não enviar texto vazio à IA.
+
+---
+
+# 68. Timeout
+
+Adicionar timeout para:
+
+* reconhecimento;
+* IA;
+* execução de tools;
+* TTS quando necessário.
+
+Não deixar o chat preso em:
+
+```text
+Analisando...
+```
+
+ou:
+
+```text
+Preparando...
+```
+
+---
+
+# 69. Cancelamento
+
+Adicionar cancelamento quando aplicável.
+
+Durante processamento:
+
+```text
+Cancelar
+```
+
+Abortar request usando:
+
+```text
+AbortController
+```
+
+Se o cliente cancelar uma ação pendente:
+
+```text
+Ação cancelada.
+
+Nenhuma alteração foi feita.
+```
+
+---
+
+# 70. Acessibilidade
+
+Todos os botões devem possuir:
+
+```text
+aria-label
+```
+
+Exemplos:
+
+```text
+Iniciar conversa por voz
+Parar gravação
+Criar categoria
+Cancelar criação de categoria
+Excluir categoria
+Confirmar ação
+```
+
+O estado deve ser anunciado:
+
+```text
+Ouvindo
+Processando
+Aguardando confirmação
+Executando ação
+Falando
+```
+
+Os dashboards devem ser navegáveis por teclado.
+
+---
+
+# 71. Usuário que não pode usar voz
+
+Todas as funcionalidades precisam continuar acessíveis via teclado.
+
+O modo de voz é uma interface alternativa.
+
+O chat deve funcionar completamente por texto.
+
+As confirmações devem funcionar por teclado e clique.
+
+---
+
+# 72. Performance
+
+Não manter waveform em 60 FPS quando não necessário.
+
+Pausar animações:
+
+* quando a aba não estiver visível;
+* quando o chat estiver inativo;
+* quando o estado for idle;
+* quando o componente desmontar.
+
+Cancelar AudioContext corretamente.
+
+Evitar renderizar novamente todo o histórico quando apenas uma mensagem nova for adicionada.
+
+---
+
+# 73. Mobile-first
+
+O chat deve ser projetado primeiro para celular.
+
+Os dashboards dentro das mensagens devem ocupar a largura disponível sem quebrar o layout.
+
+Em desktop:
+
+* centralizar o chat;
+* manter largura confortável;
+* não transformar a tela em dashboard de duas colunas;
+* preservar a sensação de conversa com a assistente.
+
+---
+
+# 74. Desktop
+
+Exemplo:
+
+```css
+.chat-container {
+  max-width: 720px;
+  margin: 0 auto;
+}
+```
+
+Os cards podem ocupar a largura da mensagem, mas não devem parecer uma página administrativa.
+
+---
+
+# 75. Safe areas
+
+Respeitar:
+
+```text
+env(safe-area-inset-top)
+env(safe-area-inset-bottom)
+```
+
+quando aplicável.
+
+O composer deve permanecer acessível acima da área segura do dispositivo.
+
+---
+
+# 76. Sugestões contextuais
+
+Depois de responder, oferecer sugestões dentro da mensagem da assistente.
+
+Exemplo:
+
+```text
+[Ver transações]
+[Comparar com mês passado]
+[Definir orçamento]
+```
+
+Máximo:
+
+```text
+2–3 sugestões
+```
+
+As sugestões devem ser ações reais do chat.
+
+Se o cliente tocar em:
+
+```text
+Comparar com mês passado
+```
+
+isso deve ser tratado como uma nova solicitação ao agente.
+
+Não duplicar lógica manual.
+
+---
+
+# 77. Ações faláveis
+
+O cliente deve poder dizer:
+
+```text
+Sim
+```
+
+```text
+Pode criar
+```
+
+```text
+Cancela
+```
+
+```text
+Aplica
+```
+
+```text
+Mostra os detalhes
+```
+
+O agente deve interpretar essas respostas usando o contexto da última mensagem e da ação pendente.
+
+---
+
+# 78. Confirmações destrutivas
+
+Para exclusões ou alterações importantes:
+
+```text
+cliente solicita
+↓
+assistente explica o que será alterado
+↓
+dashboard mostra detalhes
+↓
+cliente confirma
+↓
+tool executa
+↓
+resultado aparece no chat
+```
+
+Nunca executar exclusões apenas com uma interpretação ambígua.
+
+---
+
+# 79. Testes
+
+Criar testes para:
+
+### Chat state
+
+```text
+idle
+→ processing
+→ responding
+→ idle
+```
+
+### Confirmação
+
+```text
+solicitação
+→ awaiting-confirmation
+→ confirmed
+→ executing-action
+→ success
+```
+
+### Cancelamento
+
+```text
+awaiting-confirmation
+→ cancelled
+```
+
+### Visual renderer
+
+Cada schema deve renderizar o componente correto dentro de uma mensagem da assistente.
+
+### Bloco inválido
+
+Não deve quebrar o chat.
+
+### Criação de categoria
+
+```text
+Crie uma categoria chamada Viagens.
+```
+
+deve gerar:
+
+```text
+preview
+→ confirmação
+→ categoria criada
+```
+
+### Exclusão
+
+Não deve executar sem confirmação.
+
+### Continuidade
+
+```text
+Quanto gastei no mercado?
+E mês passado?
+```
+
+deve manter contexto.
+
+### Confirmação por voz
+
+```text
+Crie a categoria Viagens.
+Sim.
+```
+
+deve executar a ação pendente.
+
+### TTS
+
+Nova pergunta interrompe áudio anterior.
+
+### STT indisponível
+
+Fallback de teclado deve aparecer.
+
+### Erro de persistência
+
+Não deve mostrar sucesso falso.
+
+### Histórico
+
+Dashboard deve permanecer associado à mensagem correta.
+
+---
+
+# 80. Exemplo completo 1: consulta
+
+Cliente fala ou escreve:
+
+```text
+Quanto eu gastei com mercado este mês?
+```
+
+Chat:
+
+```text
+Cliente
+Quanto eu gastei com mercado este mês?
+
+Assistente
+Aqui está seu resumo.
+```
+
+Dashboard dentro da mensagem:
+
+```text
+Mercado
+R$ 500
+↓ 12%
+
+[mini gráfico]
+
+Você gastou R$ 500 em Mercado,
+12% menos que no mês passado.
+
+[Ver transações]
+[Comparar com mês passado]
+```
+
+A assistente fala:
+
+```text
+Você gastou R$ 500 em mercado neste mês,
+12% menos que no mês passado.
+```
+
+---
+
+# 81. Exemplo completo 2: criação de categoria
+
+Cliente:
+
+```text
+Crie uma categoria chamada Viagens.
+```
+
+Assistente:
+
+```text
+Posso criar esta categoria para você:
+```
+
+Dashboard:
+
+```text
+Nova categoria
+
+Viagens
+
+[Cancelar] [Criar categoria]
+```
+
+Cliente toca em:
+
+```text
+Criar categoria
+```
+
+Assistente:
+
+```text
+✓ Categoria criada
+```
+
+Dashboard:
+
+```text
+Viagens
+
+A categoria está pronta para ser usada.
+```
+
+---
+
+# 82. Exemplo completo 3: criação por voz
+
+Cliente fala:
+
+```text
+Crie uma categoria chamada Estudos.
+```
+
+Assistente mostra:
+
+```text
+Nova categoria
+
+Estudos
+
+[Cancelar] [Criar categoria]
+```
+
+Assistente fala:
+
+```text
+Preparei a categoria Estudos.
+Quer criar?
+```
+
+Cliente fala:
+
+```text
+Sim.
+```
+
+Resultado:
+
+```text
+✓ Categoria criada
+
+Estudos
+```
+
+---
+
+# 83. Exemplo completo 4: criação de despesa
+
+Cliente:
+
+```text
+Gastei 80 reais de gasolina hoje.
+```
+
+Assistente:
+
+```text
+Preparei esta despesa:
+```
+
+Dashboard:
+
+```text
+Nova despesa
+
+Gasolina
+R$ 80,00
+
+Categoria
+Transporte
+
+Data
+Hoje
+
+[Editar] [Cancelar] [Registrar despesa]
+```
+
+Após confirmação:
+
+```text
+✓ Despesa registrada
+
+Gasolina
+R$ 80,00
+Transporte
 Hoje
 ```
 
-Exemplo:
+---
+
+# 84. Exemplo completo 5: organização financeira
+
+Cliente:
 
 ```text
-Disponível hoje
-R$ 58
+Organiza meus R$ 4.500.
+```
 
-Dinheiro livre
-R$ 920
+Assistente:
 
-Próxima conta
-Internet
-Amanhã — R$ 119,90
+```text
+Preparei uma organização para você:
+```
 
-Próximo recebimento
-Salário
-12 dias — R$ 4.500
+Dashboard:
+
+```text
+Organização sugerida
+
+Contas
+R$ 1.995
+
+Alimentação
+R$ 600
+
+Transporte
+R$ 300
+
+Reserva
+R$ 500
+
+Margem
+R$ 300
+
+Livre
+R$ 805
+
+[Editar] [Aplicar]
+```
+
+Assistente:
+
+```text
+R$ 3.695 ficam reservados
+e R$ 805 permanecem livres.
 ```
 
 ---
 
-# Configuração
+# 85. Exemplo completo 6: exclusão
 
-Permitir margem de segurança.
-
-Exemplo:
+Cliente:
 
 ```text
-Margem de segurança
-10%
+Apaga essa transação.
 ```
 
-Se o usuário tiver:
+Assistente:
 
 ```text
-R$ 1.000 livres
+Encontrei esta transação:
 ```
 
-o sistema pode considerar:
+Dashboard:
 
 ```text
-R$ 900 distribuíveis
-R$ 100 protegidos
+Excluir transação
+
+Gasolina
+R$ 89,90
+Hoje
+
+Essa ação não poderá ser desfeita.
+
+[Cancelar] [Excluir transação]
+```
+
+Após confirmação:
+
+```text
+✓ Transação excluída
+
+A despesa de R$ 89,90 foi removida.
 ```
 
 ---
 
-# Limites
+# 86. Critério visual
 
-Se não houver receita futura cadastrada:
+A feature não está pronta se parecer:
 
-não inventar período.
+* formulário isolado;
+* chatbot simples;
+* página administrativa;
+* tela de configurações;
+* dashboard convencional;
+* botão de microfone adicionado sem integração;
+* tela de voz separada do chat;
+* lista de cards sem relação com as mensagens.
 
-Mostrar:
+Ela deve parecer uma **assistente financeira integrada ao chat**, na qual cada resposta pode se transformar em um dashboard interativo contextual.
+
+---
+
+# 87. Critério funcional
+
+Considerar concluída apenas quando:
+
+* o chat existente continua sendo o centro da experiência;
+* mensagens do cliente e da assistente são mantidas;
+* voz funciona dentro do composer do chat;
+* STT funciona ou fallback existe;
+* DeepSeek recebe a pergunta;
+* tools reais são executadas;
+* resposta estruturada é gerada;
+* dashboard correto aparece dentro da mensagem da assistente;
+* tudo que o cliente pedir possui representação visual adequada;
+* criação de categoria mostra confirmação;
+* edição mostra confirmação;
+* exclusão exige confirmação;
+* criação de transações funciona;
+* criação de recorrências funciona;
+* análise financeira funciona;
+* TTS reproduz a resposta;
+* usuário consegue interromper;
+* contexto de follow-up funciona;
+* confirmação por voz funciona;
+* ações podem ser confirmadas pela interface;
+* mensagens de sucesso aparecem após persistência real;
+* erros não quebram o chat;
+* modo teclado funciona;
+* histórico permanece coerente.
+
+---
+
+# 88. Critério arquitetural
+
+Não misturar:
 
 ```text
-Cadastre seu próximo recebimento
-para calcular um limite diário mais preciso.
+STT
+TTS
+IA
+chat
+UI
+domínio financeiro
+persistência
 ```
 
-Pode oferecer uma estimativa mensal somente se estiver claramente identificada como estimativa.
+em um único componente.
+
+Manter camadas separadas.
+
+O dashboard deve ser uma extensão renderizável da mensagem da assistente, não uma tela independente.
 
 ---
 
-# Testes
+# 89. Entrega
 
-Testar:
+Ao concluir, apresente:
 
-* dinheiro livre positivo;
-* dinheiro livre zero;
-* déficit;
-* gasto parcial durante o dia;
-* gasto acima do recomendado;
-* pagamento amanhã;
-* salário amanhã;
-* salário em 30 dias;
-* conta já reservada;
-* gasto inesperado;
-* margem de segurança;
-* simulação sem persistência;
-* ausência de próxima receita.
+1. arquitetura criada;
+2. como o dashboard foi integrado ao chat;
+3. componentes adicionados;
+4. serviços de STT/TTS;
+5. modelo dos Visual Blocks;
+6. modelo de mensagens da assistente;
+7. fluxo completo chat/voz → IA → tools → dashboard dentro do chat;
+8. como criação, edição e exclusão funcionam;
+9. como confirmações por botão e voz funcionam;
+10. como o contexto visual é mantido;
+11. como ações pendentes são controladas;
+12. como interrupção funciona;
+13. limitações dos navegadores;
+14. testes executados;
+15. próximos passos.
 
 ---
 
-# Critério de conclusão
+# REGRA FINAL
 
-A feature está pronta quando:
+Não implemente apenas o visual da referência.
 
-* cálculo for preciso;
-* utilizar Dinheiro Livre;
-* considerar próximo pagamento;
-* atualizar após cada transação;
-* distinguir gasto reservado de livre;
-* recalcular automaticamente;
-* dashboard exibir valor;
-* IA conseguir consultá-lo;
-* IA conseguir simular despesas;
-* simulação não modificar dados reais;
-* persistência funcionar;
-* testes passarem.
+Não crie apenas um modo de voz separado.
+
+O sistema deve permanecer dentro do chat da assistente.
+
+A referência representa o comportamento esperado.
+
+O resultado precisa funcionar desta forma:
+
+```text
+O cliente escreve ou fala uma solicitação
+↓
+a mensagem aparece no chat
+↓
+a assistente entende
+↓
+a IA consulta dados reais ou prepara uma ação
+↓
+a resposta da assistente aparece no chat
+↓
+um dashboard visual mostra exatamente o que foi pedido
+↓
+se necessário, botões de confirmação aparecem
+↓
+o cliente confirma por clique, texto ou voz
+↓
+a ação é executada com segurança
+↓
+o resultado final aparece no chat
+↓
+o cliente continua a conversa
+```
+
+Essa interação entre **chat + voz + IA + dashboard dinâmico + ações confirmáveis** é o núcleo da feature.
