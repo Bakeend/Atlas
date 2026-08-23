@@ -86,7 +86,6 @@ export function CategoryManager({ close }: { close: () => void }) {
                 </button>
               ))}
             </div>
-            <p className="mt-1.5 text-xs text-muted">Selecionado: <strong className="text-ink">{newIcon}</strong> — {iconPack.find(p => p.name === newIcon)?.label}</p>
           </div>
           <button className="btn-primary mt-4 w-full" onClick={handleCreate}><Plus size={16} /> Criar categoria</button>
         </Card>
