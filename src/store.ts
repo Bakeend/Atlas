@@ -4,6 +4,7 @@ import type { Account, AiActionLog, AiConversation, AiMessage, AiRule, Allocatio
 import { emptyData, uid } from './domain'
 import type { RecurringExpense } from './domain'
 import { isOccurrenceRecorded } from './recurring'
+import { sanitizeShortcuts } from './navigation'
 
 export interface RecurringPaymentInput {
   recurringExpenseId: string
@@ -61,6 +62,7 @@ type State = FinanceData & {
   setPaymentAllocationPriority: (order: import('./domain').AllocationPriority[]) => void
   addPaymentAllocationPreference: (rule: string) => void
   removePaymentAllocationPreference: (id: string) => void
+  setNavShortcuts: (routes: string[]) => void
   deleteAllData: () => void
 }
 
@@ -86,6 +88,7 @@ const data = (s: State): FinanceData => ({
   safetyMarginPercent: s.safetyMarginPercent ?? 10,
   paymentAllocationPriority: (s as any).paymentAllocationPriority ?? ['overdue','essential','bills','food','transport','goals','reserve','leisure','free'],
   paymentAllocationPreferences: (s as any).paymentAllocationPreferences ?? [],
+  navShortcuts: s.navShortcuts ?? [],
 })
 
 export const useFinanceStore = create<State>((set, get) => ({
@@ -114,6 +117,7 @@ export const useFinanceStore = create<State>((set, get) => ({
       safetyMarginPercent: (loaded as any).safetyMarginPercent ?? 10,
       paymentAllocationPriority: (loaded as any).paymentAllocationPriority ?? ['overdue','essential','bills','food','transport','goals','reserve','leisure','free'],
       paymentAllocationPreferences: (loaded as any).paymentAllocationPreferences ?? [],
+      navShortcuts: sanitizeShortcuts((loaded as any).navShortcuts),
     }
     const needsPersist =
       !loaded.recurringExpenses ||
@@ -129,6 +133,7 @@ export const useFinanceStore = create<State>((set, get) => ({
       (loaded as any).aiConversations === undefined ||
       (loaded as any).paymentAllocationPriority === undefined ||
       (loaded as any).paymentAllocationPreferences === undefined ||
+      (loaded as any).navShortcuts === undefined ||
       migrated.accounts.some((account, index) => account.color !== (loaded.accounts ?? [])[index]?.color)
     if (needsPersist) persist(migrated)
     set({ ...migrated, ready: true })
@@ -394,6 +399,12 @@ export const useFinanceStore = create<State>((set, get) => ({
   removePaymentAllocationPreference: id => set(s => {
     const next = { ...s, paymentAllocationPreferences: ((s as any).paymentAllocationPreferences ?? []).filter((p:any)=> p.id!==id) }
     persist(data(next as any)); return next as any
+  }),
+  setNavShortcuts: routes => set(s => {
+    const nextRoutes = sanitizeShortcuts(routes)
+    if (JSON.stringify(nextRoutes) === JSON.stringify(s.navShortcuts)) return s
+    const next = { ...s, navShortcuts: nextRoutes }
+    persist(data(next)); return next
   }),
   deleteAllData: () => {
     const fresh = emptyData()

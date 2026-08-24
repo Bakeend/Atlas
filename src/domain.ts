@@ -205,6 +205,7 @@ export interface FinanceData {
   safetyMarginPercent: number
   paymentAllocationPriority?: AllocationPriority[]
   paymentAllocationPreferences?: PaymentAllocationPreference[]
+  navShortcuts?: string[]
 }
 
 export const categories = ['Alimentação', 'Moradia', 'Transporte', 'Saúde', 'Lazer', 'Educação', 'Assinaturas', 'Outros']
@@ -251,5 +252,6 @@ export function emptyData(): FinanceData {
     safetyMarginPercent: 10,
     paymentAllocationPriority: ['overdue','essential','bills','food','transport','goals','reserve','leisure','free'] as AllocationPriority[],
     paymentAllocationPreferences: [],
+    navShortcuts: [],
   }
 }

@@ -1,7 +1,7 @@
 import {
-  AlertTriangle, ArrowDownLeft, ArrowUpRight, Bell, BellRing, Car, ChartPie, Check, CheckCheck, ChevronDown, ChevronRight,
-  Download, Eye, EyeOff, FileUp, Gamepad2, House, ListChecks, Package, Plus, ReceiptText, Settings, Sparkles, Trash2,
-  TrendingDown, TrendingUp, UserRound, Utensils, Wallet, X, type LucideIcon,
+  AlertTriangle, ArrowDownLeft, ArrowUpRight, Bell, BellRing, Car, ChartPie, CheckCheck, ChevronRight,
+  Eye, EyeOff, FileUp, Gamepad2, House, Package, Plus, Settings, Sparkles,
+  TrendingDown, TrendingUp, Utensils, Wallet, X, type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
@@ -17,14 +17,8 @@ import { CategoryManager } from './components/CategoryManager'
 import { getCategoryIcon } from './lib/categoryIcons'
 import { getFinanceNotifications, type FinanceNotification } from './notifications'
 import { OrganizePage } from './OrganizePage'
-
-const navigation = [
-  { to: '/', label: 'Início', icon: House },
-  { to: '/transactions', label: 'Transações', icon: ReceiptText },
-  { to: '/organizar', label: 'Organizar', icon: ListChecks },
-  { to: '/planning', label: 'Orçamento', icon: ChartPie },
-  { to: '/profile', label: 'Perfil', icon: UserRound },
-]
+import { SettingsMenu, NavigationSettings, FinanceSettings, PaymentSettings, PrivacySettings } from './SettingsPages'
+import { resolveShortcutItems, APP_PAGES } from './navigation'
 
 function Shell() {
   const [newTransaction, setNewTransaction] = useState(false)
@@ -32,15 +26,17 @@ function Shell() {
   useEffect(() => { void hydrate() }, [hydrate])
   if (!ready) return <div className="grid min-h-screen place-items-center"><div className="text-center"><div className="mx-auto h-11 w-11 animate-pulse rounded-full bg-brand"/><p className="mt-3 text-sm text-muted">Carregando suas finanças…</p></div></div>
   return <div className="min-h-screen"><main className="app-content"><Routes>
-    <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/organizar" element={<OrganizePage/>}/><Route path="/import" element={<ImportPage/>}/><Route path="/forecast" element={<ForecastPage/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/recurring" element={<RecurringExpensesPage/>}/><Route path="/assistant" element={<AiAssistantPage/>}/><Route path="/profile" element={<Profile/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
+    <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/organizar" element={<OrganizePage/>}/><Route path="/import" element={<ImportPage/>}/><Route path="/forecast" element={<ForecastPage/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/recurring" element={<RecurringExpensesPage/>}/><Route path="/assistant" element={<AiAssistantPage/>}/><Route path="/profile" element={<Profile/>}/><Route path="/settings" element={<SettingsMenu/>}/><Route path="/settings/nav" element={<NavigationSettings/>}/><Route path="/settings/finance" element={<FinanceSettings/>}/><Route path="/settings/payment" element={<PaymentSettings/>}/><Route path="/settings/privacy" element={<PrivacySettings/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
   </Routes></main><BottomNavigation onNew={() => setNewTransaction(true)}/>{newTransaction && <TransactionModal close={() => setNewTransaction(false)}/>}</div>
 }
 
 function BottomNavigation({ onNew }: { onNew: () => void }) {
+  const shortcuts = useFinanceStore(state => state.navShortcuts)
+  const items = resolveShortcutItems(shortcuts)
   return <div className="bottom-nav-shell"><nav className="bottom-nav" aria-label="Navegação principal">
-    {navigation.slice(0, 2).map(item => <BottomNavItem key={item.to} {...item}/>)}
+    {items.slice(0, 2).map(item => <BottomNavItem key={item.to} {...item}/>)}
     <button className="bottom-nav-action" onClick={onNew} aria-label="Nova movimentação"><Plus size={29} strokeWidth={2}/></button>
-    {navigation.slice(2).map(item => <BottomNavItem key={item.to} {...item}/>)}
+    {items.slice(2).map(item => <BottomNavItem key={item.to} {...item}/>)}
   </nav></div>
 }
 
@@ -141,10 +137,14 @@ function Planning() {
 }
 
 function Profile() {
-  const { hideBalances, toggleBalances, forecastRealistic, setForecastRealistic, safetyMarginPercent, setSafetyMarginPercent, paymentAllocationPriority, setPaymentAllocationPriority, paymentAllocationPreferences, addPaymentAllocationPreference, removePaymentAllocationPreference, deleteAllData } = useFinanceStore() as any
-  const [newPref, setNewPref] = useState(''); const [confirmReset, setConfirmReset] = useState(false)
-  const priorityLabels: Record<string,string> = { overdue:'Contas vencidas', essential:'Contas essenciais', bills:'Obrigações recorrentes', food:'Alimentação', transport:'Transporte', goals:'Metas prioritárias', reserve:'Reserva financeira', leisure:'Lazer', free:'Livre' }
-  return <><PageTitle eyebrow="Preferências" title="Perfil e configurações"/><div className="space-y-5"><Card><h2 className="section-title">Privacidade</h2><button onClick={toggleBalances} className="settings-row"><div><p className="font-semibold">Ocultar valores</p><p className="mt-1 text-sm text-muted">Esconde quantias em toda a interface.</p></div><span className={`toggle ${hideBalances ? 'active' : ''}`}><span/></span></button><div className="settings-row"><div><p className="font-semibold">Persistência local</p><p className="mt-1 text-sm text-muted">Dados armazenados em IndexedDB neste navegador.</p></div><Check className="text-brand" size={20}/></div><NavLink to="/accounts" className="settings-row"><div><p className="font-semibold">Contas e carteiras</p><p className="mt-1 text-sm text-muted">Gerencie saldos, contas ativas e arquivadas.</p></div><ChevronRight className="text-muted" size={20}/></NavLink></Card><Card><h2 className="section-title">Quanto posso gastar hoje?</h2><p className="mt-1 text-sm text-muted">Margem protege parte do dinheiro livre — mesmo visual de dinheiro e selects.</p><div className="mt-4"><span className="label">Margem de segurança</span><SelectMenu ariaLabel="Margem de segurança" value={String(safetyMarginPercent)} onChange={v => setSafetyMarginPercent(Number(v))} options={[0,5,10,15,20,30].map(v => ({ value: String(v), label: `${v}%` }))} /><p className="mt-2 text-xs text-muted">Com R$ 1.000 livres e 10%, R$ 900 distribuíveis e R$ 100 protegidos.</p></div></Card><Card><h2 className="section-title">Organizar meu pagamento</h2><p className="mt-1 text-sm text-muted">Prioridades configuráveis. O motor respeita esta ordem ao propor reservas.</p><div className="mt-3 flex flex-wrap gap-1.5">{(paymentAllocationPriority ?? []).map((p:string,i:number)=> <span key={p} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium">{i+1}. {priorityLabels[p] ?? p}</span>)}</div><button className="btn-secondary mt-3 text-xs" onClick={()=> setPaymentAllocationPriority(['overdue','essential','bills','food','transport','goals','reserve','leisure','free'])}>Restaurar padrão</button></Card><Card><h2 className="section-title">Aprendizado de preferências</h2><p className="mt-1 text-sm text-muted">Registre regras explícitas como "Todo salário guarda 10%" ou "Sempre separa R$ 600 para alimentação". Nunca inferimos regra sem autorização.</p><div className="mt-3 flex gap-2"><input className="field flex-1" placeholder="Ex: Todo salário guarda 10%" value={newPref} onChange={e=> setNewPref(e.target.value)} /><button className="btn-primary !px-3" onClick={()=> { if(newPref.trim()){ addPaymentAllocationPreference(newPref.trim()); setNewPref('') } }}>Salvar</button></div>{(paymentAllocationPreferences ?? []).length>0 ? <div className="mt-3 space-y-2">{(paymentAllocationPreferences as any[]).map((pref:any)=> <div key={pref.id} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm"><span>{pref.rule}</span><button className="text-xs font-semibold text-red-600" onClick={()=> removePaymentAllocationPreference(pref.id)}>Remover</button></div>)}</div> : <p className="mt-3 text-xs text-muted">Nenhuma preferência salva.</p>}</Card><Card><h2 className="section-title">Previsão de saldo</h2><p className="mt-1 text-sm text-muted">Escolha como calcular a projeção de 30/90 dias no Dashboard.</p><button onClick={() => setForecastRealistic(!forecastRealistic)} className="settings-row"><div><p className="font-semibold">Modo realista</p><p className="mt-1 text-sm text-muted">{forecastRealistic ? 'Recorrentes + média variável (90 dias)' : 'Só recorrentes (contas fixas)'}</p></div><span className={`toggle ${forecastRealistic ? 'active' : ''}`}><span/></span></button><NavLink to="/forecast" className="settings-row"><div><p className="font-semibold">Ver previsão detalhada</p><p className="mt-1 text-sm text-muted">Gráfico, saldo mínimo e detalhe por dia.</p></div><ChevronRight className="text-muted" size={20}/></NavLink></Card><Card><Download className="text-blue-500"/><h2 className="mt-4 section-title">Exportação</h2><p className="mt-2 text-sm leading-6 text-muted">A exportação e a sincronização em nuvem ficam preparadas como próxima etapa da arquitetura.</p><button disabled className="btn-secondary mt-5 w-full">Em breve</button></Card><Card><Trash2 className="text-red-500"/><h2 className="mt-4 section-title">Excluir todos os dados</h2><p className="mt-2 text-sm leading-6 text-muted">Apaga contas, transações, orçamentos, recorrências, metas e conversas do assistente armazenados neste navegador.</p><button className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700" onClick={() => setConfirmReset(true)}><Trash2 size={18}/>Excluir todos os dados</button></Card></div>{confirmReset && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"><h2 className="text-lg font-bold">Excluir todos os dados?</h2><p className="mt-2 text-sm leading-6 text-muted">Todos os seus dados serão apagados permanentemente deste navegador. Esta ação não pode ser desfeita.</p><div className="mt-6 grid grid-cols-2 gap-3"><button className="btn-secondary" onClick={() => setConfirmReset(false)}>Cancelar</button><button className="inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700" onClick={() => { deleteAllData(); setConfirmReset(false) }}>Excluir tudo</button></div></div></div>}</>
+  return <><PageTitle eyebrow="Perfil" title="Olá, Daniel"/><div className="space-y-5">
+    <Card><h2 className="section-title">Páginas do app</h2><div className="mt-2">
+      {APP_PAGES.filter(page => page.to !== '/profile').map(page => <NavLink key={page.to} to={page.to} end={page.to === '/'} className="settings-row"><div className="flex min-w-0 items-center gap-3"><CategoryIcon icon={page.icon} size={18}/><p className="truncate font-semibold">{page.label}</p></div><ChevronRight className="text-muted shrink-0" size={20}/></NavLink>)}
+    </div></Card>
+    <Card>
+      <NavLink to="/settings" className="settings-row"><div className="min-w-0"><p className="font-semibold">Configurações</p><p className="mt-1 text-sm text-muted">Personalize a navegação, privacidade, finanças e pagamento.</p></div><ChevronRight className="text-muted shrink-0" size={20}/></NavLink>
+    </Card>
+  </div></>
 }
 
 function ConfirmDelete({ close, confirm }: { close: () => void; confirm: () => void }) { return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"><h2 className="text-lg font-bold">Excluir lançamento?</h2><p className="mt-2 text-sm leading-6 text-muted">Ele deixará de afetar seus saldos e relatórios. Esta ação pode ser revista no histórico técnico futuramente.</p><div className="mt-6 grid grid-cols-2 gap-3"><button className="btn-secondary" onClick={close}>Cancelar</button><button className="inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700" onClick={confirm}>Excluir</button></div></div></div> }
