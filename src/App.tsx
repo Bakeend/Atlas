@@ -1,13 +1,13 @@
 import {
-  AlertTriangle, ArrowDownLeft, ArrowUpRight, Bell, BellRing, Car, ChartPie, CheckCheck, ChevronRight,
+  AlertTriangle, ArrowDownLeft, ArrowUpRight, Bell, BellRing, Car, ChartPie, Check, CheckCheck, ChevronRight,
   Eye, EyeOff, FileUp, Gamepad2, House, Package, Plus, Settings, Sparkles,
   TrendingDown, TrendingUp, Utensils, Wallet, X, type LucideIcon,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState, Fragment, type ReactNode } from 'react'
+import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { AccountIcon, AccountModal, Card, CategoryIcon, Empty, MoneyInput, PageTitle, SelectMenu, TransactionModal, TransactionRow } from './components'
-import { accountBalance, categories, currentMonth, money, parseMoney, today, uid, type FinanceTransaction } from './domain'
+import { AccountIcon, AccountModal, Card, CategoryIcon, Empty, Modal, MoneyInput, PageTitle, SelectMenu, TransactionModal, TransactionRow } from './components'
+import { accountBalance, categories, currentMonth, money, parseMoney, today, uid, type FinanceTransaction, type FinancialProfile } from './domain'
 import { useFinanceStore } from './store'
 import { RecurringExpensesPage } from './RecurringExpenses'
 import { ImportPage } from './ImportPage'
@@ -17,18 +17,25 @@ import { CategoryManager } from './components/CategoryManager'
 import { getCategoryIcon } from './lib/categoryIcons'
 import { getFinanceNotifications, type FinanceNotification } from './notifications'
 import { OrganizePage } from './OrganizePage'
+import { DailySpendCard } from './DailySpend'
+import { FreeMoneyCard } from './FreeMoneyCard'
 import { SettingsMenu, NavigationSettings, FinanceSettings, PaymentSettings, PrivacySettings } from './SettingsPages'
 import { resolveShortcutItems, APP_PAGES } from './navigation'
-import { OnboardingPage } from './OnboardingPage'
+import { OnboardingPage } from './onboarding/OnboardingPage'
+import { buildFinancialProfile, getDashboardPriority, getEffectiveFinancialProfile, type DashboardCardKey } from './onboarding/onboardingProfile'
+import { GOAL_LABELS, LEVEL_LABELS, LEVEL_OPTIONS, GOAL_OPTIONS, PRIORITY_OPTIONS } from './onboarding/onboardingConfig'
 
 function Shell() {
   const [newTransaction, setNewTransaction] = useState(false)
+  const location = useLocation()
   const { hydrate, ready } = useFinanceStore()
   const onboardingDone = useFinanceStore(state => state.onboardingDone)
-  const isEmpty = useFinanceStore(state => state.accounts.length === 0 && state.transactions.length === 0 && state.recurringExpenses.length === 0)
   useEffect(() => { void hydrate() }, [hydrate])
   if (!ready) return <div className="grid min-h-screen place-items-center"><div className="text-center"><div className="mx-auto h-11 w-11 animate-pulse rounded-full bg-brand"/><p className="mt-3 text-sm text-muted">Carregando suas finanças…</p></div></div>
-  if (!onboardingDone && isEmpty) return <OnboardingPage/>
+  // Modo edição do onboarding (Perfil → Refazer configuração): rota dedicada, nunca altera dados existentes.
+  if (location.pathname === '/onboarding') return <OnboardingPage mode="edit"/>
+  // Gatilho exclusivo: onboardingDone (usuário pode criar conta no meio e fechar o app sem perder o fluxo).
+  if (!onboardingDone) return <OnboardingPage/>
   return <div className="min-h-screen"><main className="app-content"><Routes>
     <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/organizar" element={<OrganizePage/>}/><Route path="/import" element={<ImportPage/>}/><Route path="/forecast" element={<ForecastPage/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/recurring" element={<RecurringExpensesPage/>}/><Route path="/assistant" element={<AiAssistantPage/>}/><Route path="/profile" element={<Profile/>}/><Route path="/settings" element={<SettingsMenu/>}/><Route path="/settings/nav" element={<NavigationSettings/>}/><Route path="/settings/finance" element={<FinanceSettings/>}/><Route path="/settings/payment" element={<PaymentSettings/>}/><Route path="/settings/privacy" element={<PrivacySettings/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
   </Routes></main><BottomNavigation onNew={() => setNewTransaction(true)}/>{newTransaction && <TransactionModal close={() => setNewTransaction(false)}/>}</div>
@@ -72,15 +79,28 @@ function Dashboard() {
   const hasBudget = budgets.some(budget => budget.month === month)
   const notifications = useMemo(() => getFinanceNotifications({ recurringExpenses, transactions, budgets, referenceDate: today() }), [recurringExpenses, transactions, budgets])
   const unreadNotifications = notifications.filter(notification => !readNotificationIds.includes(notification.id))
+  const rawProfile = useFinanceStore(state => state.financialProfile)
+  // Sem perfil salvo (usuário antigo) o dashboard permanece exatamente como era.
+  const effectiveProfile = useMemo(() => getEffectiveFinancialProfile({ financialProfile: rawProfile }), [rawProfile])
+  const layout = useMemo(() => getDashboardPriority(effectiveProfile), [effectiveProfile])
+
+  const chartCard = <Card className="dashboard-card chart-card"><div className="card-heading"><h2>Despesas nos últimos {chartPeriod} meses</h2><div className="min-w-[110px]"><SelectMenu ariaLabel="Período do gráfico" value={chartPeriod} onChange={v => setChartPeriod(v as '3'|'6'|'12')} options={[{ value: '3', label: '3 meses' }, { value: '6', label: '6 meses' }, { value: '12', label: '12 meses' }]} /></div></div><div className="expense-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}><defs><linearGradient id="expenseArea" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2F80ED" stopOpacity={0.18}/><stop offset="95%" stopColor="#2F80ED" stopOpacity={0.01}/></linearGradient></defs><CartesianGrid stroke="#E9EDF3" strokeDasharray="3 3" vertical={false}/><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#7A8392', fontSize: 12 }} dy={9}/><YAxis axisLine={false} tickLine={false} tick={{ fill: '#8A93A1', fontSize: 11 }} tickFormatter={shortMoney}/><Tooltip content={<ChartTooltip hidden={hideBalances}/>}/><Area type="monotone" dataKey="value" stroke="#2F80ED" strokeWidth={3} fill="url(#expenseArea)" activeDot={{ r: 5, fill: '#fff', stroke: '#2F80ED', strokeWidth: 3 }} dot={{ r: 4, fill: '#fff', stroke: '#2F80ED', strokeWidth: 2.5 }}/></AreaChart></ResponsiveContainer></div></Card>
+  const budgetCard = <Card className="dashboard-card budget-card"><div className="card-heading"><h2>Orçamento deste mês</h2><NavLink to="/planning">Ver tudo</NavLink></div><div className="budget-layout"><div className="donut-wrap"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={expenseTotal ? budgetData : [{ value: 1, color: '#E5E7EB' }]} dataKey="value" innerRadius="64%" outerRadius="91%" paddingAngle={expenseTotal ? 2 : 0} stroke="white" strokeWidth={2}>{(expenseTotal ? budgetData : [{ color: '#E5E7EB' }]).map((entry, index) => <Cell key={index} fill={entry.color}/>)}</Pie></PieChart></ResponsiveContainer><div className="donut-center"><strong>{money(expenseTotal, hideBalances)}</strong><span>Total</span></div></div><div className="budget-list">{budgetData.map(item => <BudgetRow key={item.name} item={item} total={expenseTotal} hidden={hideBalances}/>)}</div></div>{!hasBudget && <p className="budget-note">Defina limites por categoria em Orçamento.</p>}</Card>
+  const recentCard = <Card className="dashboard-card recent-card"><div className="card-heading"><h2>Transações recentes</h2><NavLink to="/transactions">Ver todas</NavLink></div><div className="transaction-list">{recent.length ? recent.map(transaction => <TransactionRow item={transaction} key={transaction.id}/>) : <p className="empty-inline">Nenhuma movimentação ainda.</p>}</div></Card>
+  const secondaryCards: Record<DashboardCardKey, ReactNode> = {
+    'daily-spend': <DailySpendCard/>,
+    'free-money': <FreeMoneyCard/>,
+    'chart': chartCard,
+    'budget': budgetCard,
+    'recent': recentCard,
+  }
 
   return <>
     <header className="dashboard-header"><div><h1>{profileName ? `Olá, ${profileName}` : 'Olá'} <span aria-hidden="true">👋</span></h1><p>Aqui está o resumo das suas finanças</p></div><div className="flex items-center gap-2"><NavLink to="/assistant" className="ai-header-fab"><Sparkles size={16}/> Assistente</NavLink><button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`Notificações${unreadNotifications.length ? `: ${unreadNotifications.length} não lidas` : ''}`} aria-haspopup="dialog" aria-expanded={notificationsOpen}><Bell size={23} strokeWidth={1.9}/>{unreadNotifications.length > 0 && <span className="notification-dot"/>}</button></div></header>
     {notificationsOpen && <NotificationCenter notifications={notifications} unreadIds={readNotificationIds} close={() => setNotificationsOpen(false)} markRead={markNotificationRead} markAllRead={markAllNotificationsRead}/>}
     <section className="balance-card"><Wallet className="balance-card-watermark" size={94} strokeWidth={1.8}/><div className="relative z-10 flex items-center gap-2"><span className="text-sm font-medium text-white/90">Saldo total</span><button className="balance-eye" onClick={toggleBalances} aria-label={hideBalances ? 'Mostrar valores' : 'Ocultar valores'}>{hideBalances ? <EyeOff size={19}/> : <Eye size={19}/>}</button></div><p className="balance-value">{money(total, hideBalances)}</p><div className="balance-trend">{balanceTrend >= 0 ? <TrendingUp size={16}/> : <TrendingDown size={16}/>}<span>{formatPercent(Math.abs(balanceTrend))} vs mês anterior</span></div></section>
     <section className="summary-grid"><SummaryCard title="Receitas" value={money(income, hideBalances)} trend={percentageChange(income, previousIncome)} icon={ArrowDownLeft} tone="income"/><SummaryCard title="Despesas" value={money(expense, hideBalances)} trend={percentageChange(expense, previousExpense)} icon={ArrowUpRight} tone="expense"/></section>
-    <Card className="dashboard-card chart-card"><div className="card-heading"><h2>Despesas nos últimos {chartPeriod} meses</h2><div className="min-w-[110px]"><SelectMenu ariaLabel="Período do gráfico" value={chartPeriod} onChange={v => setChartPeriod(v as '3'|'6'|'12')} options={[{ value: '3', label: '3 meses' }, { value: '6', label: '6 meses' }, { value: '12', label: '12 meses' }]} /></div></div><div className="expense-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}><defs><linearGradient id="expenseArea" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2F80ED" stopOpacity={0.18}/><stop offset="95%" stopColor="#2F80ED" stopOpacity={0.01}/></linearGradient></defs><CartesianGrid stroke="#E9EDF3" strokeDasharray="3 3" vertical={false}/><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#7A8392', fontSize: 12 }} dy={9}/><YAxis axisLine={false} tickLine={false} tick={{ fill: '#8A93A1', fontSize: 11 }} tickFormatter={shortMoney}/><Tooltip content={<ChartTooltip hidden={hideBalances}/>}/><Area type="monotone" dataKey="value" stroke="#2F80ED" strokeWidth={3} fill="url(#expenseArea)" activeDot={{ r: 5, fill: '#fff', stroke: '#2F80ED', strokeWidth: 3 }} dot={{ r: 4, fill: '#fff', stroke: '#2F80ED', strokeWidth: 2.5 }}/></AreaChart></ResponsiveContainer></div></Card>
-    <Card className="dashboard-card budget-card"><div className="card-heading"><h2>Orçamento deste mês</h2><NavLink to="/planning">Ver tudo</NavLink></div><div className="budget-layout"><div className="donut-wrap"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={expenseTotal ? budgetData : [{ value: 1, color: '#E5E7EB' }]} dataKey="value" innerRadius="64%" outerRadius="91%" paddingAngle={expenseTotal ? 2 : 0} stroke="white" strokeWidth={2}>{(expenseTotal ? budgetData : [{ color: '#E5E7EB' }]).map((entry, index) => <Cell key={index} fill={entry.color}/>)}</Pie></PieChart></ResponsiveContainer><div className="donut-center"><strong>{money(expenseTotal, hideBalances)}</strong><span>Total</span></div></div><div className="budget-list">{budgetData.map(item => <BudgetRow key={item.name} item={item} total={expenseTotal} hidden={hideBalances}/>)}</div></div>{!hasBudget && <p className="budget-note">Defina limites por categoria em Orçamento.</p>}</Card>
-    <Card className="dashboard-card recent-card"><div className="card-heading"><h2>Transações recentes</h2><NavLink to="/transactions">Ver todas</NavLink></div><div className="transaction-list">{recent.length ? recent.map(transaction => <TransactionRow item={transaction} key={transaction.id}/>) : <p className="empty-inline">Nenhuma movimentação ainda.</p>}</div></Card>
+    {layout.map(key => <Fragment key={key}>{secondaryCards[key]}</Fragment>)}
   </>
 }
 
@@ -141,9 +161,27 @@ function Planning() {
 }
 
 function Profile() {
+  const navigate = useNavigate()
   const profileName = useFinanceStore(state => state.profileName)
   const setProfileName = useFinanceStore(state => state.setProfileName)
+  const rawProfile = useFinanceStore(state => state.financialProfile)
+  const completeOnboarding = useFinanceStore(state => state.completeOnboarding)
+  const effectiveProfile = useMemo(() => getEffectiveFinancialProfile({ financialProfile: rawProfile }), [rawProfile])
   const [name, setName] = useState(() => profileName ?? '')
+  const [editing, setEditing] = useState<null | 'goal' | 'level' | 'priorities'>(null)
+  // Preferência editada passa pela mesma action única de conclusão — onboardingDone permanece true.
+  const savePreference = (partial: Partial<FinancialProfile>) => {
+    if (!effectiveProfile) { setEditing(null); return }
+    const next = buildFinancialProfile({
+      primaryGoal: partial.primaryGoal ?? effectiveProfile.primaryGoal,
+      incomePattern: effectiveProfile.incomePattern,
+      difficulties: effectiveProfile.difficulties,
+      priorities: partial.priorities ?? effectiveProfile.priorities,
+      organizationLevel: partial.organizationLevel ?? effectiveProfile.organizationLevel,
+    })
+    completeOnboarding({ financialProfile: next })
+    setEditing(null)
+  }
   return <><PageTitle eyebrow="Perfil" title={profileName ? `Olá, ${profileName}` : 'Meu perfil'}/><div className="space-y-5">
     <Card>
       <h2 className="section-title">Seu nome</h2>
@@ -153,13 +191,86 @@ function Profile() {
         <button className="btn-primary !px-4" onClick={()=> setProfileName(name)}>Salvar</button>
       </div>
     </Card>
+    <Card>
+      <h2 className="section-title">Personalização</h2>
+      <p className="mt-1 text-sm text-muted">{effectiveProfile ? 'O Atlas adapta o painel inicial ao seu perfil.' : 'Refaja a configuração para personalizar sua experiência.'}</p>
+      <div className="mt-2">
+        <button className="settings-row" onClick={() => effectiveProfile ? setEditing('goal') : navigate('/onboarding')} aria-haspopup="dialog" aria-expanded={editing === 'goal'}>
+          <div className="min-w-0"><p className="font-semibold">Meu objetivo</p><p className="mt-1 truncate text-sm text-muted">{effectiveProfile ? GOAL_LABELS[effectiveProfile.primaryGoal] : 'Não configurado'}</p></div>
+          <ChevronRight className="shrink-0 text-muted" size={20}/>
+        </button>
+        <button className="settings-row" onClick={() => effectiveProfile ? setEditing('priorities') : navigate('/onboarding')} aria-haspopup="dialog" aria-expanded={editing === 'priorities'}>
+          <div className="min-w-0"><p className="font-semibold">Prioridades</p><p className="mt-1 truncate text-sm text-muted">{effectiveProfile?.priorities.length ? effectiveProfile.priorities.join(' · ') : 'Não configurado'}</p></div>
+          <ChevronRight className="shrink-0 text-muted" size={20}/>
+        </button>
+        <button className="settings-row" onClick={() => effectiveProfile ? setEditing('level') : navigate('/onboarding')} aria-haspopup="dialog" aria-expanded={editing === 'level'}>
+          <div className="min-w-0"><p className="font-semibold">Como o Atlas me ajuda</p><p className="mt-1 text-sm text-muted">{effectiveProfile ? LEVEL_LABELS[effectiveProfile.organizationLevel] : 'Não configurado'}</p></div>
+          <ChevronRight className="shrink-0 text-muted" size={20}/>
+        </button>
+        <button className="settings-row" onClick={() => navigate('/onboarding')}>
+          <div className="min-w-0"><p className="font-semibold">Refazer configuração</p><p className="mt-1 text-sm text-muted">Repete o onboarding sem alterar seus dados.</p></div>
+          <ChevronRight className="shrink-0 text-muted" size={20}/>
+        </button>
+      </div>
+    </Card>
     <Card><h2 className="section-title">Páginas do app</h2><div className="mt-2">
       {APP_PAGES.filter(page => page.to !== '/profile').map(page => <NavLink key={page.to} to={page.to} end={page.to === '/'} className="settings-row"><div className="flex min-w-0 items-center gap-3"><CategoryIcon icon={page.icon} size={18}/><p className="truncate font-semibold">{page.label}</p></div><ChevronRight className="text-muted shrink-0" size={20}/></NavLink>)}
     </div></Card>
     <Card>
       <NavLink to="/settings" className="settings-row"><div className="min-w-0"><p className="font-semibold">Configurações</p><p className="mt-1 text-sm text-muted">Personalize a navegação, privacidade, finanças e pagamento.</p></div><ChevronRight className="text-muted shrink-0" size={20}/></NavLink>
     </Card>
-  </div></>
+  </div>
+  {editing && effectiveProfile && <PreferenceEditor kind={editing} profile={effectiveProfile} close={() => setEditing(null)} onSave={savePreference}/>}
+  </>
+}
+
+function PreferenceEditor({ kind, profile, close, onSave }: {
+  kind: 'goal' | 'level' | 'priorities'
+  profile: FinancialProfile
+  close: () => void
+  onSave: (partial: Partial<FinancialProfile>) => void
+}) {
+  const title = kind === 'goal' ? 'Meu objetivo' : kind === 'level' ? 'Como o Atlas me ajuda' : 'Prioridades'
+  const [goal, setGoal] = useState(profile.primaryGoal)
+  const [level, setLevel] = useState(profile.organizationLevel)
+  const [priorities, setPriorities] = useState<string[]>(profile.priorities)
+  const togglePriority = (value: string) => setPriorities(current =>
+    current.includes(value) ? current.filter(item => item !== value)
+      : current.length >= 3 ? current : [...current, value],
+  )
+  return (
+    <Modal title={title} close={close}>
+      {kind === 'goal' && <div className="space-y-3">{GOAL_OPTIONS.map(option =>
+        <OnboardingChoiceRow key={option.value} selected={goal === option.value} label={option.label} icon={option.icon} onSelect={() => setGoal(option.value)}/>)}</div>}
+      {kind === 'level' && <div className="space-y-3">{LEVEL_OPTIONS.map(option =>
+        <OnboardingChoiceRow key={option.value} selected={level === option.value} label={`${option.title} — ${option.subtitle}`} description={option.description} icon={option.icon} onSelect={() => setLevel(option.value)}/>)}</div>}
+      {kind === 'priorities' && <>
+        <p className="text-xs font-medium text-muted" role="status">{priorities.length} de 3 selecionados</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">{PRIORITY_OPTIONS.map(option =>
+          <OnboardingChoiceRow key={option.value} selected={priorities.includes(option.value)} label={option.label} icon={option.icon} onSelect={() => togglePriority(option.value)}/>)}</div>
+      </>}
+      <button className="btn-primary mt-5 w-full"
+        disabled={kind === 'goal' ? !goal : kind === 'level' ? !level : priorities.length === 0}
+        onClick={() => onSave(kind === 'goal' ? { primaryGoal: goal } : kind === 'level' ? { organizationLevel: level } : { priorities })}
+      >Salvar preferência</button>
+    </Modal>
+  )
+}
+
+function OnboardingChoiceRow({ selected, label, description, icon: Icon, onSelect }: {
+  selected: boolean
+  label: string
+  description?: string
+  icon: LucideIcon
+  onSelect: () => void
+}) {
+  return (
+    <button type="button" className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${selected ? 'border-brand bg-blue-50 text-blue-700' : 'border-slate-200 bg-white hover:bg-slate-50'}`} aria-pressed={selected} onClick={onSelect}>
+      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${selected ? 'bg-brand text-white' : 'bg-blue-50 text-brand'}`}><Icon size={17} strokeWidth={1.9}/></span>
+      <span className="min-w-0 flex-1"><strong className="block text-sm font-semibold">{label}</strong>{description && <small className="mt-0.5 block text-xs leading-5 text-muted">{description}</small>}</span>
+      {selected && <Check size={17} strokeWidth={2.4} className="shrink-0"/>}
+    </button>
+  )
 }
 
 function ConfirmDelete({ close, confirm }: { close: () => void; confirm: () => void }) { return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"><h2 className="text-lg font-bold">Excluir lançamento?</h2><p className="mt-2 text-sm leading-6 text-muted">Ele deixará de afetar seus saldos e relatórios. Esta ação pode ser revista no histórico técnico futuramente.</p><div className="mt-6 grid grid-cols-2 gap-3"><button className="btn-secondary" onClick={close}>Cancelar</button><button className="inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700" onClick={confirm}>Excluir</button></div></div></div> }

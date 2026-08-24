@@ -99,6 +99,7 @@ export function PaymentSettings() {
 
 export function PrivacySettings() {
   const { hideBalances, toggleBalances, deleteAllData, restoreBackup } = useFinanceStore()
+  const navigate = useNavigate()
   const [confirmReset, setConfirmReset] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importError, setImportError] = useState('')
@@ -175,6 +176,6 @@ export function PrivacySettings() {
         </div>
       </Modal>
     )}
-    {confirmReset && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"><h2 className="text-lg font-bold">Excluir todos os dados?</h2><p className="mt-2 text-sm leading-6 text-muted">Todos os seus dados serão apagados permanentemente deste navegador. Esta ação não pode ser desfeita.</p><div className="mt-6 grid grid-cols-2 gap-3"><button className="btn-secondary" onClick={() => setConfirmReset(false)}>Cancelar</button><button className="inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700" onClick={() => { deleteAllData(); setConfirmReset(false) }}>Excluir tudo</button></div></div></div>}
+    {confirmReset && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"><h2 className="text-lg font-bold">Excluir todos os dados?</h2><p className="mt-2 text-sm leading-6 text-muted">Todos os seus dados serão apagados permanentemente deste navegador. Esta ação não pode ser desfeita.</p><div className="mt-6 grid grid-cols-2 gap-3"><button className="btn-secondary" onClick={() => setConfirmReset(false)}>Cancelar</button><button className="inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700" onClick={() => { deleteAllData(); setConfirmReset(false); navigate('/') }}>Excluir tudo</button></div></div></div>}
   </>
 }

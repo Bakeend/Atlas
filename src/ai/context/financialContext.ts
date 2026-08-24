@@ -4,6 +4,7 @@ import { useFinanceStore } from '../../store'
 import { calculateCommittedAmount } from '../../recurring'
 import { calculateForecast, getAverageDailyVariable, summarizeForecast } from '../../forecast/calculate'
 import { calculateFreeMoney } from '../services/financialEngine'
+import { getEffectiveFinancialProfile } from '../../onboarding/onboardingProfile'
 
 export interface FinancialContext {
   today: string
@@ -20,6 +21,7 @@ export interface FinancialContext {
   recentTransactionsCount: number
   forecastNext30: { endBalanceCents: number; minBalanceCents: number }
   freeMoney: { freeCents: number; freeFormatted: string; totalFormatted: string; committedFormatted: string; periodLabel: string; isNegative: boolean; hasNextIncome: boolean }
+  financialProfile?: { primaryGoal: string; organizationLevel: string; incomePattern: string; priorities: string[] }
 }
 
 function addDaysIso(dateIso: string, days: number): string {
@@ -83,6 +85,12 @@ export function buildFinancialContext(data?: FinanceData): FinancialContext {
     recentTransactionsCount: live.length,
     forecastNext30,
     freeMoney,
+    // Bloco compacto — o onboarding inteiro nunca vai para o modelo (spec §50).
+    financialProfile: (() => {
+      const profile = getEffectiveFinancialProfile(state as Partial<FinanceData>)
+      if (!profile) return undefined
+      return { primaryGoal: profile.primaryGoal, organizationLevel: profile.organizationLevel, incomePattern: profile.incomePattern, priorities: profile.priorities.slice(0, 3) }
+    })(),
   }
 }
 
@@ -105,6 +113,7 @@ export function sanitizeContextForPrompt(ctx: FinancialContext): string {
     budgets: ctx.activeBudgets.map(b => ({ category: b.category, limit: money(b.limitCents), used: money(b.usedCents), percent: `${b.percent}%` })),
     goals: ctx.activeGoals.map(g => ({ title: g.title, progress: `${g.progress}%`, target: money(g.targetCents) })),
     forecast30: { end: money(ctx.forecastNext30.endBalanceCents), min: money(ctx.forecastNext30.minBalanceCents) },
+    financialProfile: ctx.financialProfile,
   }, null, 2)
 }
 
