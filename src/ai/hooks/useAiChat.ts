@@ -43,7 +43,9 @@ export function useAiChat(conversationId?: string) {
   const [messages, setMessages] = useState<UiChatMessage[]>(() => {
     if (!conversationId) return []
     const stored = (aiMessages ?? []).filter((m:any)=> m.conversationId===conversationId).sort((a:any,b:any)=> a.createdAt.localeCompare(b.createdAt))
-    return stored.map((m:any)=> ({ id: m.id, role: m.role as any, content: m.content, timestamp: m.createdAt }))
+    // remove sufixo técnico legado gravado no content de versões antigas
+    const cleanLegacy = (content:string)=> content.replace(/\n*\[TOOLS:[\s\S]*\]$/, '')
+    return stored.map((m:any)=> ({ id: m.id, role: m.role as any, content: cleanLegacy(m.content), timestamp: m.createdAt }))
   })
   const [isStreaming, setIsStreaming] = useState(false)
   const [chatState, setChatState] = useState<ChatRequestState>('idle')
@@ -77,7 +79,17 @@ export function useAiChat(conversationId?: string) {
     const hist: ChatMessage[] = []
     for (const m of last) {
       if (m.role==='user') hist.push({ role: 'user', content: m.content })
-      else hist.push({ role: 'assistant', content: m.content })
+      else {
+        // preserva para o modelo o que já foi executado — evita reconsultar dados
+        let content = m.content
+        if (m.toolCalls?.length) {
+          const summary = m.toolCalls
+            .map(tc => `${tc.name}(${JSON.stringify(tc.args ?? {}).slice(0, 60)})→${(tc.result as any)?.success === false ? 'falha' : 'ok'}`)
+            .join('; ').slice(0, 300)
+          content += `\n[Ferramentas executadas nesta resposta: ${summary}]`
+        }
+        hist.push({ role: 'assistant', content })
+      }
     }
     return hist
   }, [messages])

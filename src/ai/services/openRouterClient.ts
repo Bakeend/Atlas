@@ -1,5 +1,3 @@
-import { openRouterTools } from '../tools/registry'
-
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
@@ -12,12 +10,17 @@ export interface AiRequest {
   messages: ChatMessage[]
   model?: string
   signal?: AbortSignal
+  tools?: unknown[]
 }
 
-export async function requestAI({ messages, model, signal }: AiRequest): Promise<any> {
+// Teto de resposta — respostas do assistente são curtas e estruturadas
+const MAX_TOKENS = 700
+
+export async function requestAI({ messages, model, signal, tools }: AiRequest): Promise<any> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 40000)
   const combinedSignal = signal ? anySignal([signal, controller.signal]) : controller.signal
+  const startedAt = Date.now()
 
   try {
     const r = await fetch('/api/ai', {
@@ -26,9 +29,10 @@ export async function requestAI({ messages, model, signal }: AiRequest): Promise
       body: JSON.stringify({
         model: model ?? 'deepseek/deepseek-v4-flash-0731',
         messages,
-        tools: openRouterTools,
+        tools,
         tool_choice: 'auto',
         temperature: 0.2,
+        max_tokens: MAX_TOKENS,
       }),
       signal: combinedSignal,
     })
@@ -51,14 +55,14 @@ export async function requestAI({ messages, model, signal }: AiRequest): Promise
 
     // metrics logging (no sensitive data)
     try {
-      console.debug('[AI] usage', json.usage, 'model', json.model)
-      // optional local metric storage
+      const latencyMs = Date.now() - startedAt
+      console.debug('[AI] usage', json.usage, 'model', json.model, `latency ${latencyMs}ms`)
       const key = 'ai-metrics'
       const prev = JSON.parse(localStorage.getItem(key) ?? '[]')
-      prev.push({ ts: new Date().toISOString(), model: json.model, usage: json.usage, latency: 0 })
+      prev.push({ ts: new Date().toISOString(), model: json.model, usage: json.usage, latency: latencyMs })
       if (prev.length>100) prev.splice(0, prev.length-100)
       localStorage.setItem(key, JSON.stringify(prev))
-    } catch {}
+    } catch { /* métrica local é best-effort; nunca afeta a resposta */ }
 
     return json
   } catch (e:any) {

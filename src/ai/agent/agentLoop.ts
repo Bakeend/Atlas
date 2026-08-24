@@ -2,10 +2,23 @@ import { SYSTEM_PROMPT } from '../prompts/systemPrompt'
 import { buildFinancialContext, sanitizeContextForPrompt } from '../context/financialContext'
 import { requestAI, type ChatMessage } from '../services/openRouterClient'
 import { executeTool } from '../tools/registry'
+import { selectToolsForMessage } from '../tools/toolSelection'
 import { requiresConfirmation } from '../permissions/confirmationPolicy'
 import { AgentExecutionError, type AgentLoopOptions, type AgentResult, type PendingConfirmation } from '../types/agentTypes'
 
 const MAX_ITERATIONS = 8
+
+// Compacta payload mantendo JSON válido (arrays encurtados, strings truncadas)
+function compactPayload(value: unknown, maxStringLength = 200): unknown {
+  if (Array.isArray(value)) return value.slice(0, 10).map(item => compactPayload(item, maxStringLength))
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) out[key] = compactPayload(item, maxStringLength)
+    return out
+  }
+  if (typeof value === 'string' && value.length > maxStringLength) return value.slice(0, maxStringLength) + '…'
+  return value
+}
 
 function toOpenRouterMessages(base: ChatMessage[], userMessage: string, alreadyExecuted?: string[]): ChatMessage[] {
   const ctx = buildFinancialContext()
@@ -42,7 +55,7 @@ export async function runAgentLoop(userMessage: string, history: ChatMessage[], 
   try {
     for (let iter=0; iter<maxIter; iter++) {
       opts.onStep?.(iter===0 ? 'Analisando suas finanças...' : `Etapa ${iter+1}...`)
-      const response = await requestAI({ messages, signal: opts.signal })
+      const response = await requestAI({ messages, signal: opts.signal, tools: selectToolsForMessage(userMessage) })
       const choice = response.choices?.[0]
       if (!choice) throw new Error('Resposta vazia do modelo')
 
@@ -78,7 +91,7 @@ export async function runAgentLoop(userMessage: string, history: ChatMessage[], 
         opts.onStep?.(toolLabel(tc.name))
         const exec = await executeTool(tc.name, cleanArgs)
         const payload = exec.success ? exec.result : { success: false, error: exec.error }
-        messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(payload).slice(0, 4000) })
+        messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(compactPayload(payload)) })
         executed.push({ name: tc.name, args: cleanArgs, result: payload })
       }
     }
