@@ -1,7 +1,6 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
-// Scaffold mobile — não rodar build/cap copy ainda.
-// Quando for ativar: npm i @capacitor/core @capacitor/cli @capacitor/android @capacitor/ios
+// Plataforma Android versionada em ./android — sincronize com: npx cap sync android
 const config: CapacitorConfig = {
   appId: 'com.atlas.finance',
   appName: 'Atlas',
