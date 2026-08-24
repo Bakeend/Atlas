@@ -4,7 +4,5 @@ dist.zip
 *.zip
 *.local
 .DS_Store
-# Capacitor / PWA (scaffold, build ainda não roda)
-android/
-ios/
+# Capacitor PWA
 .capacitor/
