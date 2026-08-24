@@ -1,10 +1,11 @@
 import { create } from 'zustand'
 import { indexedDbRepository } from './data/repository'
-import type { Account, AiActionLog, AiConversation, AiMessage, AiRule, AllocationPlan, Budget, FinanceData, FinanceTransaction, Goal, PaymentAllocationPlan, RecurringIncome } from './domain'
+import type { Account, AiActionLog, AiConversation, AiMessage, AiRule, AllocationPlan, Budget, FinanceData, FinanceTransaction, FinancialProfile, Goal, OnboardingCompletionInput, PaymentAllocationPlan, RecurringIncome } from './domain'
 import { emptyData, uid } from './domain'
 import type { RecurringExpense } from './domain'
 import { isOccurrenceRecorded } from './recurring'
 import { sanitizeShortcuts } from './navigation'
+import { hasSubstantialUserData, normalizeCompletionInput, sanitizeFinancialProfile } from './onboarding/onboardingProfile'
 
 export interface RecurringPaymentInput {
   recurringExpenseId: string
@@ -65,7 +66,7 @@ type State = FinanceData & {
   removePaymentAllocationPreference: (id: string) => void
   setNavShortcuts: (routes: string[]) => void
   setProfileName: (name: string) => void
-  completeOnboarding: () => void
+  completeOnboarding: (input?: OnboardingCompletionInput) => void
   restoreBackup: (backup: import('./domain').FinanceData) => void
   deleteAllData: () => void
 }
@@ -110,7 +111,9 @@ function migrateLoaded(loaded: Partial<FinanceData>): FinanceData {
     paymentAllocationPreferences: (loaded as any).paymentAllocationPreferences ?? [],
     navShortcuts: sanitizeShortcuts((loaded as any).navShortcuts),
     profileName: typeof (loaded as any).profileName === 'string' ? (loaded as any).profileName : '',
-    onboardingDone: Boolean((loaded as any).onboardingDone),
+    // Migração segura: quem já usava o app com dados reais não refaz onboarding; usuário no meio do fluxo (≤1 conta, sem lançamentos) retoma de onde parou.
+    onboardingDone: Boolean((loaded as any).onboardingDone) || hasSubstantialUserData(loaded),
+    financialProfile: sanitizeFinancialProfile((loaded as any).financialProfile),
   }
 }
 const data = (s: State): FinanceData => ({
@@ -137,6 +140,7 @@ const data = (s: State): FinanceData => ({
   navShortcuts: s.navShortcuts ?? [],
   profileName: s.profileName ?? '',
   onboardingDone: (s as any).onboardingDone ?? false,
+  financialProfile: (s as any).financialProfile,
 })
 
 export const useFinanceStore = create<State>((set, get) => ({
@@ -144,6 +148,10 @@ export const useFinanceStore = create<State>((set, get) => ({
   hydrate: async () => {
     const loaded = await indexedDbRepository.load() as Partial<FinanceData>
     const migrated = migrateLoaded(loaded)
+    const legacyOnboardingMigration = !(loaded as any).onboardingDone && hasSubstantialUserData(loaded)
+    const sanitizedProfile = (migrated as any).financialProfile
+    const rawProfile = (loaded as any).financialProfile
+    const financialProfileChanged = JSON.stringify(rawProfile ?? null) !== JSON.stringify(sanitizedProfile ?? null)
     const needsPersist =
       !loaded.recurringExpenses ||
       !loaded.readNotificationIds ||
@@ -159,6 +167,8 @@ export const useFinanceStore = create<State>((set, get) => ({
       (loaded as any).paymentAllocationPriority === undefined ||
       (loaded as any).paymentAllocationPreferences === undefined ||
       (loaded as any).navShortcuts === undefined ||
+      legacyOnboardingMigration ||
+      financialProfileChanged ||
       migrated.accounts.some((account, index) => account.color !== (loaded.accounts ?? [])[index]?.color)
     if (needsPersist) persist(migrated)
     set({ ...migrated, ready: true })
@@ -442,9 +452,11 @@ export const useFinanceStore = create<State>((set, get) => ({
     const next = { ...s, profileName: clean }
     persist(data(next as any)); return next as any
   }),
-  completeOnboarding: () => set(s => {
-    if ((s as any).onboardingDone) return s
-    const next = { ...s, onboardingDone: true }
+  // Única action de conclusão: grava nome + perfil + flag numa única persistência.
+  // Re-executável de propósito — "Refazer configuração" e edição de preferências passam por aqui sem tocar nos dados financeiros.
+  completeOnboarding: input => set(s => {
+    const normalized = normalizeCompletionInput(input)
+    const next = { ...s, profileName: normalized.profileName || (s.profileName ?? ''), financialProfile: normalized.financialProfile ?? (s as any).financialProfile, onboardingDone: true }
     persist(data(next as any)); return next as any
   }),
   restoreBackup: backup => {
@@ -454,7 +466,8 @@ export const useFinanceStore = create<State>((set, get) => ({
   },
   deleteAllData: () => {
     const fresh = emptyData()
+    // set é merge raso: campo opcional precisa ser anulado explicitamente para não vazar entre resets
     persist(fresh)
-    set({ ...fresh, ready: true })
+    set({ ...fresh, ready: true, financialProfile: undefined })
   },
 }))

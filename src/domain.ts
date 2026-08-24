@@ -184,6 +184,35 @@ export interface PaymentAllocationPreference {
   createdAt: string
 }
 
+export type PrimaryGoal = 'organize' | 'reduce-spending' | 'save' | 'debt' | 'safe-spend' | 'tracking'
+export type IncomePattern = 'fixed' | 'variable' | 'multiple' | 'unknown'
+export type OrganizationLevel = 'tracking' | 'guided' | 'assisted' | 'automatic'
+
+export interface PreferredFeatures {
+  freeMoney: boolean
+  dailySpend: boolean
+  recurring: boolean
+  budgets: boolean
+  goals: boolean
+  alerts: boolean
+  aiPlanning: boolean
+  forecast: boolean
+}
+
+export interface FinancialProfile {
+  primaryGoal: PrimaryGoal
+  incomePattern: IncomePattern
+  difficulties: string[]
+  priorities: string[]
+  organizationLevel: OrganizationLevel
+  preferredFeatures: PreferredFeatures
+}
+
+export interface OnboardingCompletionInput {
+  profileName?: string
+  financialProfile?: FinancialProfile
+}
+
 export interface FinanceData {
   accounts: Account[]
   transactions: FinanceTransaction[]
@@ -208,6 +237,7 @@ export interface FinanceData {
   navShortcuts?: string[]
   profileName?: string
   onboardingDone?: boolean
+  financialProfile?: FinancialProfile
 }
 
 export const categories = ['Alimentação', 'Moradia', 'Transporte', 'Saúde', 'Lazer', 'Educação', 'Assinaturas', 'Outros']
