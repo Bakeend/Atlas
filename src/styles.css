@@ -357,6 +357,72 @@
 
   /* chat container desktop (01:74) */
   .chat-container { @apply mx-auto max-w-[720px]; }
+
+  /* — Onboarding (spec 01) — */
+  .onboarding-root { @apply flex min-h-screen flex-col bg-canvas; }
+  .onboarding-container { @apply mx-auto w-full max-w-[560px]; }
+  .onboarding-top { @apply sticky top-0 z-20 bg-canvas/95 backdrop-blur-sm; padding-top: max(env(safe-area-inset-top), 12px); }
+  .onboarding-top-row { @apply flex items-center gap-3 px-5 pb-3; }
+  .onboarding-back { @apply -ml-2 shrink-0 bg-white shadow-sm; }
+  .onboarding-progress-track { @apply h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80; }
+  .onboarding-progress-fill { @apply block h-full w-full origin-left rounded-full bg-brand; transition: transform 420ms cubic-bezier(.22,1,.36,1); }
+  .onboarding-stage { @apply relative flex-1; }
+  /* Camada que entra vive no FLUXO — empurra o footer de verdade; só a que sai é absoluta (sem corte/sobreposição possíveis). */
+  .onboarding-layer { @apply relative px-5 pb-10 pt-6; }
+  .onboarding-layer-leaving { @apply absolute inset-x-0 top-0 overflow-hidden; pointer-events: none; }
+  /* Conteúdo antigo não repete stagger durante a saída — só o slide/fade da própria camada roda. */
+  .onboarding-layer-leaving * { animation: none !important; }
+  .onboarding-footer { @apply sticky bottom-0 z-20 bg-gradient-to-t from-canvas via-canvas to-transparent pt-6; padding-bottom: max(env(safe-area-inset-bottom), 14px); }
+
+  .onboarding-title { @apply text-[25px] font-bold leading-snug tracking-[-0.02em] text-ink sm:text-[28px]; animation: fadeInUp 320ms cubic-bezier(.22,1,.36,1) both 40ms; }
+  .onboarding-subtitle { @apply mt-3 text-[15px] leading-6 text-muted; animation: fadeInUp 320ms cubic-bezier(.22,1,.36,1) both 90ms; }
+  .onboarding-hint { @apply mt-1.5 text-sm text-muted; animation: fadeInUp 280ms ease both 60ms; }
+  .onboarding-hint.complete { @apply font-semibold text-blue-600; animation: checkPop 300ms cubic-bezier(.34,1.56,.64,1) both; }
+
+  .onboarding-options { @apply mt-5 space-y-3; }
+  .onboarding-card { @apply flex min-h-[68px] w-full items-center gap-3 rounded-[20px] border border-black/[0.03] bg-white p-4 text-left shadow-sm outline-none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: transform 220ms cubic-bezier(.2,.8,.2,1), border-color 180ms ease, background-color 180ms ease, box-shadow 220ms ease; animation: ob-stagger-in 300ms cubic-bezier(.22,1,.36,1) both; animation-delay: var(--delay, 0ms); }
+  .onboarding-card:hover { @apply border-blue-200 shadow-[0_8px_26px_rgba(15,23,42,0.06)]; }
+  .onboarding-card:active { transform: scale(.97); }
+  .onboarding-card.selected { @apply border-brand bg-blue-50/70 ring-1 ring-blue-200; transform: scale(1.015); box-shadow: 0 10px 30px rgba(47,128,237,0.14); }
+  .onboarding-card.selected:active { transform: scale(1); }
+  .onboarding-card.shake { animation: shake 260ms cubic-bezier(.36,.07,.19,.97) both; }
+  .onboarding-card-icon { @apply grid h-11 w-11 shrink-0 place-items-center rounded-full bg-blue-50 text-brand; transition: transform 240ms cubic-bezier(.2,.8,.2,1), background-color 180ms ease; }
+  .onboarding-card-icon.selected { @apply bg-brand text-white; transform: translateY(-2px) scale(1.08); }
+  .onboarding-card-body { @apply min-w-0 flex-1; }
+  .onboarding-card-body strong { @apply block text-[15px] font-semibold leading-5 text-ink; }
+  .onboarding-card-body small { @apply mt-0.5 block text-xs leading-5 text-muted; }
+  .onboarding-check { @apply grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand text-white; animation: checkPop 240ms cubic-bezier(.34,1.56,.64,1) both; }
+  .onboarding-limit-hint { @apply mt-3 text-xs font-medium text-slate-500; animation: fadeInUp 200ms ease both; }
+
+  .onboarding-cta { @apply min-h-[48px] w-full text-[15px]; transition: opacity 220ms ease, transform 220ms cubic-bezier(.2,.8,.2,1); }
+  .onboarding-cta[disabled] { opacity: .45; transform: translateY(4px) scale(.98); }
+  .onboarding-skip-link { @apply mx-auto mt-3 block w-full py-1.5 text-xs font-semibold text-muted transition hover:text-ink; }
+
+  .onboarding-welcome { @apply flex flex-col items-start justify-center pb-16 pt-10; min-height: min(620px, 74vh); }
+  .onboarding-logo { @apply grid h-14 w-14 place-items-center rounded-[20px] bg-gradient-to-br from-blue-500 to-brand text-white shadow-[0_10px_26px_rgba(47,128,237,0.35)]; animation: ob-logo-in 420ms cubic-bezier(.22,1,.36,1) both; }
+  .onboarding-logo.pop { animation: ob-logo-in 420ms cubic-bezier(.22,1,.36,1) both; }
+  .onboarding-welcome-cta { @apply mt-7 min-h-[50px] w-full text-base; animation: fadeInUp 340ms cubic-bezier(.22,1,.36,1) both 200ms; }
+  .onboarding-note { @apply mt-3 w-full text-center text-xs text-muted; animation: fadeInUp 300ms ease both 260ms; }
+  .onboarding-welcome .onboarding-skip-link { @apply mt-6 animate-none; }
+
+  .onboarding-avatar { @apply mb-4 flex h-12 items-end; }
+  .onboarding-greeting { @apply text-sm font-semibold text-brand; animation: fadeInUp 240ms ease both; }
+
+  .onboarding-success-row { @apply mt-5 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-700; animation: fadeInUp 240ms ease both; }
+
+  .onboarding-feedback-overlay { @apply fixed inset-0 z-[130] flex flex-col items-center justify-center gap-2 bg-canvas/85 px-8 text-center backdrop-blur-[2px]; animation: overlay-fade-in 160ms ease-out; }
+  .onboarding-feedback-check { @apply grid h-12 w-12 place-items-center rounded-full bg-brand text-white shadow-[0_10px_26px_rgba(47,128,237,0.35)]; animation: checkPop 260ms cubic-bezier(.34,1.56,.64,1) both; }
+  .onboarding-feedback-overlay strong { @apply text-lg font-bold text-ink; animation: fadeInUp 240ms ease both 80ms; }
+  .onboarding-feedback-overlay p { @apply max-w-[300px] text-sm leading-6 text-muted; animation: fadeInUp 240ms ease both 140ms; }
+
+  .onboarding-complete { @apply flex flex-col items-start justify-center pb-10 pt-6; min-height: min(560px, 70vh); }
+  .onboarding-complete-item { @apply mt-3 w-full rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm; animation: ob-item-in 340ms cubic-bezier(.22,1,.36,1) both; animation-delay: var(--delay, 0ms); }
+  .onboarding-complete-item small { @apply block text-xs font-medium text-muted; }
+  .onboarding-complete-item strong { @apply mt-0.5 block truncate text-[15px] font-bold text-ink; }
+  .onboarding-complete-cta { @apply mt-6 min-h-[50px] w-full text-base; animation: fadeInUp 340ms cubic-bezier(.22,1,.36,1) both 400ms; }
+  .onboarding-error { @apply mt-5 w-full rounded-2xl border border-red-100 bg-red-50 p-4; animation: fadeInUp 240ms ease both; }
+  .onboarding-error p { @apply text-sm font-semibold text-red-700; }
+  .onboarding-error small { @apply mt-1 block text-xs text-red-600; }
 }
 
 @keyframes select-popover-in {
@@ -418,6 +484,38 @@
 @keyframes voiceWave {
   0%, 100% { transform: scaleY(0.6); opacity: 0.8; }
   50% { transform: scaleY(1.2); opacity: 1; }
+}
+
+/* — Onboarding motion (spec 01 §21/§33/§35/§57) — */
+@keyframes ob-stagger-in {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ob-logo-in {
+  from { opacity: 0; transform: scale(.82); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes ob-item-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.on-exit-forward { animation: ob-exit-fwd 200ms cubic-bezier(.22,1,.36,1) both; pointer-events: none; }
+@keyframes ob-exit-fwd {
+  to { opacity: 0; transform: translateX(-18px) scale(.99); }
+}
+.on-enter-forward { animation: ob-enter-fwd 320ms cubic-bezier(.22,1,.36,1) both; }
+@keyframes ob-enter-fwd {
+  from { opacity: 0; transform: translateX(22px) scale(.985); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+.on-exit-back { animation: ob-exit-back 200ms cubic-bezier(.22,1,.36,1) both; pointer-events: none; }
+@keyframes ob-exit-back {
+  to { opacity: 0; transform: translateX(18px) scale(.99); }
+}
+.on-enter-back { animation: ob-enter-back 320ms cubic-bezier(.22,1,.36,1) both; }
+@keyframes ob-enter-back {
+  from { opacity: 0; transform: translateX(-22px) scale(.985); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
 }
 
 .animate-enter { animation: fadeInUp 520ms cubic-bezier(.22,.8,.22,1) both; }
