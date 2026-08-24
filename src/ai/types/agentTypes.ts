@@ -19,12 +19,24 @@ export interface AgentLoopOptions {
   signal?: AbortSignal
   onStep?: (step: string) => void
   conversationId?: string
+  alreadyExecuted?: string[]
 }
 
 export interface AgentResult {
   content: string
   toolCallsExecuted: Array<{ name: string; args: Record<string, unknown>; result: unknown }>
+  pendingConfirmations?: PendingConfirmation[]
   usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
+}
+
+// Erro com contexto do que já foi executado — evita duplicação em retry
+export class AgentExecutionError extends Error {
+  executedToolNames: string[]
+  constructor(message: string, executedToolNames: string[]) {
+    super(message)
+    this.name = 'AgentExecutionError'
+    this.executedToolNames = executedToolNames
+  }
 }
 
 export interface PendingConfirmation {

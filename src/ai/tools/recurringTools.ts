@@ -1,5 +1,5 @@
 import { money, today, uid } from '../../domain'
-import { useFinanceStore } from '../../store'
+import { useFinanceStore, waitForPersist } from '../../store'
 import {
   createRecurringExpenseSchema, createRecurringIncomeSchema, deleteRecurringExpenseSchema, deleteRecurringIncomeSchema,
   pauseRecurringExpenseSchema, resumeRecurringExpenseSchema, updateRecurringExpenseSchema, updateRecurringIncomeSchema
@@ -55,6 +55,7 @@ export const recurringTools = [
         createdAt: now, updatedAt: now,
       }
       useFinanceStore.getState().saveRecurringExpense(rec)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. O gasto recorrente não foi criado.') }
       return { success: true, recurringExpense: { id: rec.id, name: rec.name, amount: money(rec.amountInCents), frequency: rec.frequency } }
     }
   },
@@ -94,6 +95,7 @@ export const recurringTools = [
       // if dueDay removed for weekly, delete
       if (['weekly','biweekly'].includes(updated.frequency)) delete updated.dueDay
       useFinanceStore.getState().saveRecurringExpense(updated)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A alteração não foi concluída.') }
       return { success: true, recurringExpense: { id: updated.id, name: updated.name, amount: money(updated.amountInCents) } }
     }
   },
@@ -112,6 +114,7 @@ export const recurringTools = [
       if (!existing) throw new Error('Não encontrado')
       if (!existing.isActive) return { success: true, alreadyPaused: true }
       useFinanceStore.getState().saveRecurringExpense({ ...existing, isActive: false, updatedAt: new Date().toISOString() })
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A pausa não foi concluída.') }
       return { success: true, id: parsed.id, status: 'paused' }
     }
   },
@@ -130,6 +133,7 @@ export const recurringTools = [
       if (!existing) throw new Error('Não encontrado')
       if (existing.isActive) return { success: true, alreadyActive: true }
       useFinanceStore.getState().saveRecurringExpense({ ...existing, isActive: true, updatedAt: new Date().toISOString() })
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A reativação não foi concluída.') }
       return { success: true, id: parsed.id, status: 'active' }
     }
   },
@@ -147,6 +151,7 @@ export const recurringTools = [
       const existing = s.recurringExpenses.find((r:any)=> r.id===parsed.id)
       if (!existing) throw new Error('Não encontrado')
       useFinanceStore.getState().deleteRecurringExpense(parsed.id)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A exclusão não foi concluída.') }
       return { success: true, deletedId: parsed.id, name: existing.name }
     }
   },
@@ -180,12 +185,8 @@ export const recurringTools = [
       if (!acc) throw new Error('Conta não encontrada')
       const now = new Date().toISOString()
       const rec = { id: uid(), name: parsed.name.trim(), amountInCents: parsed.amountInCents, category: parsed.category.trim(), accountId: parsed.accountId, frequency: parsed.frequency, dueDay: parsed.dueDay, startDate: parsed.startDate, endDate: parsed.endDate, description: parsed.description, isActive: true, createdAt: now, updatedAt: now }
-      useFinanceStore.getState().saveRecurringIncome?.(rec)
-      if (!useFinanceStore.getState().saveRecurringIncome) {
-        const state = useFinanceStore.getState() as any
-        useFinanceStore.setState({ recurringIncomes: [...(state.recurringIncomes??[]), rec] } as any)
-        try { const { indexedDbRepository } = await import('../../data/repository'); const data = { ...state, recurringIncomes: [...(state.recurringIncomes??[]), rec] }; await indexedDbRepository.save(data as any) } catch {}
-      }
+      useFinanceStore.getState().saveRecurringIncome(rec)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A receita recorrente não foi criada.') }
       return { success: true, recurringIncome: { id: rec.id, name: rec.name, amount: money(rec.amountInCents) } }
     }
   },
@@ -219,13 +220,8 @@ export const recurringTools = [
       const existing = (s.recurringIncomes ?? []).find((r:any)=> r.id===parsed.id)
       if (!existing) throw new Error('Receita recorrente não encontrada')
       const updated = { ...existing, ...parsed, updatedAt: new Date().toISOString() }
-      useFinanceStore.getState().saveRecurringIncome?.(updated)
-      if (!useFinanceStore.getState().saveRecurringIncome) {
-        const state = useFinanceStore.getState() as any
-        const next = (state.recurringIncomes??[]).map((r:any)=> r.id===parsed.id? updated : r)
-        useFinanceStore.setState({ recurringIncomes: next } as any)
-        try { const { indexedDbRepository } = await import('../../data/repository'); await indexedDbRepository.save({ ...state, recurringIncomes: next } as any) } catch {}
-      }
+      useFinanceStore.getState().saveRecurringIncome(updated)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A alteração não foi concluída.') }
       return { success: true, recurringIncome: { id: updated.id, name: updated.name } }
     }
   },
@@ -242,13 +238,8 @@ export const recurringTools = [
       const s = useFinanceStore.getState() as any
       const existing = (s.recurringIncomes ?? []).find((r:any)=> r.id===parsed.id)
       if (!existing) throw new Error('Não encontrado')
-      useFinanceStore.getState().deleteRecurringIncome?.(parsed.id)
-      if (!useFinanceStore.getState().deleteRecurringIncome) {
-        const state = useFinanceStore.getState() as any
-        const next = (state.recurringIncomes??[]).filter((r:any)=> r.id!==parsed.id)
-        useFinanceStore.setState({ recurringIncomes: next } as any)
-        try { const { indexedDbRepository } = await import('../../data/repository'); await indexedDbRepository.save({ ...state, recurringIncomes: next } as any) } catch {}
-      }
+      useFinanceStore.getState().deleteRecurringIncome(parsed.id)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A exclusão não foi concluída.') }
       return { success: true, deletedId: parsed.id }
     }
   },

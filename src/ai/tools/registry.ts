@@ -9,6 +9,7 @@ import { allocationTools } from './allocationTools'
 import { safeSpendTools } from './safeSpendTools'
 import { paymentAllocationTools } from './paymentAllocationTools'
 import { freeMoneyTools } from './freeMoneyTools'
+import { requiresConfirmation } from '../permissions/confirmationPolicy'
 
 export const allToolDefs = [
   ...readTools,
@@ -38,14 +39,21 @@ export const openRouterTools = allToolDefs.map(t => ({
   }
 }))
 
-export async function executeTool(name: string, args: Record<string,unknown>): Promise<{ success: boolean; result?: unknown; error?: string }> {
+export interface ExecuteOptions { confirmed?: boolean }
+
+export async function executeTool(name: string, args: Record<string,unknown>, options: ExecuteOptions = {}): Promise<{ success: boolean; result?: unknown; error?: string; requiresConfirmation?: boolean }> {
   const exec = toolExecutors.get(name)
   if (!exec) return { success: false, error: `Tool não encontrada: ${name}` }
+  // Confirmação nunca vem do modelo: strip antes de qualquer validação/execução
+  const cleanArgs = { ...args }
+  delete (cleanArgs as any)._confirmed
+  if (requiresConfirmation(name) === 'explicit' && !options.confirmed) {
+    return { success: false, requiresConfirmation: true, error: `Ação destrutiva "${name}" requer confirmação explícita do usuário.` }
+  }
   try {
-    // find zod to validate (optional, exec will also validate)
     const def = allToolDefs.find(t=> t.function.name===name)
-    if (def?._zod) def._zod.parse(args)
-    const result = await exec(args)
+    if (def?._zod) def._zod.parse(cleanArgs)
+    const result = await exec(cleanArgs)
     return { success: true, result }
   } catch (e:any) {
     return { success: false, error: e?.message ?? String(e) }

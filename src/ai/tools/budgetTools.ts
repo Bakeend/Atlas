@@ -1,5 +1,5 @@
 import { money, uid } from '../../domain'
-import { useFinanceStore } from '../../store'
+import { useFinanceStore, waitForPersist } from '../../store'
 import { createBudgetSchema, deleteBudgetSchema, updateBudgetSchema } from '../schemas/toolSchemas'
 
 export const budgetTools = [
@@ -18,6 +18,7 @@ export const budgetTools = [
       if (exists) throw new Error(`Orçamento para ${parsed.category} em ${parsed.month} já existe. Use updateBudget.`)
       const budget = { id: uid(), category: parsed.category, month: parsed.month, limitCents: parsed.limitCents }
       useFinanceStore.getState().saveBudget(budget)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. O orçamento não foi criado.') }
       return { success: true, budget: { id: budget.id, category: budget.category, limit: money(budget.limitCents) } }
     }
   },
@@ -36,6 +37,7 @@ export const budgetTools = [
       if (!existing) throw new Error('Orçamento não encontrado')
       const updated = { ...existing, category: parsed.category ?? existing.category, month: parsed.month ?? existing.month, limitCents: parsed.limitCents ?? existing.limitCents }
       useFinanceStore.getState().saveBudget(updated)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A alteração não foi concluída.') }
       return { success: true, budget: { id: updated.id, category: updated.category, limit: money(updated.limitCents) } }
     }
   },
@@ -52,10 +54,8 @@ export const budgetTools = [
       const s = useFinanceStore.getState() as any
       const existing = s.budgets.find((b:any)=> b.id===parsed.id)
       if (!existing) throw new Error('Orçamento não encontrado')
-      // store has no deleteBudget, implement via filtering
-      const next = s.budgets.filter((b:any)=> b.id!==parsed.id)
-      useFinanceStore.setState({ budgets: next } as any)
-      try { const { indexedDbRepository } = await import('../../data/repository'); const state = useFinanceStore.getState() as any; await indexedDbRepository.save({ ...state, budgets: next } as any) } catch {}
+      useFinanceStore.getState().deleteBudget(parsed.id)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A exclusão não foi concluída.') }
       return { success: true, deletedId: parsed.id }
     }
   },

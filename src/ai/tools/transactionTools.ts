@@ -1,5 +1,5 @@
 import { money, today, uid } from '../../domain'
-import { useFinanceStore } from '../../store'
+import { useFinanceStore, waitForPersist } from '../../store'
 import { createTransactionSchema, deleteTransactionSchema, updateTransactionSchema } from '../schemas/toolSchemas'
 
 export const transactionTools = [
@@ -51,8 +51,8 @@ export const transactionTools = [
         createdAt: new Date().toISOString(),
       }
       useFinanceStore.getState().addTransaction(tx)
-      // log
-      try { useFinanceStore.getState().addAiLog?.({ id: uid(), timestamp: new Date().toISOString(), conversationId: 'current', action: 'createTransaction', entityType: 'transaction', entityId: tx.id, status: 'success', requiresConfirmation: false, detail: `${tx.type} ${tx.description} ${money(tx.amountCents)}` }) } catch {}
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A transação não foi registrada.') }
+      useFinanceStore.getState().addAiLog?.({ id: uid(), timestamp: new Date().toISOString(), conversationId: 'current', action: 'createTransaction', entityType: 'transaction', entityId: tx.id, status: 'success', requiresConfirmation: false, detail: `${tx.type} ${tx.description} ${money(tx.amountCents)}` })
       return { success: true, transaction: { id: tx.id, description: tx.description, amount: money(tx.amountCents), amountCents: tx.amountCents, date: tx.date, category: tx.category, accountId: tx.accountId } }
     }
   },
@@ -98,6 +98,7 @@ export const transactionTools = [
       if (updated.type==='transfer' && !updated.destinationAccountId) throw new Error('Transfer precisa destinationAccountId')
       if (updated.type==='transfer' && updated.accountId===updated.destinationAccountId) throw new Error('Origem e destino diferentes')
       useFinanceStore.getState().updateTransaction(updated)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A alteração não foi concluída.') }
       return { success: true, transaction: { id: updated.id, description: updated.description, amount: money(updated.amountCents), date: updated.date } }
     }
   },
@@ -115,6 +116,7 @@ export const transactionTools = [
       const existing = s.transactions.find((t:any)=> t.id===parsed.id && !t.deletedAt)
       if (!existing) throw new Error('Transação não encontrada ou já excluída')
       useFinanceStore.getState().softDeleteTransaction(parsed.id)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A exclusão não foi concluída.') }
       return { success: true, deletedId: parsed.id, description: existing.description }
     }
   },

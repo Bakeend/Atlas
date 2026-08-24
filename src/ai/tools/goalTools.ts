@@ -1,5 +1,5 @@
 import { money, uid } from '../../domain'
-import { useFinanceStore } from '../../store'
+import { useFinanceStore, waitForPersist } from '../../store'
 import { createGoalSchema, deleteGoalSchema, updateGoalSchema } from '../schemas/toolSchemas'
 
 export const goalTools = [
@@ -15,13 +15,8 @@ export const goalTools = [
       const parsed = createGoalSchema.parse(args)
       const now = new Date().toISOString()
       const goal = { id: uid(), title: parsed.title.trim(), targetAmountInCents: parsed.targetAmountInCents, currentAmountInCents: parsed.currentAmountInCents ?? 0, category: parsed.category, accountId: parsed.accountId, deadline: parsed.deadline, createdAt: now, updatedAt: now }
-      useFinanceStore.getState().saveGoal?.(goal)
-      if (!useFinanceStore.getState().saveGoal) {
-        const state = useFinanceStore.getState() as any
-        const next = [...(state.goals??[]), goal]
-        useFinanceStore.setState({ goals: next } as any)
-        try { const { indexedDbRepository } = await import('../../data/repository'); await indexedDbRepository.save({ ...state, goals: next } as any) } catch {}
-      }
+      useFinanceStore.getState().saveGoal(goal)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A meta não foi criada.') }
       return { success: true, goal: { id: goal.id, title: goal.title, target: money(goal.targetAmountInCents) } }
     }
   },
@@ -39,13 +34,8 @@ export const goalTools = [
       const existing = (s.goals??[]).find((g:any)=> g.id===parsed.id)
       if (!existing) throw new Error('Meta não encontrada')
       const updated = { ...existing, ...parsed, updatedAt: new Date().toISOString() }
-      useFinanceStore.getState().saveGoal?.(updated)
-      if (!useFinanceStore.getState().saveGoal) {
-        const state = useFinanceStore.getState() as any
-        const next = (state.goals??[]).map((g:any)=> g.id===parsed.id? updated : g)
-        useFinanceStore.setState({ goals: next } as any)
-        try { const { indexedDbRepository } = await import('../../data/repository'); await indexedDbRepository.save({ ...state, goals: next } as any) } catch {}
-      }
+      useFinanceStore.getState().saveGoal(updated)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A alteração não foi concluída.') }
       return { success: true, goal: { id: updated.id, title: updated.title } }
     }
   },
@@ -62,13 +52,8 @@ export const goalTools = [
       const s = useFinanceStore.getState() as any
       const existing = (s.goals??[]).find((g:any)=> g.id===parsed.id)
       if (!existing) throw new Error('Meta não encontrada')
-      useFinanceStore.getState().deleteGoal?.(parsed.id)
-      if (!useFinanceStore.getState().deleteGoal) {
-        const state = useFinanceStore.getState() as any
-        const next = (state.goals??[]).filter((g:any)=> g.id!==parsed.id)
-        useFinanceStore.setState({ goals: next } as any)
-        try { const { indexedDbRepository } = await import('../../data/repository'); await indexedDbRepository.save({ ...state, goals: next } as any) } catch {}
-      }
+      useFinanceStore.getState().deleteGoal(parsed.id)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A exclusão não foi concluída.') }
       return { success: true, deletedId: parsed.id }
     }
   },

@@ -1,6 +1,6 @@
 import { money, uid } from '../../domain'
 import type { AllocationPlan } from '../../domain'
-import { useFinanceStore } from '../../store'
+import { useFinanceStore, waitForPersist } from '../../store'
 import { applyAllocationPlanSchema, createAllocationPlanSchema, deleteAllocationPlanSchema } from '../schemas/toolSchemas'
 import { calculateAvailableMoney } from '../services/financialEngine'
 
@@ -55,13 +55,8 @@ export const allocationTools = [
         status: 'draft',
         note: parsed.note,
       }
-      useFinanceStore.getState().saveAllocationPlan?.(plan)
-      if (!useFinanceStore.getState().saveAllocationPlan) {
-        const state = useFinanceStore.getState() as any
-        const next = [...(state.allocationPlans??[]), plan]
-        useFinanceStore.setState({ allocationPlans: next } as any)
-        try { const { indexedDbRepository } = await import('../../data/repository'); await indexedDbRepository.save({ ...state, allocationPlans: next } as any) } catch {}
-      }
+      useFinanceStore.getState().saveAllocationPlan(plan)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. O plano não foi criado.') }
       const warnings: string[] = []
       if (totalAllocated > available.availableCents) warnings.push(`Soma alocada ${money(totalAllocated)} excede disponível ${money(available.availableCents)} — plano deficitário de ${money(totalAllocated-available.availableCents)}.`)
       return {
@@ -120,25 +115,14 @@ export const allocationTools = [
           const goal = (s.goals??[]).find((g:any)=> g.id===alloc.goalId)
           if (goal) {
             const updated = { ...goal, currentAmountInCents: goal.currentAmountInCents + alloc.amountInCents, updatedAt: new Date().toISOString() }
-            useFinanceStore.getState().saveGoal?.(updated)
-            if (!useFinanceStore.getState().saveGoal) {
-              const state = useFinanceStore.getState() as any
-              const next = (state.goals??[]).map((g:any)=> g.id===alloc.goalId? updated : g)
-              useFinanceStore.setState({ goals: next } as any)
-              try { const { indexedDbRepository } = await import('../../data/repository'); await indexedDbRepository.save({ ...state, goals: next } as any) } catch {}
-            }
+            useFinanceStore.getState().saveGoal(updated)
             goalsUpdated++
           }
         }
       }
       const updatedPlan = { ...plan, status: 'applied' as const }
-      useFinanceStore.getState().saveAllocationPlan?.(updatedPlan)
-      if (!useFinanceStore.getState().saveAllocationPlan) {
-        const state = useFinanceStore.getState() as any
-        const next = (state.allocationPlans??[]).map((p:any)=> p.id===plan.id? updatedPlan : p)
-        useFinanceStore.setState({ allocationPlans: next } as any)
-        try { const { indexedDbRepository } = await import('../../data/repository'); await indexedDbRepository.save({ ...state, allocationPlans: next } as any) } catch {}
-      }
+      useFinanceStore.getState().saveAllocationPlan(updatedPlan)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. O plano não foi aplicado.') }
       return { success: true, appliedId: plan.id, budgetsCreated, goalsUpdated, message: `Plano aplicado: ${budgetsCreated} orçamentos criados/atualizados, ${goalsUpdated} metas atualizadas.` }
     }
   },
@@ -155,13 +139,8 @@ export const allocationTools = [
       const s = useFinanceStore.getState() as any
       const plan = (s.allocationPlans??[]).find((p:any)=> p.id===parsed.id)
       if (!plan) throw new Error('Plano não encontrado')
-      useFinanceStore.getState().deleteAllocationPlan?.(parsed.id)
-      if (!useFinanceStore.getState().deleteAllocationPlan) {
-        const state = useFinanceStore.getState() as any
-        const next = (state.allocationPlans??[]).filter((p:any)=> p.id!==parsed.id)
-        useFinanceStore.setState({ allocationPlans: next } as any)
-        try { const { indexedDbRepository } = await import('../../data/repository'); await indexedDbRepository.save({ ...state, allocationPlans: next } as any) } catch {}
-      }
+      useFinanceStore.getState().deleteAllocationPlan(parsed.id)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A exclusão não foi concluída.') }
       return { success: true, deletedId: parsed.id }
     }
   },

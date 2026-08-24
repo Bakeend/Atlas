@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { money, uid } from '../../domain'
-import { useFinanceStore } from '../../store'
+import { useFinanceStore, waitForPersist } from '../../store'
 import { preparePaymentAllocationPlan } from '../services/financialEngine'
 
 const prepareSchema = z.object({
@@ -131,6 +131,7 @@ export const paymentAllocationTools = [
       if (plan.status === 'applied') return { success: true, alreadyApplied: true, id: plan.id }
       if (plan.status === 'cancelled') throw new Error('Plano cancelado não pode ser aplicado')
       useFinanceStore.getState().applyPaymentAllocationPlan(parsed.id)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. O plano não foi aplicado.') }
       return { success: true, appliedId: parsed.id, message: `Plano aplicado. ${plan.items.filter((i: any) => i.type !== 'free').length} reservas criadas. Livre: ${money(plan.freeAmountInCents)}` }
     },
   },
@@ -149,6 +150,7 @@ export const paymentAllocationTools = [
       if (!plan) throw new Error('Plano não encontrado')
       if (plan.status === 'applied') throw new Error('Plano já aplicado não pode ser cancelado, apenas visualizado')
       useFinanceStore.getState().cancelPaymentAllocationPlan(parsed.id)
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. O cancelamento não foi concluído.') }
       return { success: true, cancelledId: parsed.id }
     },
   },

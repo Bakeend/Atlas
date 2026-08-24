@@ -1,5 +1,5 @@
 import { money, uid } from '../../domain'
-import { useFinanceStore } from '../../store'
+import { useFinanceStore, waitForPersist } from '../../store'
 import { createAccountSchema, deleteAccountSchema, updateAccountSchema } from '../schemas/toolSchemas'
 
 export const accountTools = [
@@ -55,9 +55,9 @@ export const accountTools = [
         return { success: true, archived: true, id: parsed.id, message: 'Conta possui movimentações e foi arquivada ao invés de excluída.' }
       }
       // remove
-      const next = s.accounts.filter((a:any)=> a.id!==parsed.id)
-      useFinanceStore.setState({ accounts: next } as any)
-      try { const { indexedDbRepository } = await import('../../data/repository'); const state = useFinanceStore.getState() as any; await indexedDbRepository.save({ ...state, accounts: next } as any) } catch {}
+      const removed = useFinanceStore.getState().removeAccount(parsed.id)
+      if (!removed) throw new Error('Conta não encontrada')
+      try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A exclusão não foi concluída.') }
       return { success: true, deletedId: parsed.id }
     }
   },

@@ -158,8 +158,8 @@ describe('AI — Exclusão exige confirmação', () => {
 })
 
 describe('AI — Tool failure não retorna sucesso', () => {
-  it('delete com ID inexistente falha', async () => {
-    const res = await executeTool('deleteTransaction', { id: 'nao-existe' })
+  it('delete com confirmação mas ID inexistente falha', async () => {
+    const res = await executeTool('deleteTransaction', { id: 'nao-existe' }, { confirmed: true })
     expect(res.success).toBe(false)
     expect(res.error).toMatch(/não encontrada/)
   })
@@ -170,6 +170,70 @@ describe('AI — Tool failure não retorna sucesso', () => {
       name: 'Teste', amountInCents: 1000, category: 'Outros', accountId: 'account-inexistente', frequency: 'monthly', startDate: '2026-08-01', dueDay: 10,
     } as any)
     expect(r.success).toBe(false)
+  })
+})
+
+describe('AI — Confirmação explícita controlada pelo executor', () => {
+  const criarTx = async (description: string) => {
+    const created = await executeTool('createTransaction', {
+      type: 'expense', amountInCents: 1000, description, category: 'Outros', accountId: 'account-bank', date: '2026-08-22',
+    })
+    return (created.result as any).transaction.id as string
+  }
+
+  it('executeTool bloqueia delete sem confirmed e executa com confirmed', async () => {
+    resetStore()
+    const id = await criarTx('Confirmação executor')
+    const blocked = await executeTool('deleteTransaction', { id })
+    expect(blocked.success).toBe(false)
+    expect(blocked.requiresConfirmation).toBe(true)
+    expect(useFinanceStore.getState().transactions.find(t => t.id === id && !t.deletedAt)).toBeDefined()
+    const ok = await executeTool('deleteTransaction', { id }, { confirmed: true })
+    expect(ok.success).toBe(true)
+    expect(useFinanceStore.getState().transactions.find(t => t.id === id)?.deletedAt).toBeTruthy()
+  })
+
+  it('_confirmed enviado pelo modelo é ignorado e removido dos dados', async () => {
+    resetStore()
+    const res = await executeTool('createTransaction', {
+      type: 'expense', amountInCents: 700, description: 'Sem bypass', category: 'Outros', accountId: 'account-bank', date: '2026-08-22',
+      _confirmed: true,
+    } as any)
+    expect(res.success).toBe(true)
+    const tx = useFinanceStore.getState().transactions.find(t => t.description === 'Sem bypass') as any
+    expect(tx._confirmed).toBeUndefined()
+  })
+
+  it('undo determinístico restaura transação excluída', async () => {
+    resetStore()
+    const id = await criarTx('Undo determinístico')
+    useFinanceStore.getState().softDeleteTransaction(id)
+    expect(useFinanceStore.getState().restoreTransaction(id)).toBe(true)
+    expect(useFinanceStore.getState().transactions.find(t => t.id === id)?.deletedAt).toBeUndefined()
+  })
+
+  it('agentLoop expõe pendingConfirmations para a UI e ignora _confirmed do modelo', async () => {
+    resetStore()
+    const id = await criarTx('Bypass no loop')
+    const originalFetch = global.fetch
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () => JSON.stringify({
+        choices: [{ message: { role: 'assistant', content: '', tool_calls: [{ id: 'call1', type: 'function', function: { name: 'deleteTransaction', arguments: JSON.stringify({ id, _confirmed: true }) } }] } }],
+        usage: {},
+      }),
+    })) as any
+
+    const result = await runAgentLoop('delete a transação', [], { maxIterations: 2 })
+    const blocked = result.toolCallsExecuted.find(tc=> tc.name==='deleteTransaction')
+    expect((blocked!.result as any)?.success).toBe(false)
+    expect((blocked!.result as any)?.requiresConfirmation).toBe(true)
+    expect(result.pendingConfirmations?.[0]?.toolName).toBe('deleteTransaction')
+    expect(result.pendingConfirmations?.[0]?.args?._confirmed).toBeUndefined()
+    expect(useFinanceStore.getState().transactions.find(t => t.id === id && !t.deletedAt)).toBeDefined()
+    global.fetch = originalFetch
   })
 })
 

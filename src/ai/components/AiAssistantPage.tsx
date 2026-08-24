@@ -1,8 +1,8 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, History, Loader2, Plus, Send, Sparkles, Trash2, Wallet, Target, ReceiptText, Repeat2, ChartPie, Volume2, VolumeX } from 'lucide-react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Card } from '../../components'
-import { uid, money } from '../../domain'
+import { uid } from '../../domain'
 import { useFinanceStore } from '../../store'
 import { useAiChat } from '../hooks/useAiChat'
 import { ToolResultRenderer } from './AiCards'
@@ -13,30 +13,34 @@ import { WebSpeechSynthesisAdapter, NoopTextToSpeechService } from '../voice/Web
 import type { TextToSpeechService } from '../voice/TextToSpeechService'
 
 const suggestions = [
-  { icon: Wallet, label: 'Organizar pagamento', prompt: 'Recebi R$ 4.500. Organiza meu pagamento atÃ© o prÃ³ximo recebimento.' },
-  { icon: Wallet, label: 'Organizar meu dinheiro', prompt: 'Organiza meu dinheiro atÃ© o prÃ³ximo salÃ¡rio.' },
-  { icon: ChartPie, label: 'Analisar meus gastos', prompt: 'Onde estou gastando mais nos Ãºltimos 3 meses? Analise por categoria.' },
+  { icon: Wallet, label: 'Organizar pagamento', prompt: 'Recebi R$ 4.500. Organiza meu pagamento até o próximo recebimento.' },
+  { icon: Wallet, label: 'Organizar meu dinheiro', prompt: 'Organiza meu dinheiro até o próximo salário.' },
+  { icon: ChartPie, label: 'Analisar meus gastos', prompt: 'Onde estou gastando mais nos últimos 3 meses? Analise por categoria.' },
   { icon: ReceiptText, label: 'Registrar uma despesa', prompt: 'Gastei R$ 50 no mercado hoje.' },
   { icon: Repeat2, label: 'Criar gasto recorrente', prompt: 'Todo dia 10 pago R$ 120 de internet.' },
-  { icon: Target, label: 'Criar uma meta', prompt: 'Quero guardar R$ 500 por mÃªs. Cria uma meta chamada Reserva mensal.' },
+  { icon: Target, label: 'Criar uma meta', prompt: 'Quero guardar R$ 500 por mês. Cria uma meta chamada Reserva mensal.' },
 ]
 
 export function AiAssistantPage() {
   const navigate = useNavigate()
-  const { aiConversations, aiMessages, deleteAiConversation } = useFinanceStore() as any
+  const { aiConversations, deleteAiConversation } = useFinanceStore() as any
   const [convId, setConvId] = useState<string | undefined>(undefined)
   const [input, setInput] = useState('')
   const [showHistory, setShowHistory] = useState(false)
-  const { messages, isStreaming, chatState, step, error, send, cancel } = useAiChat(convId) as ReturnType<typeof useAiChat> & { chatState?: string }
+  const {
+    messages, isStreaming, chatState, step, error, send, cancel,
+    confirmPending, cancelPending, pushLocalMessage, undoTransaction, retryLastFailure, describePending,
+  } = useAiChat(convId)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const ttsRef = useRef<TextToSpeechService | null>(null)
   const [isTtsEnabled, setIsTtsEnabled] = useState(true)
   const [voiceState, setVoiceState] = useState<'idle' | 'listening' | 'processing'>('idle')
+  const pendingConfirmation = messages.find(m => m.pendingAction?.status === 'pending')?.pendingAction
 
   useEffect(()=> { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' }) }, [messages, isStreaming, step])
 
-  // TTS: fala speech curto enquanto dashboard já está visível (01:43, 01:44)
+  // TTS: fala respostas curtas em paralelo à exibição
   useEffect(() => {
     if (!isTtsEnabled) return
     const last = messages[messages.length - 1]
@@ -45,14 +49,11 @@ export function AiAssistantPage() {
         const adapter = new WebSpeechSynthesisAdapter()
         ttsRef.current = adapter.isSupported() ? adapter : new NoopTextToSpeechService()
       }
-      // não esperar TTS para exibir dashboard — dashboard já renderizado, TTS em paralelo
       void ttsRef.current.speak(last.presentation.speech)
     }
   }, [messages, isTtsEnabled])
 
   const handleVoiceTranscript = (text: string) => {
-    // transcrição aparece como mensagem do cliente no chat (01:37)
-    // interrompe TTS se estiver falando (01:64 barge-in)
     ttsRef.current?.stop()
     void send(text)
   }
@@ -64,40 +65,25 @@ export function AiAssistantPage() {
     await send(t)
   }
 
+  // Aplicar plano: ação direta do usuário no botão — confirmação humana já ocorreu (0 chamadas de IA)
   const handleApplyPlan = async (planId:string) => {
-    // tenta aplicar como paymentAllocation primeiro, fallback para allocation
-    let res = await executeTool('applyPaymentAllocationPlan', { id: planId })
-    if (!(res as any).success && (res as any).error?.includes('nÃ£o encontrada')) {
-      res = await executeTool('applyAllocationPlan', { id: planId })
+    let res = await executeTool('applyPaymentAllocationPlan', { id: planId }, { confirmed: true })
+    if (!(res as any).success && (res as any).error?.includes('não encontrada')) {
+      res = await executeTool('applyAllocationPlan', { id: planId }, { confirmed: true })
     }
     if ((res as any).success) {
-      // feedback local sem chamar LLM novamente: adiciona mensagem sintÃ©tica via send com contexto
-      await send(`Plano ${planId.slice(0,8)} aplicado com sucesso.`)
+      pushLocalMessage(`✓ ${(res as any).result?.message ?? 'Plano aplicado com sucesso.'}`)
     } else {
-      await send(`Tentei aplicar o plano ${planId.slice(0,8)} mas houve erro: ${(res as any).error ?? 'desconhecido'}`)
+      pushLocalMessage(`Não foi possível aplicar o plano: ${(res as any).error ?? 'erro desconhecido.'}`)
     }
   }
 
   const handleCancelPlan = async (planId?:string) => {
-    if (!planId) return;
-    let res = await executeTool('cancelPaymentAllocationPlan', { id: planId })
-    if (!(res as any).success && (res as any).error?.includes('nÃ£o encontrada')) {
-      res = await executeTool('cancelPaymentAllocationPlan', { id: planId } as any)
-    }
-    if ((res as any).success) await send(`Plano ${planId.slice(0,8)} cancelado.`)
+    if (!planId) return
+    const res = await executeTool('cancelPaymentAllocationPlan', { id: planId }, { confirmed: true })
+    if ((res as any).success) pushLocalMessage('Plano cancelado.')
+    else pushLocalMessage(`Não foi possível cancelar o plano: ${(res as any).error ?? 'erro desconhecido.'}`)
   }
-
-  const handleUndo = async (txId:string) => {
-    const ok = (useFinanceStore.getState() as any).restoreTransaction?.(txId)
-    if (ok) {
-      await send(`Desfazer a Ãºltima transaÃ§Ã£o ${txId.slice(0,8)}.`)
-    } else {
-      // fallback soft delete undo via execute
-      await executeTool('deleteTransaction', { id: txId } as any) // not correct but placeholder
-    }
-  }
-
-  const isConfigured = true // will show banner if error includes NOT_CONFIGURED
 
   return (
     <div className="ai-page">
@@ -105,17 +91,17 @@ export function AiAssistantPage() {
         <button onClick={()=> navigate('/')} className="ai-back" aria-label="Voltar"><ChevronLeft size={20}/></button>
         <div className="ai-header-title">
           <h1><Sparkles size={18} className="text-brand"/> Assistente financeiro</h1>
-          <p>Organize e entenda suas finanÃ§as.</p>
+          <p>Organize e entenda suas finanças.</p>
         </div>
         <div className="ai-header-actions">
-          <button className="icon-button" onClick={()=> setShowHistory(v=>!v)} aria-label="HistÃ³rico"><History size={20}/></button>
+          <button className="icon-button" onClick={()=> setShowHistory(v=>!v)} aria-label="Histórico"><History size={20}/></button>
           <button className="icon-button" onClick={()=> { setConvId(undefined); location.reload() }} aria-label="Nova conversa"><Plus size={20}/></button>
         </div>
       </div>
 
       {showHistory && (
         <Card className="ai-history">
-          <div className="ai-history-head"><strong>HistÃ³rico</strong><button className="text-xs font-semibold text-brand" onClick={()=> setShowHistory(false)}>Fechar</button></div>
+          <div className="ai-history-head"><strong>Histórico</strong><button className="text-xs font-semibold text-brand" onClick={()=> setShowHistory(false)}>Fechar</button></div>
           <div className="ai-history-list">
             {(aiConversations ?? []).length ? (aiConversations as any[]).slice().sort((a,b)=> b.updatedAt.localeCompare(a.updatedAt)).map(c=> (
               <div key={c.id} className={`ai-history-item ${convId===c.id?'active':''}`}>
@@ -143,7 +129,7 @@ export function AiAssistantPage() {
             ))}
           </div>
           <Card className="ai-tip">
-            <p className="text-xs leading-5 text-muted">Exemplos: <em>"Gastei 89,90 de gasolina hoje"</em>, <em>"Cria categoria Pets"</em>, <em>"Quanto posso gastar atÃ© dia 20?"</em></p>
+            <p className="text-xs leading-5 text-muted">Exemplos: <em>"Gastei 89,90 de gasolina hoje"</em>, <em>"Cria categoria Pets"</em>, <em>"Quanto posso gastar até dia 20?"</em></p>
           </Card>
         </div>
       ) : (
@@ -152,19 +138,17 @@ export function AiAssistantPage() {
             <div key={m.id} className={`ai-msg ${m.role}`}>
               <div className={`ai-bubble ${m.role}`}>
                 <div className="ai-bubble-content">{m.content}</div>
-                {/* Novo: AiVisualRenderer dentro da mensagem da assistente (01:54, 01:57) */}
                 {m.role === 'assistant' && m.presentation?.blocks?.length ? (
                   <div className="ai-visual-in-chat">
                     <AiVisualRenderer
                       blocks={m.presentation.blocks}
                       actions={m.presentation.actions}
                       onAction={async (action) => {
-                        // ações seguras (01:34, 01:35) — nunca HTML arbitrário
+                        // ações seguras — enum restrita, nunca HTML arbitrário
                         if (action.type === 'retry') {
-                          void handleSend(messages[messages.length - 2]?.content ?? 'tentar novamente')
+                          void retryLastFailure()
                         } else if (action.type === 'cancel') {
-                          // já tratado via pendingAction em useAiChat
-                          void send('Cancelar')
+                          cancelPending()
                         } else if (action.type === 'open-transactions') {
                           navigate('/transactions')
                         } else if (action.type === 'open-category') {
@@ -172,30 +156,20 @@ export function AiAssistantPage() {
                         } else if (action.type === 'open-recurring') {
                           navigate('/recurring')
                         } else {
-                          // fallback: envia label como nova solicitação (01:76)
                           void send(action.label)
                         }
                       }}
                     />
                   </div>
                 ) : null}
-                {/* Fallback legado: toolCards para compatibilidade */}
-                {m.toolCalls?.length && !m.presentation?.blocks?.length ? (
+                {m.toolCalls?.length ? (
                   <div className="ai-tool-cards">
                     {m.toolCalls.map((tc:any,i:number)=> (
-                      <ToolResultRenderer key={i} name={tc.name} result={tc.result} onApplyPlan={handleApplyPlan} onCancelPlan={handleCancelPlan} onUndo={handleUndo}/>
+                      <ToolResultRenderer key={i} name={tc.name} result={tc.result} onApplyPlan={handleApplyPlan} onCancelPlan={handleCancelPlan}/>
                     ))}
                   </div>
                 ) : null}
-                {/* toolCards também abaixo do visual para casos com ambos */}
-                {m.toolCalls?.length && m.presentation?.blocks?.length ? (
-                  <div className="ai-tool-cards">
-                    {m.toolCalls.map((tc:any,i:number)=> (
-                      <ToolResultRenderer key={i} name={tc.name} result={tc.result} onApplyPlan={handleApplyPlan} onCancelPlan={handleCancelPlan} onUndo={handleUndo}/>
-                    ))}
-                  </div>
-                ) : null}
-                {m.undoId && <button className="ai-undo" onClick={()=> handleUndo(m.undoId!)}>Desfazer</button>}
+                {m.undoId && !m.undone && <button className="ai-undo" onClick={()=> undoTransaction(m.id, m.undoId!)}>Desfazer</button>}
                 <span className="ai-time">{new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })}</span>
               </div>
             </div>
@@ -212,13 +186,23 @@ export function AiAssistantPage() {
             <div className="ai-error-banner" role="alert">
               <p>{error}</p>
               <div className="ai-error-actions">
-                <button className="btn-secondary" onClick={()=> handleSend(messages[messages.length-2]?.content ?? 'tentar novamente')}>Tentar novamente</button>
+                <button className="btn-secondary" onClick={()=> retryLastFailure()}>Tentar novamente</button>
                 <button className="text-xs font-semibold text-muted" onClick={()=> cancel()}>Cancelar</button>
                 <button className="text-xs font-semibold text-brand" onClick={()=> navigate('/')}>Usar aplicativo</button>
               </div>
-              <small>Seus dados continuam seguros e disponÃ­veis.</small>
+              <small>Seus dados continuam seguros e disponíveis.</small>
             </div>
           )}
+        </div>
+      )}
+
+      {pendingConfirmation && (
+        <div className="ai-confirm-card" role="alertdialog" aria-modal="false" aria-label="Confirmação pendente">
+          <p className="text-sm font-semibold">{describePending(pendingConfirmation)}</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button className="btn-secondary" onClick={()=> cancelPending()}>Cancelar</button>
+            <button className="btn-primary" onClick={()=> confirmPending()}>Confirmar</button>
+          </div>
         </div>
       )}
 
@@ -229,11 +213,10 @@ export function AiAssistantPage() {
             value={input}
             onChange={e=> setInput(e.target.value)}
             onKeyDown={e=> { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-            placeholder="Pergunte ou peÃ§a alguma coisa..."
+            placeholder="Pergunte ou peça alguma coisa..."
             aria-label="Mensagem para assistente"
             disabled={isStreaming || voiceState === 'listening'}
           />
-          {/* Voice button dentro do composer (01:63) */}
           <ChatVoiceButton onTranscript={handleVoiceTranscript} onStateChange={setVoiceState} disabled={isStreaming} />
           <button className="ai-send" onClick={()=> handleSend()} disabled={!input.trim() || isStreaming} aria-label="Enviar">
             {isStreaming ? <Loader2 size={18} className="animate-spin"/> : <Send size={18}/>}
@@ -255,4 +238,3 @@ export function AiAssistantPage() {
     </div>
   )
 }
-

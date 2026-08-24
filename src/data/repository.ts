@@ -28,14 +28,13 @@ export const indexedDbRepository: FinanceRepository = {
     } catch { return emptyData() }
   },
   async save(data) {
-    try {
-      const db = await openDb()
-      await new Promise<void>((resolve, reject) => {
-        const request = db.transaction(STORE, 'readwrite').objectStore(STORE).put(data, KEY)
-        request.onsuccess = () => resolve()
-        request.onerror = () => reject(request.error)
-      })
-    } catch { /* Browsers that block storage keep the app usable in memory. */ }
+    if (typeof indexedDB === 'undefined') return
+    const db = await openDb()
+    await new Promise<void>((resolve, reject) => {
+      const request = db.transaction(STORE, 'readwrite').objectStore(STORE).put(data, KEY)
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
   }
 }
 

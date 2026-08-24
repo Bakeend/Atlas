@@ -196,10 +196,10 @@ export const ChatRequestStateSchema = z.enum([
 
 export type ChatRequestState = z.infer<typeof ChatRequestStateSchema>
 
-// — Ação pendente (01:49)
+// — Ação pendente (01:49) — type guarda o NOME DA TOOL a executar com confirmed:true
 export interface PendingAction {
   id: string
-  type: AiActionType
+  type: string
   payload: unknown
   confirmationRequired: boolean
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'failed'

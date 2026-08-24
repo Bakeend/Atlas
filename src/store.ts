@@ -19,6 +19,7 @@ type State = FinanceData & {
   hydrate: () => Promise<void>
   addAccount: (account: Account) => void
   updateAccount: (account: Account) => void
+  removeAccount: (id: string) => boolean
   addTransaction: (transaction: FinanceTransaction) => void
   updateTransaction: (transaction: FinanceTransaction) => void
   softDeleteTransaction: (id: string) => void
@@ -66,7 +67,14 @@ type State = FinanceData & {
   deleteAllData: () => void
 }
 
-const persist = (state: FinanceData) => { void indexedDbRepository.save(state) }
+let lastPersist: Promise<void> = Promise.resolve()
+const persist = (state: FinanceData) => {
+  lastPersist = Promise.resolve(indexedDbRepository.save(state))
+  lastPersist.catch(error => console.error('[STORE] Falha ao persistir dados:', error))
+}
+export function waitForPersist(): Promise<void> {
+  return lastPersist
+}
 const data = (s: State): FinanceData => ({
   accounts: s.accounts,
   transactions: s.transactions,
@@ -140,6 +148,11 @@ export const useFinanceStore = create<State>((set, get) => ({
   },
   addAccount: account => set(s => { const next = { ...s, accounts: [...s.accounts, account] }; persist(data(next)); return next }),
   updateAccount: account => set(s => { const next = { ...s, accounts: s.accounts.map(a => a.id === account.id ? account : a) }; persist(data(next)); return next }),
+  removeAccount: id => {
+    if (!get().accounts.some(a => a.id === id)) return false
+    set(s => { const next = { ...s, accounts: s.accounts.filter(a => a.id !== id) }; persist(data(next)); return next })
+    return true
+  },
   addTransaction: transaction => set(s => {
     let nextPlans = (s as any).paymentAllocationPlans ?? []
     // consome reserva virtual se pagar conta reservada — por recurringExpenseId ou por label/categoria aproximado

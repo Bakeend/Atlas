@@ -112,7 +112,7 @@ describe('Organizar meu pagamento', () => {
     const plan = preparePaymentAllocationPlan({ receivedAmountInCents: 450000 })
     useFinanceStore.getState().savePaymentAllocationPlan(plan)
     expect(plan.status).toBe('draft')
-    await executeTool('applyPaymentAllocationPlan', { id: plan.id })
+    await executeTool('applyPaymentAllocationPlan', { id: plan.id }, { confirmed: true })
     const after = (useFinanceStore.getState() as any).paymentAllocationPlans.find((p: any) => p.id === plan.id)
     expect(after.status).toBe('applied')
     expect(getVirtualReservesTotal()).toBeGreaterThan(0)
@@ -121,7 +121,7 @@ describe('Organizar meu pagamento', () => {
   it('cancelamento - draft pode cancelar', async () => {
     const plan = preparePaymentAllocationPlan({ receivedAmountInCents: 300000 })
     useFinanceStore.getState().savePaymentAllocationPlan(plan)
-    await executeTool('cancelPaymentAllocationPlan', { id: plan.id })
+    await executeTool('cancelPaymentAllocationPlan', { id: plan.id }, { confirmed: true })
     const after = (useFinanceStore.getState() as any).paymentAllocationPlans.find((p: any) => p.id === plan.id)
     expect(after.status).toBe('cancelled')
   })
