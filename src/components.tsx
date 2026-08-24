@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CreditCard, Delete, Eye, EyeOff, Fuel, Gamepad2, GraduationCap, HeartPulse, House, Landmark, MoreHorizontal, Package, Palette, Pencil, Receipt, ShoppingCart, Trash2, Tv, Wallet, WalletCards, X, type LucideIcon } from 'lucide-react'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CreditCard, Delete, Eye, EyeOff, Fuel, Gamepad2, GraduationCap, HeartPulse, House, Landmark, MoreHorizontal, Package, Palette, Pencil, Receipt, ReceiptText, ShoppingCart, Trash2, Tv, Wallet, WalletCards, X, type LucideIcon } from 'lucide-react'
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { NavLink } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { accountBalance, categories, currentMonth, money, parseMoney, today, uid, type Account, type AccountType, type FinanceTransaction, type TransactionType } from './domain'
@@ -236,3 +237,7 @@ function formatLongDate(date: string) {
 export function AccountIcon({ type }: { type: AccountType }) { return type === 'cash' ? <Wallet size={20}/> : type === 'wallet' ? <CreditCard size={20}/> : <Landmark size={20}/> }
 
 export function BalanceToggle() { const { hideBalances, toggleBalances } = useFinanceStore(); return <button onClick={toggleBalances} className="rounded-xl p-2 text-muted hover:bg-slate-100" aria-label={hideBalances ? 'Mostrar valores' : 'Ocultar valores'}>{hideBalances ? <EyeOff size={20}/> : <Eye size={20}/>}</button> }
+
+export function PageTitle({ eyebrow, title, children }: { eyebrow: string; title: string; children?: ReactNode }) {
+  return <><div className="page-title"><div><p>{eyebrow}</p><h1>{title}</h1></div>{children}</div>{eyebrow === 'Planejamento' && <NavLink to="/recurring" className="planning-recurring-link"><span><ReceiptText size={23}/></span><div><strong>Gastos recorrentes</strong><p>Planeje contas fixas, vencimentos e pagamentos.</p></div><ChevronRight size={20}/></NavLink>}</>
+}
