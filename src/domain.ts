@@ -206,6 +206,8 @@ export interface FinanceData {
   paymentAllocationPriority?: AllocationPriority[]
   paymentAllocationPreferences?: PaymentAllocationPreference[]
   navShortcuts?: string[]
+  profileName?: string
+  onboardingDone?: boolean
 }
 
 export const categories = ['Alimentação', 'Moradia', 'Transporte', 'Saúde', 'Lazer', 'Educação', 'Assinaturas', 'Outros']
@@ -253,5 +255,7 @@ export function emptyData(): FinanceData {
     paymentAllocationPriority: ['overdue','essential','bills','food','transport','goals','reserve','leisure','free'] as AllocationPriority[],
     paymentAllocationPreferences: [],
     navShortcuts: [],
+    profileName: '',
+    onboardingDone: false,
   }
 }

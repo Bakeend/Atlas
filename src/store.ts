@@ -64,6 +64,9 @@ type State = FinanceData & {
   addPaymentAllocationPreference: (rule: string) => void
   removePaymentAllocationPreference: (id: string) => void
   setNavShortcuts: (routes: string[]) => void
+  setProfileName: (name: string) => void
+  completeOnboarding: () => void
+  restoreBackup: (backup: import('./domain').FinanceData) => void
   deleteAllData: () => void
 }
 
@@ -74,6 +77,41 @@ const persist = (state: FinanceData) => {
 }
 export function waitForPersist(): Promise<void> {
   return lastPersist
+}
+
+// Snapshot completo dos dados atuais (para exportação de backup)
+export function currentSnapshot(): FinanceData {
+  return data(useFinanceStore.getState())
+}
+
+// Migração única de dados carregados (IndexedDB ou backup importado) — nunca confiar em JSON externo
+function migrateLoaded(loaded: Partial<FinanceData>): FinanceData {
+  return {
+    ...emptyData(),
+    ...(loaded as FinanceData),
+    accounts: (loaded.accounts ?? []).map(account => ({ ...account, color: account.color?.toLowerCase() === '#27c47d' ? '#2F80ED' : account.color })),
+    transactions: loaded.transactions ?? [],
+    budgets: loaded.budgets ?? [],
+    recurringExpenses: loaded.recurringExpenses ?? [],
+    recurringIncomes: (loaded as any).recurringIncomes ?? [],
+    goals: (loaded as any).goals ?? [],
+    allocationPlans: (loaded as any).allocationPlans ?? [],
+    paymentAllocationPlans: (loaded as any).paymentAllocationPlans ?? [],
+    customCategories: (loaded as any).customCategories ?? [],
+    customCategoryIcons: (loaded as any).customCategoryIcons ?? {},
+    aiConversations: (loaded as any).aiConversations ?? [],
+    aiMessages: (loaded as any).aiMessages ?? [],
+    aiLogs: (loaded as any).aiLogs ?? [],
+    aiRules: (loaded as any).aiRules ?? [],
+    readNotificationIds: loaded.readNotificationIds ?? [],
+    forecastRealistic: (loaded as Partial<FinanceData>).forecastRealistic ?? true,
+    safetyMarginPercent: (loaded as any).safetyMarginPercent ?? 10,
+    paymentAllocationPriority: (loaded as any).paymentAllocationPriority ?? ['overdue','essential','bills','food','transport','goals','reserve','leisure','free'],
+    paymentAllocationPreferences: (loaded as any).paymentAllocationPreferences ?? [],
+    navShortcuts: sanitizeShortcuts((loaded as any).navShortcuts),
+    profileName: typeof (loaded as any).profileName === 'string' ? (loaded as any).profileName : '',
+    onboardingDone: Boolean((loaded as any).onboardingDone),
+  }
 }
 const data = (s: State): FinanceData => ({
   accounts: s.accounts,
@@ -97,36 +135,15 @@ const data = (s: State): FinanceData => ({
   paymentAllocationPriority: (s as any).paymentAllocationPriority ?? ['overdue','essential','bills','food','transport','goals','reserve','leisure','free'],
   paymentAllocationPreferences: (s as any).paymentAllocationPreferences ?? [],
   navShortcuts: s.navShortcuts ?? [],
+  profileName: s.profileName ?? '',
+  onboardingDone: (s as any).onboardingDone ?? false,
 })
 
 export const useFinanceStore = create<State>((set, get) => ({
   ...emptyData(), ready: false,
   hydrate: async () => {
-    const loaded = await indexedDbRepository.load() as Partial<FinanceData> & FinanceData
-    const migrated: FinanceData = {
-      ...emptyData(),
-      ...loaded,
-      accounts: (loaded.accounts ?? []).map(account => ({ ...account, color: account.color.toLowerCase() === '#27c47d' ? '#2F80ED' : account.color })),
-      transactions: loaded.transactions ?? [],
-      budgets: loaded.budgets ?? [],
-      recurringExpenses: loaded.recurringExpenses ?? [],
-      recurringIncomes: (loaded as any).recurringIncomes ?? [],
-      goals: (loaded as any).goals ?? [],
-      allocationPlans: (loaded as any).allocationPlans ?? [],
-      paymentAllocationPlans: (loaded as any).paymentAllocationPlans ?? [],
-      customCategories: (loaded as any).customCategories ?? [],
-      customCategoryIcons: (loaded as any).customCategoryIcons ?? {},
-      aiConversations: (loaded as any).aiConversations ?? [],
-      aiMessages: (loaded as any).aiMessages ?? [],
-      aiLogs: (loaded as any).aiLogs ?? [],
-      aiRules: (loaded as any).aiRules ?? [],
-      readNotificationIds: loaded.readNotificationIds ?? [],
-      forecastRealistic: (loaded as Partial<FinanceData>).forecastRealistic ?? true,
-      safetyMarginPercent: (loaded as any).safetyMarginPercent ?? 10,
-      paymentAllocationPriority: (loaded as any).paymentAllocationPriority ?? ['overdue','essential','bills','food','transport','goals','reserve','leisure','free'],
-      paymentAllocationPreferences: (loaded as any).paymentAllocationPreferences ?? [],
-      navShortcuts: sanitizeShortcuts((loaded as any).navShortcuts),
-    }
+    const loaded = await indexedDbRepository.load() as Partial<FinanceData>
+    const migrated = migrateLoaded(loaded)
     const needsPersist =
       !loaded.recurringExpenses ||
       !loaded.readNotificationIds ||
@@ -419,6 +436,22 @@ export const useFinanceStore = create<State>((set, get) => ({
     const next = { ...s, navShortcuts: nextRoutes }
     persist(data(next)); return next
   }),
+  setProfileName: name => set(s => {
+    const clean = name.trim().slice(0, 40)
+    if (s.profileName === clean) return s
+    const next = { ...s, profileName: clean }
+    persist(data(next as any)); return next as any
+  }),
+  completeOnboarding: () => set(s => {
+    if ((s as any).onboardingDone) return s
+    const next = { ...s, onboardingDone: true }
+    persist(data(next as any)); return next as any
+  }),
+  restoreBackup: backup => {
+    const migrated = migrateLoaded(backup)
+    persist(migrated)
+    set({ ...migrated, ready: true })
+  },
   deleteAllData: () => {
     const fresh = emptyData()
     persist(fresh)

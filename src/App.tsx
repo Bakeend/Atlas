@@ -19,12 +19,16 @@ import { getFinanceNotifications, type FinanceNotification } from './notificatio
 import { OrganizePage } from './OrganizePage'
 import { SettingsMenu, NavigationSettings, FinanceSettings, PaymentSettings, PrivacySettings } from './SettingsPages'
 import { resolveShortcutItems, APP_PAGES } from './navigation'
+import { OnboardingPage } from './OnboardingPage'
 
 function Shell() {
   const [newTransaction, setNewTransaction] = useState(false)
   const { hydrate, ready } = useFinanceStore()
+  const onboardingDone = useFinanceStore(state => state.onboardingDone)
+  const isEmpty = useFinanceStore(state => state.accounts.length === 0 && state.transactions.length === 0 && state.recurringExpenses.length === 0)
   useEffect(() => { void hydrate() }, [hydrate])
   if (!ready) return <div className="grid min-h-screen place-items-center"><div className="text-center"><div className="mx-auto h-11 w-11 animate-pulse rounded-full bg-brand"/><p className="mt-3 text-sm text-muted">Carregando suas finanças…</p></div></div>
+  if (!onboardingDone && isEmpty) return <OnboardingPage/>
   return <div className="min-h-screen"><main className="app-content"><Routes>
     <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/organizar" element={<OrganizePage/>}/><Route path="/import" element={<ImportPage/>}/><Route path="/forecast" element={<ForecastPage/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/recurring" element={<RecurringExpensesPage/>}/><Route path="/assistant" element={<AiAssistantPage/>}/><Route path="/profile" element={<Profile/>}/><Route path="/settings" element={<SettingsMenu/>}/><Route path="/settings/nav" element={<NavigationSettings/>}/><Route path="/settings/finance" element={<FinanceSettings/>}/><Route path="/settings/payment" element={<PaymentSettings/>}/><Route path="/settings/privacy" element={<PrivacySettings/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
   </Routes></main><BottomNavigation onNew={() => setNewTransaction(true)}/>{newTransaction && <TransactionModal close={() => setNewTransaction(false)}/>}</div>
@@ -49,7 +53,7 @@ function AiFab() {
 }
 
 function Dashboard() {
-  const { accounts, transactions, budgets, recurringExpenses, readNotificationIds, markNotificationRead, markAllNotificationsRead, hideBalances, toggleBalances } = useFinanceStore()
+  const { accounts, transactions, budgets, recurringExpenses, readNotificationIds, markNotificationRead, markAllNotificationsRead, hideBalances, toggleBalances, profileName } = useFinanceStore()
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const live = transactions.filter(transaction => !transaction.deletedAt)
   const month = currentMonth()
@@ -70,7 +74,7 @@ function Dashboard() {
   const unreadNotifications = notifications.filter(notification => !readNotificationIds.includes(notification.id))
 
   return <>
-    <header className="dashboard-header"><div><h1>Olá, Daniel <span aria-hidden="true">👋</span></h1><p>Aqui está o resumo das suas finanças</p></div><div className="flex items-center gap-2"><NavLink to="/assistant" className="ai-header-fab"><Sparkles size={16}/> Assistente</NavLink><button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`Notificações${unreadNotifications.length ? `: ${unreadNotifications.length} não lidas` : ''}`} aria-haspopup="dialog" aria-expanded={notificationsOpen}><Bell size={23} strokeWidth={1.9}/>{unreadNotifications.length > 0 && <span className="notification-dot"/>}</button></div></header>
+    <header className="dashboard-header"><div><h1>{profileName ? `Olá, ${profileName}` : 'Olá'} <span aria-hidden="true">👋</span></h1><p>Aqui está o resumo das suas finanças</p></div><div className="flex items-center gap-2"><NavLink to="/assistant" className="ai-header-fab"><Sparkles size={16}/> Assistente</NavLink><button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`Notificações${unreadNotifications.length ? `: ${unreadNotifications.length} não lidas` : ''}`} aria-haspopup="dialog" aria-expanded={notificationsOpen}><Bell size={23} strokeWidth={1.9}/>{unreadNotifications.length > 0 && <span className="notification-dot"/>}</button></div></header>
     {notificationsOpen && <NotificationCenter notifications={notifications} unreadIds={readNotificationIds} close={() => setNotificationsOpen(false)} markRead={markNotificationRead} markAllRead={markAllNotificationsRead}/>}
     <section className="balance-card"><Wallet className="balance-card-watermark" size={94} strokeWidth={1.8}/><div className="relative z-10 flex items-center gap-2"><span className="text-sm font-medium text-white/90">Saldo total</span><button className="balance-eye" onClick={toggleBalances} aria-label={hideBalances ? 'Mostrar valores' : 'Ocultar valores'}>{hideBalances ? <EyeOff size={19}/> : <Eye size={19}/>}</button></div><p className="balance-value">{money(total, hideBalances)}</p><div className="balance-trend">{balanceTrend >= 0 ? <TrendingUp size={16}/> : <TrendingDown size={16}/>}<span>{formatPercent(Math.abs(balanceTrend))} vs mês anterior</span></div></section>
     <section className="summary-grid"><SummaryCard title="Receitas" value={money(income, hideBalances)} trend={percentageChange(income, previousIncome)} icon={ArrowDownLeft} tone="income"/><SummaryCard title="Despesas" value={money(expense, hideBalances)} trend={percentageChange(expense, previousExpense)} icon={ArrowUpRight} tone="expense"/></section>
@@ -137,7 +141,18 @@ function Planning() {
 }
 
 function Profile() {
-  return <><PageTitle eyebrow="Perfil" title="Olá, Daniel"/><div className="space-y-5">
+  const profileName = useFinanceStore(state => state.profileName)
+  const setProfileName = useFinanceStore(state => state.setProfileName)
+  const [name, setName] = useState(() => profileName ?? '')
+  return <><PageTitle eyebrow="Perfil" title={profileName ? `Olá, ${profileName}` : 'Meu perfil'}/><div className="space-y-5">
+    <Card>
+      <h2 className="section-title">Seu nome</h2>
+      <p className="mt-1 text-sm text-muted">Aparece na saudação do painel inicial.</p>
+      <div className="mt-3 flex gap-2">
+        <input className="field flex-1" value={name} onChange={event => setName(event.target.value)} placeholder="Como quer ser chamado?" aria-label="Seu nome" maxLength={40}/>
+        <button className="btn-primary !px-4" onClick={()=> setProfileName(name)}>Salvar</button>
+      </div>
+    </Card>
     <Card><h2 className="section-title">Páginas do app</h2><div className="mt-2">
       {APP_PAGES.filter(page => page.to !== '/profile').map(page => <NavLink key={page.to} to={page.to} end={page.to === '/'} className="settings-row"><div className="flex min-w-0 items-center gap-3"><CategoryIcon icon={page.icon} size={18}/><p className="truncate font-semibold">{page.label}</p></div><ChevronRight className="text-muted shrink-0" size={20}/></NavLink>)}
     </div></Card>

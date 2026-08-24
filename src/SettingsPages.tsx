@@ -1,8 +1,10 @@
-import { Check, ChevronRight, Download, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { Check, ChevronRight, Download, Trash2, Upload } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Card, CategoryIcon, PageTitle, SelectMenu } from './components'
-import { useFinanceStore } from './store'
+import { Card, CategoryIcon, Modal, PageTitle, SelectMenu } from './components'
+import { currentSnapshot, useFinanceStore } from './store'
+import { BackupFileSchema, summarizeBackup, type BackupSummary } from './data/backupSchema'
+import type { FinanceData } from './domain'
 import { DEFAULT_SHORTCUTS, MAX_SHORTCUTS, NAV_DESTINATIONS } from './navigation'
 
 export function SettingsMenu() {
@@ -96,8 +98,41 @@ export function PaymentSettings() {
 }
 
 export function PrivacySettings() {
-  const { hideBalances, toggleBalances, deleteAllData } = useFinanceStore()
+  const { hideBalances, toggleBalances, deleteAllData, restoreBackup } = useFinanceStore()
   const [confirmReset, setConfirmReset] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importError, setImportError] = useState('')
+  const [pendingRestore, setPendingRestore] = useState<{ data: FinanceData; summary: BackupSummary } | null>(null)
+  const [restoredAt, setRestoredAt] = useState('')
+
+  const exportBackup = () => {
+    const snapshot = currentSnapshot()
+    const payload = { app: 'atlas-finance', schemaVersion: 1, exportedAt: new Date().toISOString(), data: snapshot }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `atlas-backup-${new Date().toISOString().slice(0, 10)}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const onImportFile = async (file: File | undefined) => {
+    setImportError('')
+    if (!file) return
+    try {
+      const parsedJson = JSON.parse(await file.text())
+      const parsed = BackupFileSchema.safeParse(parsedJson)
+      if (!parsed.success) {
+        setImportError('Arquivo de backup inválido — verifique se você escolheu um arquivo exportado pelo Atlas.')
+        return
+      }
+      setPendingRestore({ data: parsed.data.data as unknown as FinanceData, summary: summarizeBackup(parsed.data.data) })
+    } catch {
+      setImportError('Não foi possível ler o arquivo. Ele é um JSON válido?')
+    }
+  }
+
   return <>
     <PageTitle eyebrow="Configurações" title="Privacidade e dados"/>
     <div className="space-y-5">
@@ -108,17 +143,38 @@ export function PrivacySettings() {
       </Card>
       <Card>
         <Download className="text-blue-500"/>
-        <h2 className="mt-4 section-title">Exportação</h2>
-        <p className="mt-2 text-sm leading-6 text-muted">A exportação e a sincronização em nuvem ficam preparadas como próxima etapa da arquitetura.</p>
-        <button disabled className="btn-secondary mt-5 w-full">Em breve</button>
+        <h2 className="mt-4 section-title">Backup e restauração</h2>
+        <p className="mt-2 text-sm leading-6 text-muted">Baixe um arquivo com todos os seus dados (contas, transações, recorrências, metas) e restaure em qualquer dispositivo.</p>
+        <button className="btn-secondary mt-4 w-full" onClick={exportBackup}><Download size={18}/>Exportar backup (.json)</button>
+        <button className="btn-secondary mt-3 w-full" onClick={()=> fileInputRef.current?.click()}><Upload size={18}/>Restaurar de um arquivo</button>
+        <input ref={fileInputRef} type="file" accept="application/json,.json" className="hidden" onChange={event => { void onImportFile(event.target.files?.[0]); event.target.value = '' }} aria-label="Selecionar arquivo de backup"/>
+        {importError && <p className="mt-3 text-xs font-medium text-red-600">{importError}</p>}
+        {restoredAt && <p className="mt-3 text-xs font-medium text-emerald-600">✓ Backup restaurado com sucesso ({new Date(restoredAt).toLocaleString('pt-BR')}).</p>}
       </Card>
       <Card>
         <Trash2 className="text-red-500"/>
         <h2 className="mt-4 section-title">Excluir todos os dados</h2>
-        <p className="mt-2 text-sm leading-6 text-muted">Apaga contas, transações, orçamentos, recorrências, metas e conversas do assistente armazenados neste navegador.</p>
+        <p className="mt-2 text-sm leading-6 text-muted">Apaga contas, transações, orçamentos, recorrências, metas e conversas do assistente armazenados neste navegador. Considere exportar um backup antes.</p>
         <button className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700" onClick={() => setConfirmReset(true)}><Trash2 size={18}/>Excluir todos os dados</button>
       </Card>
     </div>
+    {pendingRestore && (
+      <Modal title="Restaurar backup?" close={()=> setPendingRestore(null)}>
+        <p className="text-sm leading-6 text-muted">Todos os dados atuais serão substituídos pelo conteúdo do backup.</p>
+        <div className="mt-4 space-y-1 rounded-xl bg-slate-50 p-3 text-sm">
+          <div className="flex justify-between"><span className="text-muted">Contas</span><strong>{pendingRestore.summary.accounts}</strong></div>
+          <div className="flex justify-between"><span className="text-muted">Transações</span><strong>{pendingRestore.summary.transactions}</strong></div>
+          <div className="flex justify-between"><span className="text-muted">Recorrências</span><strong>{pendingRestore.summary.recurringExpenses}</strong></div>
+          <div className="flex justify-between"><span className="text-muted">Orçamentos</span><strong>{pendingRestore.summary.budgets}</strong></div>
+          <div className="flex justify-between"><span className="text-muted">Metas</span><strong>{pendingRestore.summary.goals}</strong></div>
+          {pendingRestore.summary.exportedAt && <div className="flex justify-between pt-1 text-xs text-muted"><span>Exportado em</span><span>{new Date(pendingRestore.summary.exportedAt).toLocaleString('pt-BR')}</span></div>}
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button className="btn-secondary" onClick={()=> setPendingRestore(null)}>Cancelar</button>
+          <button className="btn-primary" onClick={()=> { restoreBackup(pendingRestore.data); setPendingRestore(null); setRestoredAt(new Date().toISOString()) }}>Restaurar</button>
+        </div>
+      </Modal>
+    )}
     {confirmReset && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"><h2 className="text-lg font-bold">Excluir todos os dados?</h2><p className="mt-2 text-sm leading-6 text-muted">Todos os seus dados serão apagados permanentemente deste navegador. Esta ação não pode ser desfeita.</p><div className="mt-6 grid grid-cols-2 gap-3"><button className="btn-secondary" onClick={() => setConfirmReset(false)}>Cancelar</button><button className="inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700" onClick={() => { deleteAllData(); setConfirmReset(false) }}>Excluir tudo</button></div></div></div>}
   </>
 }
