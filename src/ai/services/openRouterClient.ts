@@ -1,4 +1,4 @@
-export type AiProvider = 'openrouter' | 'opencode'
+export type AiProvider = 'openai' | 'opencode' | 'openrouter'
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
