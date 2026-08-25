@@ -13,6 +13,7 @@ import { currentMonth, money, today, type FinanceTransaction } from './domain'
 import { getCategoryIcon } from './lib/categoryIcons'
 import { useResolvedTheme } from './lib/theme'
 import { useFinanceStore } from './store'
+import { getUnrecordedOccurrencesBetween } from './recurring'
 
 // Paleta de cores vibrantes e elegantes para as fatias do gráfico de pizza
 const PIE_COLORS = [
@@ -62,16 +63,41 @@ export function ChartsPage() {
     [live, selectedMonth]
   )
 
-  // Totais do mês
+  // Recorrências ativas ainda não registradas como transação no mês selecionado.
+  // Entram como valor comprometido/projetado, sem duplicar quando a ocorrência já foi lançada.
+  const recurringCommitments = useMemo(() => {
+    const [year, month] = selectedMonth.split('-').map(Number)
+    const start = `${selectedMonth}-01`
+    const end = `${selectedMonth}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`
+
+    return recurringExpenses
+      .filter(expense => expense.isActive)
+      .flatMap(expense => getUnrecordedOccurrencesBetween(expense, start, end, live).map(date => ({
+        id: `recurring:${expense.id}:${date}`,
+        date,
+        amountCents: expense.amountInCents,
+        category: expense.category || 'Outros',
+        name: expense.name,
+      })))
+  }, [recurringExpenses, selectedMonth, live])
+
+  const recurringCommittedTotal = useMemo(
+    () => recurringCommitments.reduce((sum, item) => sum + item.amountCents, 0),
+    [recurringCommitments]
+  )
+
+  // Totais do mês: despesas incluem realizado + recorrências ainda comprometidas.
   const totalIncome = useMemo(
     () => monthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amountCents, 0),
     [monthTransactions]
   )
 
-  const totalExpense = useMemo(
+  const realizedExpense = useMemo(
     () => monthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amountCents, 0),
     [monthTransactions]
   )
+
+  const totalExpense = realizedExpense + recurringCommittedTotal
 
   const netBalance = totalIncome - totalExpense
   const savingsRate = totalIncome > 0 ? Math.max(0, Math.round((netBalance / totalIncome) * 100)) : 0
@@ -98,6 +124,11 @@ export function ChartsPage() {
         map.set(cat, (map.get(cat) ?? 0) + t.amountCents)
       })
 
+    recurringCommitments.forEach(item => {
+      const cat = item.category || 'Outros'
+      map.set(cat, (map.get(cat) ?? 0) + item.amountCents)
+    })
+
     const list = Array.from(map.entries()).map(([name, value], index) => ({
       name,
       value,
@@ -106,7 +137,7 @@ export function ChartsPage() {
     }))
 
     return list.sort((a, b) => b.value - a.value)
-  }, [monthTransactions, totalExpense])
+  }, [monthTransactions, recurringCommitments, totalExpense])
 
   // 2. Dados de Proporção (Receita vs Despesa vs Saldo)
   const balancePieData = useMemo(() => {
@@ -133,7 +164,14 @@ export function ChartsPage() {
 
       const mTx = live.filter(t => t.date.startsWith(mKey))
       const inc = mTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amountCents, 0)
-      const exp = mTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amountCents, 0)
+      const realizedExp = mTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amountCents, 0)
+      const [hy, hm] = mKey.split('-').map(Number)
+      const hStart = `${mKey}-01`
+      const hEnd = `${mKey}-${String(new Date(hy, hm, 0).getDate()).padStart(2, '0')}`
+      const committedExp = recurringExpenses
+        .filter(expense => expense.isActive)
+        .reduce((sum, expense) => sum + getUnrecordedOccurrencesBetween(expense, hStart, hEnd, live).length * expense.amountInCents, 0)
+      const exp = realizedExp + committedExp
 
       list.push({
         key: mKey,
@@ -144,7 +182,7 @@ export function ChartsPage() {
       })
     }
     return list
-  }, [live, selectedMonth])
+  }, [live, selectedMonth, recurringExpenses])
 
   // 4. Fluxo e Projeção Acumulada Dia a Dia no Mês Selecionado
   const dailyFlowData = useMemo(() => {
@@ -162,20 +200,14 @@ export function ChartsPage() {
 
       const inc = dayTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amountCents, 0)
       const exp = dayTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amountCents, 0)
+      const committedForDay = recurringCommitments
+        .filter(item => item.date === dayStr)
+        .reduce((sum, item) => sum + item.amountCents, 0)
 
       cumulativeIncome += inc
-      cumulativeExpense += exp
+      cumulativeExpense += exp + committedForDay
 
-      // Para dias futuros no mês atual, fazemos uma projeção aproximada baseada nas recorrências
-      let isProjected = false
-      if (isCurrent && day > todayDay) {
-        isProjected = true
-        // Soma recorrências previstas que caem neste dia
-        const recForDay = recurringExpenses
-          .filter(r => r.isActive && r.dueDay === day)
-          .reduce((s, r) => s + r.amountInCents, 0)
-        cumulativeExpense += recForDay
-      }
+      const isProjected = committedForDay > 0 || (isCurrent && day > todayDay)
 
       list.push({
         day: `Dia ${day}`,
@@ -187,7 +219,7 @@ export function ChartsPage() {
     }
 
     return list
-  }, [selectedMonth, monthTransactions, recurringExpenses])
+  }, [selectedMonth, monthTransactions, recurringCommitments])
 
   // Insights do Mês
   const topCategory = categoryData[0]
@@ -263,11 +295,16 @@ export function ChartsPage() {
             <span className="grid h-6 w-6 place-items-center rounded-lg bg-red-50 text-red-600">
               <ArrowUpRight size={14} />
             </span>
-            <span>Despesas</span>
+            <span>Despesas + comprometido</span>
           </div>
           <p className="mt-2 text-lg font-bold tabular-nums text-red-600 sm:text-xl">
             {money(totalExpense, hideBalances)}
           </p>
+          {recurringCommittedTotal > 0 && (
+            <span className="mt-1 block text-[11px] font-semibold text-blue-500">
+              {money(recurringCommittedTotal, hideBalances)} recorrente previsto
+            </span>
+          )}
           {expenseChange !== 0 && (
             <span className="mt-1 block text-[11px] font-semibold text-muted">
               {expenseChange > 0 ? `+${expenseChange}%` : `${expenseChange}%`} vs mês ant.
@@ -311,7 +348,7 @@ export function ChartsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-ink sm:text-lg">Distribuição por Categoria</h2>
-            <p className="mt-0.5 text-xs text-muted">Para onde foi o seu dinheiro em {formatMonthLabel(selectedMonth)}</p>
+            <p className="mt-0.5 text-xs text-muted">Realizado + gastos recorrentes comprometidos em {formatMonthLabel(selectedMonth)}</p>
           </div>
           <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
             {categoryData.length} categorias
