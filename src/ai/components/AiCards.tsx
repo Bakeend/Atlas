@@ -238,9 +238,8 @@ export function ToolResultRenderer({ name, result, onApplyPlan, onCancelPlan, on
   if (name==='createAllocationPlan') return <AiPlanCard data={result} onApply={id=> onApplyPlan?.(id)} onCancel={()=> onCancelPlan?.()}/>
   if (name==='getSpendingAnalysis' || name==='getSpendingAnomalies' || name==='getFinancialSummary' || name==='getCashFlowForecast') return <AiAnalysisCard data={result}/>
   if (name==='getAvailableMoney') return <AiAnalysisCard data={{ totalFormatted: result.availableFormatted ?? result.committedFormatted, breakdown: result.breakdown ?? [], ...result }}/>
-  // fallback generic
-  if (typeof result==='object') {
-    return <div className="ai-card ai-generic"><pre className="ai-json">{JSON.stringify(result, null, 2).slice(0, 900)}</pre></div>
-  }
+  // fallback genérico removido: não expor JSON bruto ao usuário (segurança/UX)
+  // ferramentas de leitura já são visualizadas via AiVisualRenderer quando há blocks
+  // se chegou aqui sem block, não renderiza nada em vez de vazar estrutura interna
   return null
 }

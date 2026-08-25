@@ -1,5 +1,5 @@
 import type { AiPresentation, AiVisualBlock, AiAction } from './types'
-import { money } from '../../domain'
+import { money, parseMoney, uid } from '../../domain'
 
 // Converte toolCalls + texto da IA em AiPresentation validada
 // (01:58) — se IA não retornou JSON, sintetizamos blocks a partir dos tool results (seguro, sem HTML arbitrário)
@@ -17,16 +17,30 @@ export function buildPresentationFromTools(
     if (firstSentence) speech = firstSentence.trim()
   }
 
+  const hasSuccessfulCreate = toolCalls.some(tc =>
+    (tc.name === 'createTransaction' || tc.name === 'updateTransaction') &&
+    (tc.result as any)?.success === true
+  )
   for (const tc of toolCalls) {
     const r = tc.result as Record<string, unknown> | null
     if (!r) continue
 
-    // Erro de tool → ErrorBlock
+    // Erro de tool → ErrorBlock (suprime erro de conta placeholder quando já houve sucesso posterior)
     if ((r as { success?: boolean }).success === false && (r as { error?: string }).error) {
+      const errMsg = String((r as { error: string }).error)
+      const isAccountPlaceholderError = errMsg.includes('Conta não encontrada') && (errMsg.includes('sua_conta') || errMsg.includes('sua conta'))
+      // se já houve createTransaction com sucesso, não exibe erro de placeholder (retry interno do agente)
+      if (isAccountPlaceholderError && hasSuccessfulCreate) continue
+      // se sucesso posterior para mesmo tool existe, suprime erro genérico duplicado para evitar bubble com sucesso + erro contraditórios
+      if (hasSuccessfulCreate && (tc.name === 'createTransaction' || tc.name === 'createCategory')) {
+        // quando há sucesso posterior, o erro foi tentiva intermediária já superada
+        // mantém apenas sucesso visual
+        continue
+      }
       blocks.push({
         type: 'error',
         title: 'Não foi possível concluir',
-        description: String((r as { error: string }).error).slice(0, 280),
+        description: errMsg.slice(0, 280),
         retryAction: { type: 'retry', label: 'Tentar novamente' },
       } as AiVisualBlock)
       continue
@@ -129,18 +143,37 @@ export function buildPresentationFromTools(
         value: data.remainingToday ?? data.safeDaily ?? data.newDaily ?? '—',
         subtitle: data.freeMoney ? `Dinheiro livre ${data.freeMoney}` : data.message,
       } as AiVisualBlock)
+    } else if (tc.name === 'getTransactions' || tc.name === 'getTransactionsByCategory' || tc.name === 'getTransactionsByPeriod') {
+      const data = r as { transactions?: Array<{ id?: string; description?: string; amountCents?: number; amount?: string; category?: string; date?: string; type?: string }>; count?: number }
+      const list = (data.transactions ?? []) as Array<{ id?: string; description?: string; amountCents?: number; amount?: string; category?: string; date?: string; type?: string }>
+      if (list.length) {
+        const toCents = (tx: { amountCents?: number; amount?: string }) => {
+          if (typeof tx.amountCents === 'number') return tx.amountCents
+          if (typeof tx.amount === 'string') { try { return parseMoney(tx.amount) } catch { return 0 } }
+          return 0
+        }
+        blocks.push({
+          type: 'transactions',
+          title: list.length === 1 ? 'Lançamento encontrado' : `Lançamentos (${list.length})`,
+          items: list.slice(0, 5).map(tx => ({
+            id: tx.id ?? uid(),
+            description: tx.description ?? 'Movimentação',
+            amountCents: toCents(tx as any),
+            category: tx.category ?? '',
+            date: tx.date ?? '',
+            type: (tx.type as 'income'|'expense'|'transfer') ?? 'expense',
+          })),
+          maxItems: 5,
+          actions: [{ type: 'open-transactions', label: 'Ver todas' }],
+        } as AiVisualBlock)
+        if (!speech) speech = `Encontrei ${list.length} lançamento${list.length>1?'s':''}.`
+      }
     }
   }
 
-  // Se nenhum block foi gerado mas há content, cria metric simples como fallback
-  if (!blocks.length && content) {
-    blocks.push({
-      type: 'metric',
-      title: 'Resposta',
-      value: content.slice(0, 120),
-      subtitle: undefined,
-    } as unknown as AiVisualBlock)
-  }
+  // Sem fallback "Resposta": quando não há toolCalls, o bubble já exibe `content`
+  // criar um metric duplicado (content.slice 0-120) gerava duplicação visual
+  // (bubble + card "Resposta" com mesmo texto). Mantém blocks vazio.
 
   // Ações contextuais (01:76) — 2-3 sugestões reais
   if (!actions.length && blocks.length) {

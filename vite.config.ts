@@ -1,11 +1,11 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 // Quando for ativar PWA/Capacitor (não rodar build ainda):
 // 1) npm i -D vite-plugin-pwa
 // 2) descomente o import e o bloco VitePWA abaixo
 // import { VitePWA } from 'vite-plugin-pwa'
 
-function aiApiPlugin() {
+function aiApiPlugin(mode: string) {
   return {
     name: 'ai-api',
     configureServer(server: any) {
@@ -32,8 +32,9 @@ function aiApiPlugin() {
         req.on('end', async () => {
           try {
             const json = body ? JSON.parse(body) : {}
-            const apiKey = process.env.OPENROUTER_API_KEY
-            const mock = process.env.AI_MOCK === 'true'
+            const env = loadEnv(mode, process.cwd(), '')
+            const apiKey = env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY
+            const mock = (env.AI_MOCK || process.env.AI_MOCK) === 'true'
 
             // Mock mode for local dev without credits
             if (mock) {
@@ -58,7 +59,7 @@ function aiApiPlugin() {
               return
             }
 
-            const model = json.model || process.env.OPENROUTER_MODEL
+            const model = json.model || env.OPENROUTER_MODEL || process.env.OPENROUTER_MODEL
             if (!model) {
               res.statusCode = 400
               res.setHeader('Content-Type', 'application/json')
@@ -67,8 +68,8 @@ function aiApiPlugin() {
               return
             }
 
-            const siteUrl = process.env.OPENROUTER_SITE_URL || 'http://localhost:5173'
-            const appName = process.env.OPENROUTER_APP_NAME || 'Atlas Finance'
+            const siteUrl = env.OPENROUTER_SITE_URL || process.env.OPENROUTER_SITE_URL || 'http://localhost:5173'
+            const appName = env.OPENROUTER_APP_NAME || process.env.OPENROUTER_APP_NAME || 'Atlas Finance'
 
             const openRouterBody = {
               model,
@@ -116,10 +117,10 @@ function aiApiPlugin() {
   }
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
-    aiApiPlugin(),
+    aiApiPlugin(mode),
     // VitePWA({
     //   registerType: 'autoUpdate',
     //   includeAssets: ['icons/*'],
@@ -127,4 +128,4 @@ export default defineConfig({
     //   workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'] },
     // }),
   ],
-})
+}))

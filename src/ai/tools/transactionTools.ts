@@ -15,7 +15,7 @@ export const transactionTools = [
           amountInCents: { type: 'number', description: 'valor em centavos, ex 8990 = R$ 89,90' },
           description: { type: 'string' },
           category: { type: 'string', description: 'categoria, ex Alimentação' },
-          accountId: { type: 'string', description: 'ID da conta' },
+          accountId: { type: 'string', description: 'ID da conta (obtenha via getAccounts/getAccountBalances, nunca use placeholder como sua_conta_id)' },
           destinationAccountId: { type: 'string', description: 'ID conta destino se transfer' },
           date: { type: 'string', description: 'YYYY-MM-DD' },
           note: { type: 'string' },

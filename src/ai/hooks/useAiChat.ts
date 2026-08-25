@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { uid } from '../../domain'
 import { useFinanceStore } from '../../store'
 import { runAgentLoop } from '../agent/agentLoop'
@@ -45,7 +45,7 @@ export function useAiChat(conversationId?: string) {
     const stored = (aiMessages ?? []).filter((m:any)=> m.conversationId===conversationId).sort((a:any,b:any)=> a.createdAt.localeCompare(b.createdAt))
     // remove sufixo técnico legado gravado no content de versões antigas
     const cleanLegacy = (content:string)=> content.replace(/\n*\[TOOLS:[\s\S]*\]$/, '')
-    return stored.map((m:any)=> ({ id: m.id, role: m.role as any, content: cleanLegacy(m.content), timestamp: m.createdAt }))
+    return stored.map((m:any)=> ({ id: m.id, role: m.role as any, content: cleanLegacy(m.content), timestamp: m.createdAt, presentation: (m as any).presentation, toolCalls: (m as any).toolCalls }))
   })
   const [isStreaming, setIsStreaming] = useState(false)
   const [chatState, setChatState] = useState<ChatRequestState>('idle')
@@ -55,6 +55,19 @@ export function useAiChat(conversationId?: string) {
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>(conversationId)
   const abortRef = useRef<AbortController | null>(null)
   const retryRef = useRef<{ text: string; executed: string[] } | null>(null)
+
+  // Sincroniza quando o usuário troca de conversa no histórico (não interfere na criação interna via ensureConversation)
+  useEffect(() => {
+    if (!conversationId) return
+    if (conversationId === activeConversationId) return
+    setActiveConversationId(conversationId)
+    const stored = (useFinanceStore.getState() as any).aiMessages?.filter((m:any)=> m.conversationId===conversationId).sort((a:any,b:any)=> a.createdAt.localeCompare(b.createdAt)) ?? []
+    const cleanLegacy = (content:string)=> content.replace(/\n*\[TOOLS:[\s\S]*\]$/, '')
+    setMessages(stored.map((m:any)=> ({ id: m.id, role: m.role as any, content: cleanLegacy(m.content), timestamp: m.createdAt, presentation: (m as any).presentation, toolCalls: (m as any).toolCalls })) as UiChatMessage[])
+    setPendingAction(undefined)
+    setError('')
+    setChatState('idle')
+  }, [conversationId, activeConversationId])
 
   const ensureConversation = useCallback(() => {
     if (activeConversationId) return activeConversationId
@@ -129,6 +142,9 @@ export function useAiChat(conversationId?: string) {
       const lower = trimmed.toLowerCase()
       if (['sim', 'pode criar', 'pode', 'confirma', 'confirmar', 'aplica', 'aplicar'].includes(lower)) { await confirmPending(); return }
       if (['não', 'nao', 'cancela', 'cancelar', 'cancel'].includes(lower)) { cancelPending(); return }
+      // nova mensagem com intenção diferente → libera pendência anterior para não travar o fluxo
+      setPendingAction(undefined)
+      setMessages(prev => prev.map(m => m.pendingAction?.status === 'pending' ? { ...m, pendingAction: { ...m.pendingAction!, status: 'cancelled' as const } } : m))
     }
 
     setError('')
@@ -185,6 +201,8 @@ export function useAiChat(conversationId?: string) {
         setPendingAction(pending)
         setChatState('awaiting-confirmation')
       } else {
+        // limpa confirmação anterior quando nova resposta não exige clique
+        setPendingAction(undefined)
         setChatState('responding')
       }
 
@@ -198,26 +216,22 @@ export function useAiChat(conversationId?: string) {
       const executedNames: string[] = e?.executedToolNames ?? []
       if (executedNames.length && trimmed) retryRef.current = { text: trimmed, executed: executedNames }
       const msg = e?.message ?? String(e)
+      let baseError = ''
       if (msg.includes('NOT_CONFIGURED') || msg.includes('não configurado')) {
-        setError('Assistente não configurado.')
+        baseError = 'Assistente não configurado.'
       } else if (msg.includes('RATE_LIMIT') || msg.includes('429')) {
-        setError('Muitas solicitações agora. Tente novamente em instantes.')
+        baseError = 'Muitas solicitações agora. Tente novamente em instantes.'
       } else if (msg.includes('Timeout') || msg.includes('Abort')) {
-        setError('Não foi possível acessar o assistente agora. Seus dados continuam seguros e disponíveis.')
+        baseError = 'Não foi possível acessar o assistente agora. Seus dados continuam seguros e disponíveis.'
       } else {
-        setError(msg.slice(0,280) || 'Erro ao contatar assistente.')
+        baseError = msg.slice(0,280) || 'Erro ao contatar assistente.'
+      }
+      if (executedNames.length) {
+        setError(`Não foi possível concluir tudo agora. As etapas já executadas foram preservadas e não serão repetidas. ${baseError}`)
+      } else {
+        setError(baseError)
       }
       setChatState('error')
-      const errMsg: UiChatMessage = {
-        id: uid(),
-        role: 'assistant',
-        content: executedNames.length
-          ? 'Não foi possível concluir tudo agora. As etapas já executadas foram preservadas e não serão repetidas.'
-          : 'Não foi possível acessar o assistente agora. Seus dados continuam seguros e disponíveis.',
-        presentation: { text: 'Erro', blocks: [{ type: 'error', title: 'Não consegui consultar a assistente', description: 'Seus dados continuam disponíveis normalmente.', retryAction: { type: 'retry', label: 'Tentar novamente' } } as unknown as AiPresentation['blocks'][number]] },
-        timestamp: new Date().toISOString(),
-      }
-      setMessages(prev => [...prev, errMsg])
     } finally {
       setIsStreaming(false)
       setChatState(prev => prev === 'responding' ? 'idle' : prev === 'error' ? 'error' : 'idle')
@@ -250,6 +264,7 @@ export function useAiChat(conversationId?: string) {
     setIsStreaming(false)
     setChatState('idle')
     setStep('')
+    setError('')
   }, [])
 
   const clear = useCallback(()=> {

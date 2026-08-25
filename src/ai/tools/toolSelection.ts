@@ -9,7 +9,7 @@ const GROUPS: Array<{ keywords: string[]; tools: string[] }> = [
     tools: ['createTransaction', 'updateTransaction', 'deleteTransaction'],
   },
   {
-    keywords: ['recorrente', 'todo mês', 'todo mes', 'toda semana', 'todo dia', 'todos os meses', 'fixo', 'fixa', 'mensal', 'semanal', 'anual', 'salário fixo', 'salario fixo'],
+    keywords: ['recorrente', 'recoente', 'recorente', 'recorrent', 'reco', 'todo mês', 'todo mes', 'toda semana', 'todo dia', 'todos os meses', 'fixo', 'fixa', 'mensal', 'semanal', 'anual', 'salário fixo', 'salario fixo', 'netflix', 'spotify', 'chatgpt', 'assinatura', 'mensalidade'],
     tools: ['createRecurringExpense', 'updateRecurringExpense', 'pauseRecurringExpense', 'resumeRecurringExpense', 'deleteRecurringExpense', 'getRecurringExpenses', 'createRecurringIncome', 'updateRecurringIncome', 'deleteRecurringIncome', 'getRecurringIncome'],
   },
   {

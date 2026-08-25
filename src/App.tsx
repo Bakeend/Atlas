@@ -1,6 +1,6 @@
 import {
-  AlertTriangle, ArrowDownLeft, ArrowUpRight, Bell, BellRing, Car, ChartPie, CheckCheck, ChevronRight,
-  Eye, EyeOff, FileUp, Gamepad2, HelpCircle, House, Package, Plus, Settings, Sparkles,
+  AlertTriangle, ArrowDownLeft, ArrowUpRight, Bell, BellRing, CalendarClock, Car, ChartPie, CheckCheck, ChevronRight,
+  Eye, EyeOff, FileUp, Gamepad2, HelpCircle, House, Package, PiggyBank, Plus, Settings, Sparkles,
   TrendingDown, TrendingUp, Utensils, Wallet, X, type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -94,7 +94,25 @@ function Dashboard() {
   const unreadNotifications = notifications.filter(notification => !readNotificationIds.includes(notification.id))
 
   const [helpOpen, setHelpOpen] = useState(false)
+  const [expandedAdaptive, setExpandedAdaptive] = useState<string | null>(null)
   const greeting = profileName ? `Eae ${profileName}, qual boa de hoje?` : 'Eae, qual boa de hoje?'
+  const greetingTemplates = [
+    'qual é boa de hoje, {name}?',
+    'o que vamos fazer hoje, {name}?',
+    'pronto pra mais um dia, {name}?',
+    'como estão suas finanças hoje, {name}?',
+    'vamos organizar o dia, {name}?',
+    'qual é o plano de hoje, {name}?',
+    'bora cuidar do dinheiro, {name}?',
+    'Eae {name}, qual é a boa de hoje?',
+  ]
+  const [greetingTemplate] = useState(() => greetingTemplates[Math.floor(Math.random() * greetingTemplates.length)])
+  const greetingBig = (() => {
+    const t = greetingTemplate
+    if (profileName) return t.replace('{name}', profileName)
+    // sem nome: remove placeholder e pontuação órfã
+    return t.replace(/\s*,?\s*\{name\}\s*,?\s*/g, ' ').replace(/\s{2,}/g, ' ').replace(/\s+\?/g, '?').trim()
+  })()
   const fullData = useFinanceStore(state => state as unknown as import('./domain').FinanceData)
   const adaptiveIds = useMemo(() => getAdaptiveSuggestionIds(fullData), [fullData])
   const renderSuggestionCard = (id: string) => {
@@ -110,6 +128,16 @@ function Dashboard() {
       default: return null
     }
   }
+  const smallMeta: Record<string, { label: string; icon: LucideIcon }> = {
+    dailySpend: { label: 'Hoje', icon: CalendarClock },
+    freeMoney: { label: 'Dinheiro livre', icon: PiggyBank },
+    payment: { label: 'Organizar', icon: Wallet },
+    recurring: { label: 'Recorrentes', icon: CalendarClock },
+    forecast: { label: 'Previsão', icon: ChartPie },
+    chart: { label: 'Gráfico', icon: ChartPie },
+    budget: { label: 'Orçamento', icon: PiggyBank },
+    recent: { label: 'Recentes', icon: Wallet },
+  }
   const suggestionOrder: Record<string, string[]> = {
     daily: ['dailySpend', 'recurring', 'freeMoney'],
     planning: ['chart', 'budget', 'forecast'],
@@ -118,6 +146,36 @@ function Dashboard() {
     adaptive: adaptiveIds,
   }
   const suggestionIds = suggestionOrder[homeVisual] ?? suggestionOrder.adaptive
+
+  if (homeVisual === 'adaptive') {
+    return <>
+      <div className="px-1 py-6 text-center">
+        <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink sm:text-[32px]">{greetingBig}</h1>
+        <p className="mt-2 text-sm text-muted">Pergunte ou escolha uma sugestão abaixo</p>
+        <button onClick={() => setHelpOpen(v => !v)} aria-label="Ajuda" className="mx-auto mt-3 grid h-7 w-7 place-items-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400"><HelpCircle size={16}/></button>
+        {helpOpen && <div className="mx-auto mt-3 max-w-md rounded-xl border bg-white p-3 text-left text-xs leading-5 text-muted shadow-sm dark:bg-slate-800 dark:border-slate-700">Visual adaptativo: fim de mês mostra <strong>dinheiro livre + previsão</strong>, início após pagamento mostra <strong>organizar</strong>. Troque em <NavLink to="/settings/home" className="font-semibold text-brand">Configurações → Tela inicial → Clássica</NavLink> para voltar.</div>}
+      </div>
+      <HomeInput />
+      <div className="mx-auto mt-6 flex max-w-[520px] flex-wrap justify-center gap-3">
+        {suggestionIds.map(id => {
+          const meta = smallMeta[id] ?? { label: id, icon: Wallet }
+          const Icon = meta.icon
+          const isExpanded = expandedAdaptive === id
+          return <button key={id} onClick={() => setExpandedAdaptive(isExpanded ? null : id)} aria-pressed={isExpanded} className={`flex w-[152px] flex-col items-center gap-2 rounded-2xl border p-4 text-center transition sm:w-[160px] ${isExpanded ? 'border-brand bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800' : 'border-slate-200 bg-white hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700'}`}>
+            <span className={`grid h-10 w-10 place-items-center rounded-xl ${isExpanded ? 'bg-brand text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}><Icon size={20}/></span>
+            <span className="text-sm font-semibold text-ink line-clamp-1">{meta.label}</span>
+            <span className="text-[11px] text-muted">{isExpanded ? 'Toque para recolher' : 'Toque para expandir'}</span>
+          </button>
+        })}
+      </div>
+      {expandedAdaptive && <div className="mx-auto mt-6 max-w-[680px] animate-enter">{renderSuggestionCard(expandedAdaptive)}</div>}
+      <div className="mt-6 flex justify-center gap-2">
+        <NavLink to="/settings/home" className="text-xs font-semibold text-brand">Personalizar sugestões</NavLink>
+        <span className="text-xs text-muted">·</span>
+        <button onClick={() => setHelpOpen(v => !v)} className="text-xs font-semibold text-muted">Ajuda</button>
+      </div>
+    </>
+  }
 
   return <>
     <header className="dashboard-header"><div className="flex-1"><h1 className="flex items-center gap-2">{greeting} <button onClick={() => setHelpOpen(v => !v)} aria-label="Ajuda" className="grid h-7 w-7 place-items-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400"><HelpCircle size={16}/></button></h1><p className="mt-1 text-sm text-muted">{profileName ? 'Aqui está o resumo das suas finanças' : <span>Aqui está o resumo — <NavLink to="/profile" className="font-semibold text-brand hover:underline">personalizar nome</NavLink> · <NavLink to="/settings/home" className="font-semibold text-brand hover:underline">escolher visual</NavLink></span>}</p>{helpOpen && <div className="mt-3 rounded-xl border bg-white p-3 text-xs leading-5 text-muted shadow-sm dark:bg-slate-800 dark:border-slate-700">Escolha seu visual em <NavLink to="/settings/home" className="font-semibold text-brand">Configurações → Tela inicial</NavLink>. Os cards abaixo são sugestões do dia.</div>}</div><div className="flex items-center gap-2"><NavLink to="/assistant" className="ai-header-fab"><Sparkles size={16}/> Assistente</NavLink><button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`Notificações${unreadNotifications.length ? `: ${unreadNotifications.length} não lidas` : ''}`} aria-haspopup="dialog" aria-expanded={notificationsOpen}><Bell size={23} strokeWidth={1.9}/>{unreadNotifications.length > 0 && <span className="notification-dot"/>}</button></div></header>

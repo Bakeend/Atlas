@@ -21,6 +21,37 @@ const suggestions = [
   { icon: Target, label: 'Criar uma meta', prompt: 'Quero guardar R$ 500 por mês. Cria uma meta chamada Reserva mensal.' },
 ]
 
+function RichContent({ text, onAction }: { text: string; onAction?: (label: string) => void }) {
+  // Renderiza **negrito** e [ação] como botão sem dangerouslySetInnerHTML (AGENTS 9)
+  const parts = text.split(/(\*\*[^*]+?\*\*|\[[^\]]+\])/g)
+  if (parts.length === 1) return <>{text}</>
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+          return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>
+        }
+        if (part.startsWith('[') && part.endsWith(']') && part.length >= 3) {
+          const label = part.slice(1, -1).trim()
+          if (!label) return <span key={i}>{part}</span>
+          return (
+            <button
+              key={i}
+              onClick={() => onAction?.(label)}
+              className="mx-1 inline-flex items-center rounded-full bg-brand px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-brand/30"
+            >
+              {label}
+            </button>
+          )
+        }
+        return <span key={i}>{part}</span>
+      })}
+    </>
+  )
+}
+// compat
+const BoldContent = RichContent
+
 export function AiAssistantPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -31,26 +62,32 @@ export function AiAssistantPage() {
   const {
     messages, isStreaming, chatState, step, error, send, cancel,
     confirmPending, cancelPending, pushLocalMessage, undoTransaction, retryLastFailure, describePending,
-  } = useAiChat(convId)
+    pendingAction,
+  } = useAiChat(convId) as ReturnType<typeof useAiChat> & { pendingAction?: any }
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const ttsRef = useRef<TextToSpeechService | null>(null)
   const [isTtsEnabled, setIsTtsEnabled] = useState(true)
   const [voiceState, setVoiceState] = useState<'idle' | 'listening' | 'processing'>('idle')
-  const pendingConfirmation = messages.find(m => m.pendingAction?.status === 'pending')?.pendingAction
+  const pendingConfirmation = (pendingAction as any)?.status === 'pending' ? (pendingAction as any) : undefined
+  const qSentRef = useRef<string | null>(null)
 
   useEffect(()=> { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' }) }, [messages, isStreaming, step])
 
-  // HomeInput → /assistant?q= : pré-preenche e envia
+  // HomeInput → /assistant?q= : pré-preenche e envia (guard contra StrictMode e navegação dupla)
   useEffect(() => {
     const q = searchParams.get('q')
-    if (q && q.trim() && !isStreaming) {
-      setInput('')
-      void send(q.trim())
-      setSearchParams({}, { replace: true })
+    if (!q || !q.trim()) {
+      if (qSentRef.current) qSentRef.current = null
+      return
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
+    if (qSentRef.current === q) return
+    if (isStreaming) return
+    qSentRef.current = q
+    setInput('')
+    void send(q.trim())
+    setSearchParams({}, { replace: true })
+  }, [searchParams, isStreaming, send, setSearchParams])
 
   // TTS: fala respostas curtas em paralelo à exibição
   useEffect(() => {
@@ -149,7 +186,7 @@ export function AiAssistantPage() {
       {messages.map(m=> (
             <div key={m.id} className={`ai-msg ${m.role}`}>
               <div className={`ai-bubble ${m.role}`}>
-                <div className="ai-bubble-content">{m.content}</div>
+                <div className="ai-bubble-content"><RichContent text={m.content} onAction={(label)=> void handleSend(label)} /></div>
                 {m.role === 'assistant' && m.presentation?.blocks?.length ? (
                   <div className="ai-visual-in-chat">
                     <AiVisualRenderer
@@ -174,7 +211,7 @@ export function AiAssistantPage() {
                     />
                   </div>
                 ) : null}
-                {m.toolCalls?.length ? (
+                {m.toolCalls?.length && !m.presentation?.blocks?.length ? (
                   <div className="ai-tool-cards">
                     {m.toolCalls.map((tc:any,i:number)=> (
                       <ToolResultRenderer key={i} name={tc.name} result={tc.result} onApplyPlan={handleApplyPlan} onCancelPlan={handleCancelPlan}/>
@@ -194,7 +231,7 @@ export function AiAssistantPage() {
               </div>
             </div>
           )}
-          {error && (
+          {error && !messages[messages.length - 1]?.presentation?.blocks?.some(b => (b as any).type === 'error') && (
             <div className="ai-error-banner" role="alert">
               <p>{error}</p>
               <div className="ai-error-actions">
@@ -202,7 +239,7 @@ export function AiAssistantPage() {
                 <button className="text-xs font-semibold text-muted" onClick={()=> cancel()}>Cancelar</button>
                 <button className="text-xs font-semibold text-brand" onClick={()=> navigate('/')}>Usar aplicativo</button>
               </div>
-              <small>Seus dados continuam seguros e disponíveis.</small>
+              {!error.includes('seguros') && !error.includes('disponíveis') && <small>Seus dados continuam seguros e disponíveis.</small>}
             </div>
           )}
         </div>

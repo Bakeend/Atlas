@@ -17,7 +17,7 @@ export const recurringTools = [
           name: { type: 'string' },
           amountInCents: { type: 'number' },
           category: { type: 'string' },
-          accountId: { type: 'string' },
+          accountId: { type: 'string', description: 'ID da conta (obtenha via getAccounts/getAccountBalances, nunca use placeholder como sua_conta_id)' },
           frequency: { type: 'string', enum: ['weekly','biweekly','monthly','bimonthly','quarterly','semiannual','yearly'] },
           dueDay: { type: 'number' },
           startDate: { type: 'string', description: 'YYYY-MM-DD' },
@@ -35,7 +35,7 @@ export const recurringTools = [
       const parsed = createRecurringExpenseSchema.parse(args)
       const s = useFinanceStore.getState() as any
       const acc = s.accounts.find((a:any)=>a.id===parsed.accountId)
-      if (!acc) throw new Error('Conta não encontrada')
+      if (!acc) throw new Error(`Conta não encontrada: ${parsed.accountId}. Use getAccounts para obter o ID correto.`)
       const now = new Date().toISOString()
       const rec = {
         id: uid(),
@@ -167,7 +167,7 @@ export const recurringTools = [
           name: { type: 'string' },
           amountInCents: { type: 'number' },
           category: { type: 'string' },
-          accountId: { type: 'string' },
+          accountId: { type: 'string', description: 'ID da conta (obtenha via getAccounts, nunca use placeholder)' },
           frequency: { type: 'string', enum: ['weekly','biweekly','monthly','bimonthly','quarterly','semiannual','yearly'] },
           dueDay: { type: 'number' },
           startDate: { type: 'string' },
@@ -182,7 +182,7 @@ export const recurringTools = [
       const parsed = createRecurringIncomeSchema.parse(args)
       const s = useFinanceStore.getState() as any
       const acc = s.accounts.find((a:any)=>a.id===parsed.accountId)
-      if (!acc) throw new Error('Conta não encontrada')
+      if (!acc) throw new Error(`Conta não encontrada: ${parsed.accountId}. Use getAccounts para obter o ID correto.`)
       const now = new Date().toISOString()
       const rec = { id: uid(), name: parsed.name.trim(), amountInCents: parsed.amountInCents, category: parsed.category.trim(), accountId: parsed.accountId, frequency: parsed.frequency, dueDay: parsed.dueDay, startDate: parsed.startDate, endDate: parsed.endDate, description: parsed.description, isActive: true, createdAt: now, updatedAt: now }
       useFinanceStore.getState().saveRecurringIncome(rec)
