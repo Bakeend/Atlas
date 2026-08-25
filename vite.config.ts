@@ -6,7 +6,7 @@ import react from '@vitejs/plugin-react'
 // import { VitePWA } from 'vite-plugin-pwa'
 
 type AiProvider = 'openai' | 'opencode' | 'openrouter'
-const DEFAULT_OPENCODE_MODEL = 'deepseek-v4-flash-free'
+const DEFAULT_OPENCODE_MODEL = 'mimo-v2.5-free'
 
 function aiApiPlugin(mode: string) {
   return {
