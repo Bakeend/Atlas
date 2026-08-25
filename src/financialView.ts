@@ -1,5 +1,5 @@
-import type { Budget, FinanceTransaction, RecurringExpense } from './domain'
-import { getUnrecordedOccurrencesBetween } from './recurring'
+import type { Budget, FinanceTransaction, RecurringExpense, RecurringIncome } from './domain'
+import { getOccurrencesBetween, getUnrecordedOccurrencesBetween } from './recurring'
 
 export interface CategoryExpenseView {
   category: string
@@ -13,6 +13,12 @@ export interface ExpenseView {
   committedCents: number
   projectedCents: number
   byCategory: CategoryExpenseView[]
+}
+
+export interface IncomeView {
+  realizedCents: number
+  committedCents: number
+  projectedCents: number
 }
 
 export interface BudgetUsageView {
@@ -76,9 +82,47 @@ export function calculateExpenseView({
   return { realizedCents, committedCents, projectedCents: realizedCents + committedCents, byCategory }
 }
 
+export function calculateIncomeView({
+  transactions,
+  recurringIncomes,
+  startDate,
+  endDate,
+}: {
+  transactions: FinanceTransaction[]
+  recurringIncomes: RecurringIncome[]
+  startDate: string
+  endDate: string
+}): IncomeView {
+  const realizedCents = transactions
+    .filter(t => !t.deletedAt && t.type === 'income' && t.date >= startDate && t.date <= endDate)
+    .reduce((sum, transaction) => sum + transaction.amountCents, 0)
+
+  let committedCents = 0
+  for (const income of recurringIncomes) {
+    if (!income.isActive) continue
+    const occurrences = getOccurrencesBetween(income as RecurringExpense, startDate, endDate)
+    for (const occurrenceDate of occurrences) {
+      const alreadyReceived = transactions.some(transaction =>
+        !transaction.deletedAt &&
+        transaction.type === 'income' &&
+        transaction.recurringIncomeId === income.id &&
+        transaction.recurringIncomeOccurrenceDate === occurrenceDate
+      )
+      if (!alreadyReceived) committedCents += income.amountInCents
+    }
+  }
+
+  return { realizedCents, committedCents, projectedCents: realizedCents + committedCents }
+}
+
 export function calculateMonthlyExpenseView(transactions: FinanceTransaction[], recurringExpenses: RecurringExpense[], month: string) {
   const { start, end } = monthBounds(month)
   return calculateExpenseView({ transactions, recurringExpenses, startDate: start, endDate: end })
+}
+
+export function calculateMonthlyIncomeView(transactions: FinanceTransaction[], recurringIncomes: RecurringIncome[], month: string) {
+  const { start, end } = monthBounds(month)
+  return calculateIncomeView({ transactions, recurringIncomes, startDate: start, endDate: end })
 }
 
 export function calculateBudgetUsage({
