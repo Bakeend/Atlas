@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react'
 // 2) descomente o import e o bloco VitePWA abaixo
 // import { VitePWA } from 'vite-plugin-pwa'
 
-type AiProvider = 'openai' | 'opencode' | 'openrouter'
+type AiProvider = 'opencode' | 'openrouter'
 const DEFAULT_OPENCODE_MODEL = 'mimo-v2.5-free'
 
 function aiApiPlugin(mode: string) {
@@ -39,7 +39,7 @@ function aiApiPlugin(mode: string) {
             const mock = (env.AI_MOCK || process.env.AI_MOCK) === 'true'
             const provider = (json.provider || env.AI_PROVIDER || process.env.AI_PROVIDER || 'opencode') as AiProvider
 
-            if (!['openai', 'opencode', 'openrouter'].includes(provider)) {
+            if (!['opencode', 'openrouter'].includes(provider)) {
               res.statusCode = 400
               res.setHeader('Content-Type', 'application/json')
               res.end(JSON.stringify({ error: `Provedor inválido: ${provider}`, code: 'INVALID_PROVIDER' }))
@@ -67,18 +67,14 @@ function aiApiPlugin(mode: string) {
             let url = ''
             let extraHeaders: Record<string, string> = {}
 
-            if (provider === 'openai') {
-              apiKey = env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || ''
-              model = model || env.OPENAI_MODEL || process.env.OPENAI_MODEL || 'gpt-4.1-mini'
-              url = env.OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1/chat/completions'
-            } else if (provider === 'opencode') {
+            if (provider === 'opencode') {
               apiKey = env.OPENCODE_API_KEY || process.env.OPENCODE_API_KEY || ''
               model = model || env.OPENCODE_MODEL || process.env.OPENCODE_MODEL || DEFAULT_OPENCODE_MODEL
               url = env.OPENCODE_BASE_URL || process.env.OPENCODE_BASE_URL || 'https://opencode.ai/zen/v1/chat/completions'
             } else {
               apiKey = env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY || ''
               model = model || env.OPENROUTER_MODEL || process.env.OPENROUTER_MODEL
-              url = 'https://openrouter.ai/api/v1/chat/completions'
+              url = env.OPENROUTER_BASE_URL || process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1/chat/completions'
               extraHeaders = {
                 'HTTP-Referer': env.OPENROUTER_SITE_URL || process.env.OPENROUTER_SITE_URL || 'http://localhost:5173',
                 'X-Title': env.OPENROUTER_APP_NAME || process.env.OPENROUTER_APP_NAME || 'Atlas Finance',
@@ -86,7 +82,7 @@ function aiApiPlugin(mode: string) {
             }
 
             if (!apiKey) {
-              const envName = provider === 'openai' ? 'OPENAI_API_KEY' : provider === 'opencode' ? 'OPENCODE_API_KEY' : 'OPENROUTER_API_KEY'
+              const envName = provider === 'opencode' ? 'OPENCODE_API_KEY' : 'OPENROUTER_API_KEY'
               res.statusCode = 503
               res.setHeader('Content-Type', 'application/json')
               res.setHeader('Access-Control-Allow-Origin', '*')
