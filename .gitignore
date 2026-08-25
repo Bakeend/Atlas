@@ -7,4 +7,6 @@ dist.zip
 # Capacitor PWA
 # Environment variables
 .env
+.env.bak
+.env*.bak
 .env*.local
