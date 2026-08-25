@@ -17,6 +17,7 @@ export const toISODate = (date: Date) => `${date.getFullYear()}-${String(date.ge
 const addDays = (date: Date, days: number) => { const next = new Date(date); next.setDate(next.getDate() + days); return next }
 const compare = (a: Date, b: Date) => toISODate(a).localeCompare(toISODate(b))
 const lastDayOfMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate()
+const normalizeText = (value: string) => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
 
 export function validDueDate(year: number, month: number, dueDay: number) {
   return new Date(year, month, Math.min(Math.max(1, dueDay), lastDayOfMonth(year, month)), 12)
@@ -77,8 +78,23 @@ export function isOccurrenceRecorded(transactions: FinanceTransaction[], recurri
   return transactions.some(transaction => !transaction.deletedAt && transaction.recurringExpenseId === recurringExpenseId && transaction.recurringOccurrenceDate === occurrenceDate)
 }
 
+export function isExpenseOccurrenceRecorded(transactions: FinanceTransaction[], expense: RecurringExpense, occurrenceDate: string) {
+  if (isOccurrenceRecorded(transactions, expense.id, occurrenceDate)) return true
+
+  // Backward compatibility for transactions created before occurrence linkage existed.
+  // The match is intentionally strict enough to avoid treating an unrelated expense as payment.
+  const expectedName = normalizeText(expense.name)
+  return transactions.some(transaction => {
+    if (transaction.deletedAt || transaction.type !== 'expense' || transaction.recurringExpenseId) return false
+    if (transaction.date !== occurrenceDate || transaction.accountId !== expense.accountId || transaction.amountCents !== expense.amountInCents) return false
+    const sameDescription = normalizeText(transaction.description) === expectedName
+    const sameCategory = transaction.category === expense.category
+    return sameDescription || sameCategory
+  })
+}
+
 export function getUnrecordedOccurrencesBetween(expense: RecurringExpense, startDate: string | Date, endDate: string | Date, transactions: FinanceTransaction[]) {
-  return getOccurrencesBetween(expense, startDate, endDate).filter(date => !isOccurrenceRecorded(transactions, expense.id, date))
+  return getOccurrencesBetween(expense, startDate, endDate).filter(date => !isExpenseOccurrenceRecorded(transactions, expense, date))
 }
 
 export function calculateCommittedAmount(expenses: RecurringExpense[], startDate: string | Date, endDate: string | Date, transactions: FinanceTransaction[] = []) {
