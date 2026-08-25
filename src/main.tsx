@@ -6,6 +6,7 @@ import { installMojibakeRepair } from './lib/repairMojibake'
 import { initThemeSync } from './lib/theme'
 import './styles.css'
 import './import-mobile.css'
+import './mobile-dashboard-fixes.css'
 // PWA pronto mas desativado: quando instalar vite-plugin-pwa, descomente:
 // import { initPwaPlaceholder } from './pwa'; initPwaPlaceholder()
 
