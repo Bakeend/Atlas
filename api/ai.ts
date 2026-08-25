@@ -3,7 +3,7 @@
 
 type AiProvider = 'openai' | 'opencode' | 'openrouter'
 
-const DEFAULT_OPENCODE_MODEL = 'deepseek-v4-flash-free'
+const DEFAULT_OPENCODE_MODEL = 'mimo-v2.5-free'
 
 function getProviderConfig(provider: AiProvider, json: any) {
   if (provider === 'openai') {
