@@ -46,7 +46,10 @@ export interface FinanceTransaction {
   note?: string
   recurringExpenseId?: string
   recurringOccurrenceDate?: string
+  recurringIncomeId?: string
+  recurringIncomeOccurrenceDate?: string
   plannedAmountCents?: number
+  importExternalId?: string
   createdAt: string
   deletedAt?: string
 }
@@ -112,6 +115,7 @@ export interface PaymentAllocationItem {
   categoryId?: string
   goalId?: string
   recurringExpenseId?: string
+  recurringOccurrenceDate?: string
   isConsumed?: boolean
 }
 
