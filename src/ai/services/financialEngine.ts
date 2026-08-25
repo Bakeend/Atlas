@@ -1,13 +1,14 @@
 import { accountBalance, money, today, uid } from '../../domain'
-import type { FinanceData, PaymentAllocationPlan, PaymentAllocationItem } from '../../domain'
+import type { FinanceData, PaymentAllocationPlan, PaymentAllocationItem, RecurringExpense } from '../../domain'
 import { useFinanceStore } from '../../store'
-import { calculateCommittedAmount, getUnrecordedOccurrencesBetween } from '../../recurring'
+import { calculateCommittedAmount, getOccurrencesBetween, getUnrecordedOccurrencesBetween } from '../../recurring'
 import { calculateForecast, getAverageDailyVariable, summarizeForecast } from '../../forecast/calculate'
+import { calculateBudgetUsage, calculateRemainingEssentialBudgets } from '../../financialView'
 
 function addDaysIso(dateIso: string, days: number): string {
   const d = new Date(`${dateIso}T12:00:00`)
   d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 export function getTotalBalance(data?: FinanceData): number {
@@ -72,20 +73,14 @@ function lastDayOfMonthIso(dateIso: string): string {
 
 function estimateVariableAmount(expense: import('../../domain').RecurringExpense, data: FinanceData): { amount: number; isEstimated: boolean } {
   if (!expense.isVariable) return { amount: expense.amountInCents, isEstimated: false }
-  // 1) média histórica dos últimos 90 dias para mesma categoria
   const t = today()
   const start = addDaysIso(t, -90)
   const live = data.transactions.filter(tx => !tx.deletedAt && tx.type === 'expense' && tx.category === expense.category && tx.date >= start && tx.date <= t)
   if (live.length >= 2) {
     const sum = live.reduce((s, tx) => s + tx.amountCents, 0)
     const avg = Math.round(sum / live.length)
-    // se média difere mais de 15% do cadastrado, considera estimado
-    if (Math.abs(avg - expense.amountInCents) > expense.amountInCents * 0.15) {
-      return { amount: avg, isEstimated: true }
-    }
     return { amount: avg, isEstimated: true }
   }
-  // 2) estimativa cadastrada (amountInCents) como fallback
   return { amount: expense.amountInCents, isEstimated: live.length > 0 }
 }
 
@@ -111,16 +106,13 @@ function getFreeMoneyPeriodBounds(
     const days = diffDays(start, end) + 1
     return { start, end, label: `Personalizado ${start} → ${end}`, days, hasNextIncome: false, nextIncomeDate: null }
   }
-  // nextIncome default
   const next = calculateNextIncome(s)
   if (next.found && next.nextDate && next.nextDate >= t) {
     const end = addDaysIso(next.nextDate, -1)
-    // se end < start (salário hoje), usa 1 dia
     const actualEnd = end >= t ? end : t
     const days = diffDays(t, actualEnd) + 1
     return { start: t, end: actualEnd, label: `Até seu próximo pagamento em ${diffDays(t, next.nextDate)} dias`, days, hasNextIncome: true, nextIncomeDate: next.nextDate }
   }
-  // fallback sem próximo recebimento
   const end = addDaysIso(t, 30)
   return { start: t, end, label: 'Próximos 30 dias (sem próximo recebimento)', days: 31, hasNextIncome: false, nextIncomeDate: null }
 }
@@ -148,54 +140,39 @@ function calculateCommittedBillsDetailed(start: string, end: string, data: Finan
       })
     }
   }
-  // ordenar por data
   details.sort((a, b) => a.dueDate.localeCompare(b.dueDate))
   return { total, details }
 }
 
 function getEssentialBudgetsDetails(data: FinanceData, period: { start: string; end: string }) {
-  const months = new Set<string>()
-  // coleta meses entre start e end (inclui ambos)
-  let cur = period.start.slice(0, 7)
-  const endMonth = period.end.slice(0, 7)
-  // simples: se start e end meses diferentes, inclui ambos, se periodo > 60 dias inclui intermediários
-  // para MVP, inclui startMonth e endMonth (se diferentes)
-  months.add(cur)
-  months.add(endMonth)
-  // se diff > 31 dias e tem mês intermediário, inclui
-  const startD = new Date(`${period.start}T12:00:00`)
-  const endD = new Date(`${period.end}T12:00:00`)
-  const monthDiff = (endD.getFullYear() - startD.getFullYear()) * 12 + (endD.getMonth() - startD.getMonth())
-  if (monthDiff > 1) {
-    for (let i = 1; i < monthDiff; i++) {
-      const d = new Date(startD)
-      d.setMonth(d.getMonth() + i)
-      months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
-    }
+  const remaining = calculateRemainingEssentialBudgets({
+    budgets: data.budgets,
+    transactions: data.transactions,
+    recurringExpenses: data.recurringExpenses,
+    startMonth: period.start.slice(0, 7),
+    endMonth: period.end.slice(0, 7),
+    essentialCategories: ESSENTIAL_BUDGET_CATEGORIES,
+  })
+  return {
+    total: remaining.total,
+    details: remaining.details.map(item => ({
+      category: item.category,
+      month: item.month,
+      limitCents: item.remainingCents,
+      limitFormatted: money(item.remainingCents),
+    })),
   }
-  let total = 0
-  const details: Array<{ category: string; month: string; limitCents: number; limitFormatted: string }> = []
-  for (const b of data.budgets) {
-    if (!ESSENTIAL_BUDGET_CATEGORIES.has(b.category)) continue
-    if (!months.has(b.month)) continue
-    total += b.limitCents
-    details.push({ category: b.category, month: b.month, limitCents: b.limitCents, limitFormatted: money(b.limitCents) })
-  }
-  return { total, details }
 }
 
 function getGoalsReserveDetails(data: FinanceData) {
   const virtual = getVirtualReservesBreakdown(data)
   let total = virtual.goalReserve
   const details: Array<{ id: string; title: string; amountCents: number; amountFormatted: string; isVirtual: boolean }> = []
-  // detalhes virtuais são agregados, não por meta individual — para breakdown, distribui por metas existentes se houver
   if (virtual.goalReserve > 0 && data.goals.length) {
-    // distribui proporcionalmente? para MVP, cria um detalhe agregado
     details.push({ id: 'virtual-goals', title: 'Metas e reservas (virtual)', amountCents: virtual.goalReserve, amountFormatted: money(virtual.goalReserve), isVirtual: true })
   } else if (virtual.goalReserve > 0) {
     details.push({ id: 'virtual-reserve', title: 'Reserva', amountCents: virtual.goalReserve, amountFormatted: money(virtual.goalReserve), isVirtual: true })
   }
-  // se não há virtual mas há metas com deadline, estima mensal necessário
   if (total === 0 && data.goals.length) {
     const t = today()
     for (const g of data.goals) {
@@ -204,7 +181,6 @@ function getGoalsReserveDetails(data: FinanceData) {
       if (deadline <= t) continue
       const remaining = Math.max(0, g.targetAmountInCents - g.currentAmountInCents)
       if (remaining <= 0) continue
-      // meses até deadline — usa dias para não quebrar em virada de mês (30 dias = 1 mês)
       const daysToDeadline = diffDays(t, deadline)
       const months = Math.max(1, Math.ceil(daysToDeadline / 30))
       const monthly = Math.round(remaining / months)
@@ -255,17 +231,13 @@ export function calculateFreeMoney(
   const virtual = getVirtualReservesBreakdown(s)
   const marginPct = s.safetyMarginPercent ?? 10
 
-  // Effective values: evita dupla contagem com virtual
-  const effectiveEssential = Math.max(essential.total, virtual.budgetEssential)
+  // O orçamento formal é a fonte de verdade quando existe. O saldo já reflete o realizado
+  // e committed.total já cobre as contas recorrentes; aqui reservamos apenas o restante variável.
+  const effectiveEssential = essential.details.length ? essential.total : virtual.budgetEssential
   const effectiveGoals = Math.max(goals.total, virtual.goalReserve)
-  // safety: se já há virtual safety, usa virtual, senão calcula sobre o que sobra
   const baseForSafety = Math.max(0, total - committed.total - effectiveEssential - effectiveGoals)
   const computedSafety = marginPct > 0 && baseForSafety > 0 ? Math.round(baseForSafety * (marginPct / 100)) : 0
   const effectiveSafety = Math.max(computedSafety, virtual.safety)
-
-  // virtualOther (budgetOther + other) não entra no cálculo essencial, mas se for reserva já está em goals; budgetOther (lazer) é discricionário e não deve reduzir livre, então ignoramos
-  // free = total - committed - effectiveEssential - effectiveGoals - effectiveSafety
-  // Não subtrai virtualOther propositalmente para não punir lazer
   const free = total - committed.total - effectiveEssential - effectiveGoals - effectiveSafety
 
   const isNegative = free < 0
@@ -299,7 +271,6 @@ export function calculateFreeMoney(
   }
 }
 
-// aliases para tools IA — mantém compatibilidade com nomes do spec
 export const getFreeMoney = calculateFreeMoney
 export const getFreeMoneyBreakdown = calculateFreeMoney
 export const calculateFreeMoneyDetailed = calculateFreeMoney
@@ -328,15 +299,17 @@ export function calculateNextIncome(data?: FinanceData) {
   const s = data ?? (useFinanceStore.getState() as unknown as FinanceData)
   const t = today()
   const incomes = (s.recurringIncomes ?? []).filter(r => r.isActive)
-  if (!incomes.length) {
-    // fallback: look for last income transaction to infer? return none
-    return { found: false as const, nextDate: null, amountCents: 0, formatted: money(0) }
-  }
+  if (!incomes.length) return { found: false as const, nextDate: null, amountCents: 0, formatted: money(0) }
+
   let best: { date: string; amount: number; name: string } | null = null
   for (const inc of incomes) {
-    // reuse expense occurrence logic via RecurringExpense shape — income has same fields
-    const occ = getUnrecordedOccurrencesBetween(inc as any, t, addDaysIso(t, 60), [])
-    const date = occ[0]
+    const occurrences = getOccurrencesBetween(inc as unknown as RecurringExpense, t, addDaysIso(t, 60))
+    const date = occurrences.find(occurrenceDate => !s.transactions.some(transaction =>
+      !transaction.deletedAt &&
+      transaction.type === 'income' &&
+      transaction.recurringIncomeId === inc.id &&
+      transaction.recurringIncomeOccurrenceDate === occurrenceDate
+    ))
     if (!date) continue
     if (!best || date < best.date) best = { date, amount: inc.amountInCents, name: inc.name }
   }
@@ -356,19 +329,17 @@ export function analyzeSpending(startDate?: string, endDate?: string, groupBy: '
     for (const t of filtered) byCat.set(t.category, (byCat.get(t.category) ?? 0) + t.amountCents)
     const breakdown = Array.from(byCat.entries()).map(([category, cents]) => ({ category, cents, formatted: money(cents), percent: totalCents ? Math.round(cents/totalCents*100) : 0 })).sort((a,b)=>b.cents-a.cents)
     return { period: { start, end }, totalCents, totalFormatted: money(totalCents), breakdown }
-  } else {
-    const byMonth = new Map<string, number>()
-    for (const t of filtered) { const m = t.date.slice(0,7); byMonth.set(m, (byMonth.get(m)??0)+t.amountCents) }
-    const breakdown = Array.from(byMonth.entries()).map(([month, cents])=>({ month, cents, formatted: money(cents) })).sort((a,b)=>a.month.localeCompare(b.month))
-    return { period: { start, end }, totalCents, totalFormatted: money(totalCents), breakdown }
   }
+  const byMonth = new Map<string, number>()
+  for (const t of filtered) { const m = t.date.slice(0,7); byMonth.set(m, (byMonth.get(m)??0)+t.amountCents) }
+  const breakdown = Array.from(byMonth.entries()).map(([month, cents])=>({ month, cents, formatted: money(cents) })).sort((a,b)=>a.month.localeCompare(b.month))
+  return { period: { start, end }, totalCents, totalFormatted: money(totalCents), breakdown }
 }
 
 export function detectAnomalies(months = 6, data?: FinanceData) {
   const s = data ?? (useFinanceStore.getState() as unknown as FinanceData)
   const t = today()
   const anomalies: Array<{ category: string; currentCents: number; averageCents: number; deltaPercent: number; currentFormatted: string; averageFormatted: string }> = []
-  // group by category last `months` months vs current month
   const currentMonth = t.slice(0,7)
   const live = s.transactions.filter(tx => !tx.deletedAt && tx.type==='expense')
   const allCats = Array.from(new Set(live.map(tx=>tx.category)))
@@ -392,20 +363,18 @@ export function detectAnomalies(months = 6, data?: FinanceData) {
 }
 
 export function getSpendingAnomaliesTool(months = 6) {
-  const anomalies = detectAnomalies(months)
-  return anomalies
+  return detectAnomalies(months)
 }
 
 export function getCashFlow(days = 30, realistic = true, data?: FinanceData) {
   const s = data ?? (useFinanceStore.getState() as unknown as FinanceData)
-  const points = calculateForecast({ accounts: s.accounts, transactions: s.transactions, recurringExpenses: s.recurringExpenses, startDate: today(), days, realistic: realistic && (s.forecastRealistic ?? true) })
+  const points = calculateForecast({ accounts: s.accounts, transactions: s.transactions, recurringExpenses: s.recurringExpenses, recurringIncomes: s.recurringIncomes, startDate: today(), days, realistic: realistic && (s.forecastRealistic ?? true) })
   const total = getTotalBalance(s)
   const summary = summarizeForecast(points, total)
   const avg = getAverageDailyVariable(s.transactions, today())
-  return { days, realistic, points: points.slice(0, Math.min(points.length, 14)), summary: { endBalance: money(summary.endBalance), minBalance: money(summary.minBalance), totalRecurring: money(summary.totalRecurring), totalVariable: money(summary.totalVariable) }, avg: { expensePerDay: money(avg.avgExpense), incomePerDay: money(avg.avgIncome) } }
+  return { days, realistic, points: points.slice(0, Math.min(points.length, 14)), summary: { endBalance: money(summary.endBalance), minBalance: money(summary.minBalance), totalRecurring: money(summary.totalRecurring), totalRecurringIncome: money(summary.totalRecurringIncome), totalVariable: money(summary.totalVariable) }, avg: { expensePerDay: money(avg.avgExpense), incomePerDay: money(avg.avgIncome) } }
 }
 
-// ── Classificação de gastos ──
 export type SpendClass = 'reserved' | 'essential' | 'discretionary'
 
 const DISCRETIONARY_KEYWORDS = /(restaurante|lanchonete|bar|cinema|show|ingresso|lazer|jogo|pub|balada|ifood|delivery.*lazer)/i
@@ -416,16 +385,13 @@ export function classifyTransaction(tx: import('../../domain').FinanceTransactio
   if (tx.recurringExpenseId) return 'reserved'
   if (RESERVED_CATEGORIES.has(tx.category)) return 'reserved'
   if (tx.category === 'Lazer' || tx.category === 'Outros') {
-    // Outros pode ser essencial ou discricionário; usa keyword para refinar
     if (DISCRETIONARY_KEYWORDS.test(tx.description)) return 'discretionary'
-    if (tx.category === 'Lazer') return 'discretionary'
     return 'discretionary'
   }
   if (ESSENTIAL_CATEGORIES.has(tx.category)) {
     if (DISCRETIONARY_KEYWORDS.test(tx.description)) return 'discretionary'
     return 'essential'
   }
-  // fallback: se descrição indica lazer, marca discretionary
   if (DISCRETIONARY_KEYWORDS.test(`${tx.category} ${tx.description}`)) return 'discretionary'
   return 'essential'
 }
@@ -465,7 +431,6 @@ export function calculateSafeDailySpend(data?: FinanceData, overrideToday?: stri
   const t = overrideToday ?? today()
   const total = getTotalBalance(s)
   const margin = (s.safetyMarginPercent ?? 10) / 100
-
   const nextIncome = calculateNextIncome(s)
   const hasNextIncome = nextIncome.found && !!nextIncome.nextDate
 
@@ -473,80 +438,55 @@ export function calculateSafeDailySpend(data?: FinanceData, overrideToday?: stri
   let nextDate: string | null = null
   let freeMoney = total
   let committed = 0
-
   const virtualReserves = getVirtualReservesTotal(s)
+
   if (hasNextIncome) {
     nextDate = nextIncome.nextDate!
     days = diffDays(t, nextDate)
-    // se nextDate é hoje, days 0 -> trata como 1 (ainda hoje)
     if (days === 0) days = 1
-    // comprometido até véspera do recebimento (não contar o dia do salário como gasto)
     const endForFree = addDaysIso(nextDate, -1)
-    if (endForFree >= t) {
-      committed = calculateCommittedBillsDetailed(t, endForFree, s).total
-    } else {
-      committed = 0
-    }
+    committed = endForFree >= t ? calculateCommittedBillsDetailed(t, endForFree, s).total : 0
     freeMoney = total - committed - virtualReserves
   } else {
-    // sem próxima receita: usa 30 dias como estimativa mas marca hasNextIncome false
     days = null
-    // free = total - committed próximos 30 dias (para exibir)
     committed = calculateCommittedBillsDetailed(t, addDaysIso(t, 30), s).total
     freeMoney = total - committed - virtualReserves
   }
 
-  // gasto de hoje (discricionário + essencial, sem reserved) — calculado antes para ajustar freeMoney
   const spentToday = s.transactions
     .filter(tx => !tx.deletedAt && tx.type === 'expense' && tx.date === t)
     .filter(tx => classifyTransaction(tx) !== 'reserved')
     .reduce((sum, tx) => sum + tx.amountCents, 0)
 
-  // freeMoney inclui o gasto de hoje já descontado do total; para distribuir o dia de hoje, devolve o gasto não-reservado
   const totalBeforeTodaySpends = total + spentToday
   const freeMoneyBeforeToday = totalBeforeTodaySpends - committed - virtualReserves
-
   const baseForReserve = hasNextIncome ? freeMoneyBeforeToday : freeMoney
   const safetyReserve = hasNextIncome && baseForReserve > 0 ? Math.round(baseForReserve * margin) : 0
   const distributable = Math.max(0, (hasNextIncome ? baseForReserve : freeMoney) - safetyReserve)
 
   let safeDaily: number | null = null
-  if (hasNextIncome && days && days > 0) {
-    safeDaily = baseForReserve <= 0 ? 0 : Math.floor(distributable / days)
-  } else if (!hasNextIncome) {
-    // estimativa mensal se sem renda: distribui em 30
-    safeDaily = null
-  }
+  if (hasNextIncome && days && days > 0) safeDaily = baseForReserve <= 0 ? 0 : Math.floor(distributable / days)
 
   let remaining: number | null = null
   let percent: number | null = null
   let status: SafeDailyResult['status'] = 'normal'
-
-  if (!hasNextIncome) {
-    status = 'no_income'
-  } else if (freeMoney < 0) {
-    status = 'negative_free'
-    remaining = safeDaily !== null ? safeDaily - spentToday : null
-  } else if (safeDaily === null) {
-    status = 'no_income'
-  } else {
+  if (!hasNextIncome) status = 'no_income'
+  else if (freeMoney < 0) { status = 'negative_free'; remaining = safeDaily !== null ? safeDaily - spentToday : null }
+  else if (safeDaily === null) status = 'no_income'
+  else {
     remaining = safeDaily - spentToday
     percent = safeDaily > 0 ? Math.round((spentToday / safeDaily) * 100) : (spentToday > 0 ? 100 : 0)
     if (remaining < 0) status = 'over'
     else if (remaining === 0) status = 'reached'
     else if (percent !== null && percent >= 80) status = 'near_limit'
-    else status = 'normal'
   }
 
-  // próxima conta (próximo vencimento não pago)
   let nextBill: SafeDailyResult['nextBill'] = null
   try {
-    const active = s.recurringExpenses.filter(r => r.isActive)
     let best: { r: any; date: string } | null = null
-    for (const r of active) {
+    for (const r of s.recurringExpenses.filter(r => r.isActive)) {
       const occ = getUnrecordedOccurrencesBetween(r as any, t, addDaysIso(t, 60), s.transactions)[0]
-      if (!occ) continue
-      if (!best || occ < best.date) best = { r, date: occ }
+      if (occ && (!best || occ < best.date)) best = { r, date: occ }
     }
     if (best) nextBill = { name: best.r.name, amountInCents: best.r.amountInCents, amountFormatted: money(best.r.amountInCents), date: best.date }
   } catch {}
@@ -596,8 +536,6 @@ export function simulateDailySpend(amountInCents: number, data?: FinanceData, ov
   const safetyAfter = freeAfter > 0 ? Math.round(freeAfter * (base.safetyMarginPercent / 100)) : 0
   const distributableAfter = Math.max(0, freeAfter - safetyAfter)
   const newDaily = daysAfter > 0 ? Math.floor(distributableAfter / daysAfter) : 0
-  const spentAfter = base.spentTodayInCents + amountInCents
-  // remaining not used in simulate, but we show
   return {
     base,
     simulatedAmountInCents: amountInCents,
@@ -616,7 +554,6 @@ export function simulateDailySpend(amountInCents: number, data?: FinanceData, ov
   }
 }
 
-// ── Prioridades configuráveis ──
 const DEFAULT_PRIORITY: import('../../domain').AllocationPriority[] = ['overdue','essential','bills','food','transport','goals','reserve','leisure','free']
 
 export function getEffectivePriority(data?: FinanceData): import('../../domain').AllocationPriority[] {
@@ -624,17 +561,21 @@ export function getEffectivePriority(data?: FinanceData): import('../../domain')
   return (s as any).paymentAllocationPriority ?? DEFAULT_PRIORITY
 }
 
-function getAlreadyReservedBillIds(data: FinanceData): Set<string> {
+function occurrenceKey(recurringExpenseId: string, occurrenceDate: string) {
+  return `${recurringExpenseId}|${occurrenceDate}`
+}
+
+function getAlreadyReservedBillOccurrences(data: FinanceData): Set<string> {
   const plans = (data as any).paymentAllocationPlans ?? []
-  const ids = new Set<string>()
-  for (const p of plans) {
-    if (p.status !== 'applied') continue
-    for (const it of p.items) {
-      if (it.isConsumed) continue
-      if (it.recurringExpenseId) ids.add(it.recurringExpenseId)
+  const keys = new Set<string>()
+  for (const plan of plans) {
+    if (plan.status !== 'applied') continue
+    for (const item of plan.items) {
+      if (item.isConsumed || !item.recurringExpenseId || !item.recurringOccurrenceDate) continue
+      keys.add(occurrenceKey(item.recurringExpenseId, item.recurringOccurrenceDate))
     }
   }
-  return ids
+  return keys
 }
 
 export function preparePaymentAllocationPlan(
@@ -661,64 +602,55 @@ export function preparePaymentAllocationPlan(
     items.push({ id: uid(), label, type, amountInCents: amount, ...extra })
     remaining -= amount
   }
-  const alreadyReserved = getAlreadyReservedBillIds(s)
+  const alreadyReserved = getAlreadyReservedBillOccurrences(s)
   const priority = getEffectivePriority(s)
   const has = (p: import('../../domain').AllocationPriority) => priority.includes(p)
 
-  // Helper to check if we should skip bills já reservados (evita duplicar reserva virtual)
-  const isAlreadyReserved = (id: string) => alreadyReserved.has(id)
+  const addBillOccurrence = (r: RecurringExpense, date: string) => {
+    const key = occurrenceKey(r.id, date)
+    if (alreadyReserved.has(key) || items.some(item => item.recurringExpenseId === r.id && item.recurringOccurrenceDate === date)) return
+    addItem(r.name, 'bill', r.amountInCents, { recurringExpenseId: r.id, recurringOccurrenceDate: date, categoryId: r.category })
+  }
 
-  // 1. Contas vencidas (overdue)
   if (has('overdue')) {
-    const overdue = s.recurringExpenses.filter(r => r.isActive && !isAlreadyReserved(r.id)).flatMap(r => {
-      const dates = getUnrecordedOccurrencesBetween(r as any, r.startDate, addDaysIso(t, -1), s.transactions)
-      return dates.map(date => ({ r, date }))
-    }).sort((a, b) => a.date.localeCompare(b.date))
-    for (const { r } of overdue) addItem(r.name, 'bill', r.amountInCents, { recurringExpenseId: r.id, categoryId: r.category })
+    const overdue = s.recurringExpenses.filter(r => r.isActive).flatMap(r =>
+      getUnrecordedOccurrencesBetween(r as any, r.startDate, addDaysIso(t, -1), s.transactions).map(date => ({ r, date }))
+    ).sort((a, b) => a.date.localeCompare(b.date))
+    for (const { r, date } of overdue) addBillOccurrence(r, date)
   }
-  // 2-3. Obrigações recorrentes próximas (essential + bills)
+
   if (has('essential') || has('bills')) {
-    const upcoming = s.recurringExpenses.filter(r => r.isActive && !isAlreadyReserved(r.id)).flatMap(r => {
-      const occ = getUnrecordedOccurrencesBetween(r as any, t, periodEnd!, s.transactions)
-      return occ.map(date => ({ r, date }))
-    }).filter(({ r }) => !items.some(it => it.recurringExpenseId === r.id)).sort((a, b) => a.date.localeCompare(b.date))
-    const seen = new Set<string>()
-    for (const { r } of upcoming) {
-      if (seen.has(r.id)) continue
-      seen.add(r.id)
-      if (items.some(it => it.recurringExpenseId === r.id)) continue
-      // se for essencial, prioriza; senão bills normais
-      addItem(r.name, 'bill', r.amountInCents, { recurringExpenseId: r.id, categoryId: r.category })
-    }
+    const upcoming = s.recurringExpenses.filter(r => r.isActive).flatMap(r =>
+      getUnrecordedOccurrencesBetween(r as any, t, periodEnd!, s.transactions).map(date => ({ r, date }))
+    ).sort((a, b) => a.date.localeCompare(b.date))
+    for (const { r, date } of upcoming) addBillOccurrence(r, date)
   }
-  // 4. Alimentação
+
+  const month = t.slice(0, 7)
+  const addRemainingBudget = (category: string, fallbackCents: number) => {
+    const budget = s.budgets.find(b => b.category === category && b.month === month)
+    const amount = budget ? calculateBudgetUsage({ budget, transactions: s.transactions, recurringExpenses: s.recurringExpenses }).remainingCents : fallbackCents
+    addItem(category, 'budget', amount, { categoryId: category })
+  }
+
   if (has('food')) {
-    const month = t.slice(0, 7)
     const foodBudget = s.budgets.find(b => b.category === 'Alimentação' && b.month === month)
-    // se preferência explícita existe, respeita (ex: 600 reais fixo)
     const prefFood = (s as any).paymentAllocationPreferences?.find((p:any)=> p.rule?.toLowerCase().includes('alimenta'))
-    let foodAmount = foodBudget ? foodBudget.limitCents : 60000
+    let foodAmount = foodBudget ? calculateBudgetUsage({ budget: foodBudget, transactions: s.transactions, recurringExpenses: s.recurringExpenses }).remainingCents : 60000
     if (prefFood) {
-      // tenta extrair valor da regra se houver — fallback mantém budget
       const m = prefFood.rule.match(/R\$\s*([\d\.,]+)/)
-      if (m) { const cents = Math.round(Number(m[1].replace(/\./g,'').replace(',','.'))*100); if (cents>0) foodAmount = cents }
+      if (m) { const cents = Math.round(Number(m[1].replace(/\./g,'').replace(',','.'))*100); if (cents>0) foodAmount = Math.min(foodAmount, cents) }
     }
     addItem('Alimentação', 'budget', foodAmount, { categoryId: 'Alimentação' })
   }
-  // 5. Transporte
-  if (has('transport')) {
-    const month = t.slice(0, 7)
-    const transpBudget = s.budgets.find(b => b.category === 'Transporte' && b.month === month)
-    const transpAmount = transpBudget ? transpBudget.limitCents : 30000
-    addItem('Transporte', 'budget', transpAmount, { categoryId: 'Transporte' })
-  }
-  // 6. Metas prioritárias + Reserva
+
+  if (has('transport')) addRemainingBudget('Transporte', 30000)
+
   if (has('goals') || has('reserve')) {
     const goals = (s.goals ?? []).slice(0, 2)
     if (goals.length && has('goals')) {
       for (const g of goals) {
         const need = Math.max(0, g.targetAmountInCents - g.currentAmountInCents)
-        // preferência "guarda 10%" já é padrão 11%; se houver regra de percent reserva, usa
         const prefReserve = (s as any).paymentAllocationPreferences?.find((p:any)=> p.rule?.toLowerCase().includes('guarda') || p.rule?.toLowerCase().includes('reserva'))
         let pct = 0.11
         if (prefReserve) {
@@ -743,27 +675,23 @@ export function preparePaymentAllocationPlan(
         if (m) pct = Number(m[1])/100
       }
       addItem('Reserva', 'reserve', Math.round(received * pct))
-    } else if (!goals.length && !has('reserve') && has('goals')) {
-      // fallback se reserve desabilitado mas sem metas
     }
   }
-  // 7. Margem de segurança (safety)
-  if (has('reserve') || has('free')) {
-    // margem sempre antes de livre, respeitando safetyMarginPercent
-    addItem('Margem de segurança', 'safety', safetyAmount)
-  }
-  // 8. Lazer (se houver orçamento e prioridade leisure habilitada)
+
+  if (has('reserve') || has('free')) addItem('Margem de segurança', 'safety', safetyAmount)
+
   if (has('leisure')) {
-    const month = t.slice(0, 7)
     const leisureBudget = s.budgets.find(b => b.category === 'Lazer' && b.month === month)
-    if (leisureBudget) addItem('Lazer', 'budget', leisureBudget.limitCents, { categoryId: 'Lazer' })
+    if (leisureBudget) {
+      const remainingLeisure = calculateBudgetUsage({ budget: leisureBudget, transactions: s.transactions, recurringExpenses: s.recurringExpenses }).remainingCents
+      addItem('Lazer', 'budget', remainingLeisure, { categoryId: 'Lazer' })
+    }
   }
-  // 9. Livre é o restante (pode ser negativo para indicar déficit)
+
   const totalAllocated = items.reduce((sum, it) => sum + it.amountInCents, 0)
   const freeAmount = received - totalAllocated
-  const freeItem = Math.max(0, freeAmount)
-  items.push({ id: uid(), label: 'Livre', type: 'free', amountInCents: freeItem })
-  const plan: PaymentAllocationPlan = {
+  items.push({ id: uid(), label: 'Livre', type: 'free', amountInCents: Math.max(0, freeAmount) })
+  return {
     id: uid(),
     sourceTransactionId: params.sourceTransactionId,
     receivedAmountInCents: received,
@@ -775,5 +703,4 @@ export function preparePaymentAllocationPlan(
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
-  return plan
 }
