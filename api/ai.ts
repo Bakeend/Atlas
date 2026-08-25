@@ -31,11 +31,16 @@ export default async function handler(req: any, res: any) {
     return res.status(503).json({ error: 'Assistente não configurado. Defina OPENROUTER_API_KEY no servidor.', code: 'NOT_CONFIGURED' })
   }
 
+  const model = json.model || process.env.OPENROUTER_MODEL
+  if (!model) {
+    return res.status(400).json({ error: 'Modelo não configurado. Defina OPENROUTER_MODEL no arquivo .env (ex: deepseek/deepseek-chat).', code: 'MODEL_NOT_CONFIGURED' })
+  }
+
   const siteUrl = process.env.OPENROUTER_SITE_URL || 'https://atlas-finance.app'
   const appName = process.env.OPENROUTER_APP_NAME || 'Atlas Finance'
 
   const openRouterBody = {
-    model: json.model || 'deepseek/deepseek-v4-flash-0731',
+    model,
     messages: json.messages,
     tools: json.tools,
     tool_choice: json.tool_choice ?? 'auto',

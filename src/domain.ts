@@ -1,6 +1,7 @@
 export type TransactionType = 'income' | 'expense' | 'transfer'
 export type AccountType = 'checking' | 'savings' | 'cash' | 'wallet' | 'investment'
 export type Theme = 'light' | 'dark' | 'system'
+export type HomeVisual = 'daily' | 'planning' | 'balanced' | 'custom' | 'adaptive'
 export type RecurrenceFrequency = 'weekly' | 'biweekly' | 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'yearly'
 
 export interface RecurringExpense {
@@ -210,6 +211,8 @@ export interface FinanceData {
   profileName?: string
   onboardingDone?: boolean
   theme?: Theme
+  homeVisual?: HomeVisual
+  homeCards?: string[]
 }
 
 export const categories = ['Alimentação', 'Moradia', 'Transporte', 'Saúde', 'Lazer', 'Educação', 'Assinaturas', 'Outros']
@@ -260,5 +263,7 @@ export function emptyData(): FinanceData {
     profileName: '',
     onboardingDone: false,
     theme: 'system',
+    homeVisual: 'adaptive',
+    homeCards: [],
   }
 }

@@ -1,10 +1,10 @@
 import {
-  ArrowLeft, ArrowUpDown, Check, ChevronRight, CreditCard, Landmark,
+  ArrowLeft, ArrowUpDown, CalendarClock, Check, ChevronRight, CreditCard, Landmark,
   PiggyBank, Receipt, ShieldCheck, Sparkles, Target, TrendingUp, UserRound, Wallet, ChartPie, type LucideIcon,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Card, Field, MoneyInput, SelectMenu } from './components'
-import { parseMoney, today, uid } from './domain'
+import { parseMoney, today, uid, type HomeVisual } from './domain'
 import { useFinanceStore } from './store'
 
 function nextIncomeDate(dueDay: number): string {
@@ -128,7 +128,42 @@ const NAV_OPTIONS: Array<{ key: NavPrefKey; title: string; subtitle: string; ico
   },
 ]
 
-const TOTAL_STEPS = 6
+const HOME_VISUAL_OPTIONS: Array<{ key: HomeVisual; title: string; subtitle: string; icon: LucideIcon; iconColor: string; iconBg: string }> = [
+  {
+    key: 'adaptive',
+    title: 'Adaptativa — nova',
+    subtitle: 'Muda sozinha: fim de mês apertado, início após pagamento e uso do dia.',
+    icon: Sparkles,
+    iconColor: '#F59E0B',
+    iconBg: '#FEF3C7',
+  },
+  {
+    key: 'daily',
+    title: 'Quero ver o que importa hoje',
+    subtitle: 'Sugestões do dia: gasto do dia, contas pendentes e dinheiro livre.',
+    icon: CalendarClock,
+    iconColor: '#2F80ED',
+    iconBg: '#E8F1FE',
+  },
+  {
+    key: 'planning',
+    title: 'Prefiro acompanhar planejamento e gráficos',
+    subtitle: 'Gráficos, orçamento e previsão de saldo em destaque.',
+    icon: ChartPie,
+    iconColor: '#16A36A',
+    iconBg: '#E5F8EF',
+  },
+  {
+    key: 'balanced',
+    title: 'Versão clássica',
+    subtitle: 'Saldo, resumo e sugestões como antes — sem mudar nada.',
+    icon: Wallet,
+    iconColor: '#9367E9',
+    iconBg: '#F3EDFD',
+  },
+]
+
+const TOTAL_STEPS = 7
 
 export function OnboardingPage() {
   const addAccount = useFinanceStore(state => state.addAccount)
@@ -139,6 +174,7 @@ export function OnboardingPage() {
   const setForecastRealistic = useFinanceStore(state => state.setForecastRealistic)
   const setPaymentAllocationPriority = useFinanceStore(state => state.setPaymentAllocationPriority)
   const setNavShortcuts = useFinanceStore(state => state.setNavShortcuts)
+  const setHomeVisual = useFinanceStore(state => state.setHomeVisual)
   const completeOnboarding = useFinanceStore(state => state.completeOnboarding)
 
   const [step, setStep] = useState(0)
@@ -164,6 +200,9 @@ export function OnboardingPage() {
   // Step 5: Navigation preference (começa sem seleção prévia)
   const [navPref, setNavPref] = useState<NavPrefKey | null>(null)
 
+  // Step 6: Home visual
+  const [homeVisual, setHomeVisualState] = useState<HomeVisual | null>(null)
+
   const [error, setError] = useState('')
 
   const handleNextFromStep0 = () => {
@@ -182,6 +221,7 @@ export function OnboardingPage() {
     if (step === 3) return bankId !== null && (bankId !== 'other' || Boolean(customBankName.trim()))
     if (step === 4) return parseMoney(salaryAmount) > 0
     if (step === 5) return navPref !== null
+    if (step === 6) return homeVisual !== null
     return true
   }
 
@@ -268,6 +308,9 @@ export function OnboardingPage() {
     } else {
       setNavShortcuts(['/assistant', '/transactions'])
     }
+
+    // 6. Visual da Home
+    if (homeVisual) setHomeVisual(homeVisual as HomeVisual)
 
     completeOnboarding()
   }
@@ -599,6 +642,64 @@ export function OnboardingPage() {
                             {opt.title}
                           </p>
                           <p className="mt-1 text-xs leading-relaxed text-muted">{opt.subtitle}</p>
+                        </div>
+                        <div className="shrink-0 pt-0.5">
+                          <span
+                            className={`grid h-6 w-6 place-items-center rounded-full border transition-all ${
+                              selected ? 'border-brand bg-brand text-white' : 'border-slate-300 bg-white'
+                            }`}
+                          >
+                            {selected && <Check size={14} strokeWidth={2.6} />}
+                          </span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            {/* ETAPA 7: VISUAL DA HOME */}
+            {step === 6 && (
+              <div className="space-y-3">
+                <div className="mb-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-brand">Tela inicial</p>
+                  <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">Como você quer ver sua tela inicial?</h1>
+                  <p className="mt-1 text-sm text-muted">Escolha o visual e veja a prévia dos cards de sugestões.</p>
+                </div>
+                <div className="space-y-2.5">
+                  {HOME_VISUAL_OPTIONS.map(opt => {
+                    const selected = homeVisual === opt.key
+                    const Icon = opt.icon
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => setHomeVisualState(opt.key)}
+                        className={`group relative flex w-full items-start gap-4 rounded-2xl border-2 p-4 text-left transition-all ${
+                          selected
+                            ? 'border-brand bg-blue-50/50 shadow-sm'
+                            : 'border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/60'
+                        }`}
+                      >
+                        <span
+                          className="grid h-11 w-11 shrink-0 place-items-center rounded-xl transition-transform group-active:scale-95"
+                          style={{ color: opt.iconColor, backgroundColor: opt.iconBg }}
+                        >
+                          <Icon size={22} strokeWidth={2} />
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-base font-semibold leading-snug ${selected ? 'text-brand' : 'text-ink'}`}>
+                            {opt.title}
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed text-muted">{opt.subtitle}</p>
+                          {selected && <div className="mt-3 rounded-xl border bg-white p-2 dark:bg-slate-800 dark:border-slate-700">
+                            <p className="text-[10px] font-semibold text-muted">Prévia</p>
+                            <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+                              {(opt.key === 'adaptive' ? ['Adaptativo','Ex: fim mês','Dinheiro livre'] : opt.key === 'daily' ? ['Gasto do dia','Recorrentes','Dinheiro livre'] : opt.key === 'planning' ? ['Gráfico','Orçamento','Previsão'] : ['Resumo','Sugestões','Recentes']).map(label => (
+                                <span key={label} className="rounded-lg border bg-slate-50 px-1.5 py-2 text-center text-[10px] font-medium dark:bg-slate-800 dark:border-slate-700">{label}</span>
+                              ))}
+                            </div>
+                          </div>}
                         </div>
                         <div className="shrink-0 pt-0.5">
                           <span

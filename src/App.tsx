@@ -1,6 +1,6 @@
 import {
   AlertTriangle, ArrowDownLeft, ArrowUpRight, Bell, BellRing, Car, ChartPie, CheckCheck, ChevronRight,
-  Eye, EyeOff, FileUp, Gamepad2, House, Package, Plus, Settings, Sparkles,
+  Eye, EyeOff, FileUp, Gamepad2, HelpCircle, House, Package, Plus, Settings, Sparkles,
   TrendingDown, TrendingUp, Utensils, Wallet, X, type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -18,10 +18,17 @@ import { getCategoryIcon } from './lib/categoryIcons'
 import { getFinanceNotifications, type FinanceNotification } from './notifications'
 import { OrganizePage } from './OrganizePage'
 import { ChartsPage } from './ChartsPage'
-import { SettingsMenu, NavigationSettings, FinanceSettings, PaymentSettings, PrivacySettings, AppearanceSettings } from './SettingsPages'
+import { SettingsMenu, NavigationSettings, FinanceSettings, PaymentSettings, PrivacySettings, AppearanceSettings, HomeSettings } from './SettingsPages'
 import { resolveShortcutItems, APP_PAGES } from './navigation'
 import { OnboardingPage } from './OnboardingPage'
 import { useResolvedTheme } from './lib/theme'
+import { HomeInput } from './components/HomeInput'
+import { DailySpendCard } from './DailySpend'
+import { FreeMoneyCard } from './FreeMoneyCard'
+import { PaymentOrganizerCard } from './PaymentAllocationCard'
+import { RecurringDashboardCard } from './RecurringExpenses'
+import { ForecastDashboardCard } from './ForecastPage'
+import { getAdaptiveSuggestionIds } from './lib/homeAdaptive'
 
 function Shell() {
   const [newTransaction, setNewTransaction] = useState(false)
@@ -37,7 +44,7 @@ function Shell() {
   if (!ready) return <div className="grid min-h-screen place-items-center"><div className="text-center"><div className="mx-auto h-11 w-11 animate-pulse rounded-full bg-brand"/><p className="mt-3 text-sm text-muted">Carregando suas finanças…</p></div></div>
   if (!onboardingDone && isEmpty) return <OnboardingPage/>
   return <div className="min-h-screen"><main className="app-content"><Routes>
-    <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/organizar" element={<OrganizePage/>}/><Route path="/charts" element={<ChartsPage/>}/><Route path="/import" element={<ImportPage/>}/><Route path="/forecast" element={<ForecastPage/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/recurring" element={<RecurringExpensesPage/>}/><Route path="/assistant" element={<AiAssistantPage/>}/><Route path="/profile" element={<Profile/>}/><Route path="/settings" element={<SettingsMenu/>}/><Route path="/settings/appearance" element={<AppearanceSettings/>}/><Route path="/settings/nav" element={<NavigationSettings/>}/><Route path="/settings/finance" element={<FinanceSettings/>}/><Route path="/settings/payment" element={<PaymentSettings/>}/><Route path="/settings/privacy" element={<PrivacySettings/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
+    <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/organizar" element={<OrganizePage/>}/><Route path="/charts" element={<ChartsPage/>}/><Route path="/import" element={<ImportPage/>}/><Route path="/forecast" element={<ForecastPage/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/recurring" element={<RecurringExpensesPage/>}/><Route path="/assistant" element={<AiAssistantPage/>}/><Route path="/profile" element={<Profile/>}/><Route path="/settings" element={<SettingsMenu/>}/><Route path="/settings/home" element={<HomeSettings/>}/><Route path="/settings/appearance" element={<AppearanceSettings/>}/><Route path="/settings/nav" element={<NavigationSettings/>}/><Route path="/settings/finance" element={<FinanceSettings/>}/><Route path="/settings/payment" element={<PaymentSettings/>}/><Route path="/settings/privacy" element={<PrivacySettings/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
   </Routes></main><BottomNavigation onNew={() => setNewTransaction(true)}/>{newTransaction && <TransactionModal close={() => setNewTransaction(false)}/>}</div>
 }
 
@@ -61,6 +68,8 @@ function AiFab() {
 
 function Dashboard() {
   const { accounts, transactions, budgets, recurringExpenses, readNotificationIds, markNotificationRead, markAllNotificationsRead, hideBalances, toggleBalances, profileName } = useFinanceStore()
+  const homeVisual = useFinanceStore(state => state.homeVisual) ?? 'balanced'
+  const homeCards = useFinanceStore(state => state.homeCards) ?? []
   const isDark = useResolvedTheme() === 'dark'
   const gridColor = isDark ? '#334155' : '#E9EDF3'
   const tickXColor = isDark ? '#94A3B8' : '#7A8392'
@@ -84,14 +93,42 @@ function Dashboard() {
   const notifications = useMemo(() => getFinanceNotifications({ recurringExpenses, transactions, budgets, referenceDate: today() }), [recurringExpenses, transactions, budgets])
   const unreadNotifications = notifications.filter(notification => !readNotificationIds.includes(notification.id))
 
+  const [helpOpen, setHelpOpen] = useState(false)
+  const greeting = profileName ? `Eae ${profileName}, qual boa de hoje?` : 'Eae, qual boa de hoje?'
+  const fullData = useFinanceStore(state => state as unknown as import('./domain').FinanceData)
+  const adaptiveIds = useMemo(() => getAdaptiveSuggestionIds(fullData), [fullData])
+  const renderSuggestionCard = (id: string) => {
+    switch (id) {
+      case 'dailySpend': return <DailySpendCard key={id} />
+      case 'freeMoney': return <FreeMoneyCard key={id} />
+      case 'payment': return <PaymentOrganizerCard key={id} />
+      case 'recurring': return <RecurringDashboardCard key={id} />
+      case 'forecast': return <ForecastDashboardCard key={id} />
+      case 'chart': return <Card key={id} className="dashboard-card chart-card"><div className="card-heading"><h2>Despesas nos últimos {chartPeriod} meses</h2><div className="min-w-[110px]"><SelectMenu ariaLabel="Período do gráfico" value={chartPeriod} onChange={v => setChartPeriod(v as '3'|'6'|'12')} options={[{ value: '3', label: '3 meses' }, { value: '6', label: '6 meses' }, { value: '12', label: '12 meses' }]} /></div></div><div className="expense-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}><defs><linearGradient id="expenseArea2" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2F80ED" stopOpacity={0.18}/><stop offset="95%" stopColor="#2F80ED" stopOpacity={0.01}/></linearGradient></defs><CartesianGrid stroke={gridColor} strokeDasharray="3 3" vertical={false}/><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: tickXColor, fontSize: 12 }} dy={9}/><YAxis axisLine={false} tickLine={false} tick={{ fill: tickYColor, fontSize: 11 }} tickFormatter={shortMoney}/><Tooltip content={<ChartTooltip hidden={hideBalances}/>}/><Area type="monotone" dataKey="value" stroke="#2F80ED" strokeWidth={3} fill="url(#expenseArea2)" activeDot={{ r: 5, fill: '#fff', stroke: '#2F80ED', strokeWidth: 3 }} dot={{ r: 4, fill: '#fff', stroke: '#2F80ED', strokeWidth: 2.5 }}/></AreaChart></ResponsiveContainer></div></Card>
+      case 'budget': return <Card key={id} className="dashboard-card budget-card"><div className="card-heading"><h2>Orçamento deste mês</h2><NavLink to="/planning">Ver tudo</NavLink></div><div className="budget-layout"><div className="donut-wrap"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={expenseTotal ? budgetData : [{ value: 1, color: '#E5E7EB' }]} dataKey="value" innerRadius="64%" outerRadius="91%" paddingAngle={expenseTotal ? 2 : 0} stroke="white" strokeWidth={2}>{(expenseTotal ? budgetData : [{ color: '#E5E7EB' }]).map((entry, index) => <Cell key={index} fill={entry.color}/>)}</Pie></PieChart></ResponsiveContainer><div className="donut-center"><strong>{money(expenseTotal, hideBalances)}</strong><span>Total</span></div></div><div className="budget-list">{budgetData.map(item => <BudgetRow key={item.name} item={item} total={expenseTotal} hidden={hideBalances}/>)}</div></div>{!hasBudget && <p className="budget-note">Defina limites por categoria em Orçamento.</p>}</Card>
+      case 'recent': return <Card key={id} className="dashboard-card recent-card"><div className="card-heading"><h2>Transações recentes</h2><NavLink to="/transactions">Ver todas</NavLink></div><div className="transaction-list">{recent.length ? recent.map(transaction => <TransactionRow item={transaction} key={transaction.id}/>) : <p className="empty-inline">Nenhuma movimentação ainda.</p>}</div></Card>
+      default: return null
+    }
+  }
+  const suggestionOrder: Record<string, string[]> = {
+    daily: ['dailySpend', 'recurring', 'freeMoney'],
+    planning: ['chart', 'budget', 'forecast'],
+    balanced: ['chart', 'budget', 'recent'],
+    custom: homeCards.length ? homeCards : ['dailySpend', 'freeMoney', 'chart'],
+    adaptive: adaptiveIds,
+  }
+  const suggestionIds = suggestionOrder[homeVisual] ?? suggestionOrder.adaptive
+
   return <>
-    <header className="dashboard-header"><div><h1>{profileName ? `Olá, ${profileName}` : 'Olá'} <span aria-hidden="true">👋</span></h1><p>{profileName ? 'Aqui está o resumo das suas finanças' : <span>Aqui está o resumo das suas finanças — <NavLink to="/profile" className="font-semibold text-brand hover:underline">personalizar nome</NavLink></span>}</p></div><div className="flex items-center gap-2"><NavLink to="/assistant" className="ai-header-fab"><Sparkles size={16}/> Assistente</NavLink><button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`Notificações${unreadNotifications.length ? `: ${unreadNotifications.length} não lidas` : ''}`} aria-haspopup="dialog" aria-expanded={notificationsOpen}><Bell size={23} strokeWidth={1.9}/>{unreadNotifications.length > 0 && <span className="notification-dot"/>}</button></div></header>
+    <header className="dashboard-header"><div className="flex-1"><h1 className="flex items-center gap-2">{greeting} <button onClick={() => setHelpOpen(v => !v)} aria-label="Ajuda" className="grid h-7 w-7 place-items-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400"><HelpCircle size={16}/></button></h1><p className="mt-1 text-sm text-muted">{profileName ? 'Aqui está o resumo das suas finanças' : <span>Aqui está o resumo — <NavLink to="/profile" className="font-semibold text-brand hover:underline">personalizar nome</NavLink> · <NavLink to="/settings/home" className="font-semibold text-brand hover:underline">escolher visual</NavLink></span>}</p>{helpOpen && <div className="mt-3 rounded-xl border bg-white p-3 text-xs leading-5 text-muted shadow-sm dark:bg-slate-800 dark:border-slate-700">Escolha seu visual em <NavLink to="/settings/home" className="font-semibold text-brand">Configurações → Tela inicial</NavLink>. Os cards abaixo são sugestões do dia.</div>}</div><div className="flex items-center gap-2"><NavLink to="/assistant" className="ai-header-fab"><Sparkles size={16}/> Assistente</NavLink><button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`Notificações${unreadNotifications.length ? `: ${unreadNotifications.length} não lidas` : ''}`} aria-haspopup="dialog" aria-expanded={notificationsOpen}><Bell size={23} strokeWidth={1.9}/>{unreadNotifications.length > 0 && <span className="notification-dot"/>}</button></div></header>
     {notificationsOpen && <NotificationCenter notifications={notifications} unreadIds={readNotificationIds} close={() => setNotificationsOpen(false)} markRead={markNotificationRead} markAllRead={markAllNotificationsRead}/>}
     <section className="balance-card"><Wallet className="balance-card-watermark" size={94} strokeWidth={1.8}/><div className="relative z-10 flex items-center gap-2"><span className="text-sm font-medium text-white/90">Saldo total</span><button className="balance-eye" onClick={toggleBalances} aria-label={hideBalances ? 'Mostrar valores' : 'Ocultar valores'}>{hideBalances ? <EyeOff size={19}/> : <Eye size={19}/>}</button></div><p className="balance-value">{money(total, hideBalances)}</p><div className="balance-trend">{balanceTrend >= 0 ? <TrendingUp size={16}/> : <TrendingDown size={16}/>}<span>{formatPercent(Math.abs(balanceTrend))} vs mês anterior</span></div></section>
     <section className="summary-grid"><SummaryCard title="Receitas" value={money(income, hideBalances)} trend={percentageChange(income, previousIncome)} icon={ArrowDownLeft} tone="income"/><SummaryCard title="Despesas" value={money(expense, hideBalances)} trend={percentageChange(expense, previousExpense)} icon={ArrowUpRight} tone="expense"/></section>
-    <Card className="dashboard-card chart-card"><div className="card-heading"><div><h2>Despesas nos últimos {chartPeriod} meses</h2><NavLink to="/charts" className="mt-0.5 block text-xs font-semibold text-brand hover:underline">Ver gráficos & projeções →</NavLink></div><div className="min-w-[110px]"><SelectMenu ariaLabel="Período do gráfico" value={chartPeriod} onChange={v => setChartPeriod(v as '3'|'6'|'12')} options={[{ value: '3', label: '3 meses' }, { value: '6', label: '6 meses' }, { value: '12', label: '12 meses' }]} /></div></div><div className="expense-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}><defs><linearGradient id="expenseArea" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2F80ED" stopOpacity={0.18}/><stop offset="95%" stopColor="#2F80ED" stopOpacity={0.01}/></linearGradient></defs><CartesianGrid stroke={gridColor} strokeDasharray="3 3" vertical={false}/><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: tickXColor, fontSize: 12 }} dy={9}/><YAxis axisLine={false} tickLine={false} tick={{ fill: tickYColor, fontSize: 11 }} tickFormatter={shortMoney}/><Tooltip content={<ChartTooltip hidden={hideBalances}/>}/><Area type="monotone" dataKey="value" stroke="#2F80ED" strokeWidth={3} fill="url(#expenseArea)" activeDot={{ r: 5, fill: '#fff', stroke: '#2F80ED', strokeWidth: 3 }} dot={{ r: 4, fill: '#fff', stroke: '#2F80ED', strokeWidth: 2.5 }}/></AreaChart></ResponsiveContainer></div></Card>
-    <Card className="dashboard-card budget-card"><div className="card-heading"><h2>Orçamento deste mês</h2><NavLink to="/planning">Ver tudo</NavLink></div><div className="budget-layout"><div className="donut-wrap"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={expenseTotal ? budgetData : [{ value: 1, color: '#E5E7EB' }]} dataKey="value" innerRadius="64%" outerRadius="91%" paddingAngle={expenseTotal ? 2 : 0} stroke="white" strokeWidth={2}>{(expenseTotal ? budgetData : [{ color: '#E5E7EB' }]).map((entry, index) => <Cell key={index} fill={entry.color}/>)}</Pie></PieChart></ResponsiveContainer><div className="donut-center"><strong>{money(expenseTotal, hideBalances)}</strong><span>Total</span></div></div><div className="budget-list">{budgetData.map(item => <BudgetRow key={item.name} item={item} total={expenseTotal} hidden={hideBalances}/>)}</div></div>{!hasBudget && <p className="budget-note">Defina limites por categoria em Orçamento.</p>}</Card>
-    <Card className="dashboard-card recent-card"><div className="card-heading"><h2>Transações recentes</h2><NavLink to="/transactions">Ver todas</NavLink></div><div className="transaction-list">{recent.length ? recent.map(transaction => <TransactionRow item={transaction} key={transaction.id}/>) : <p className="empty-inline">Nenhuma movimentação ainda.</p>}</div></Card>
+    <div className="mt-4 space-y-4">
+      <div className="flex items-center justify-between px-1"><h2 className="text-sm font-semibold text-ink">Sugestões do dia</h2><NavLink to="/settings/home" className="text-xs font-semibold text-brand">Personalizar</NavLink></div>
+      {suggestionIds.map(id => renderSuggestionCard(id))}
+    </div>
+    <HomeInput />
   </>
 }
 

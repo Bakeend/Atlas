@@ -23,17 +23,19 @@ export async function requestAI({ messages, model, signal, tools }: AiRequest): 
   const startedAt = Date.now()
 
   try {
+    const payload: Record<string, unknown> = {
+      messages,
+      tools,
+      tool_choice: 'auto',
+      temperature: 0.2,
+      max_tokens: MAX_TOKENS,
+    }
+    if (model) payload.model = model
+
     const r = await fetch('/api/ai', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: model ?? 'deepseek/deepseek-v4-flash-0731',
-        messages,
-        tools,
-        tool_choice: 'auto',
-        temperature: 0.2,
-        max_tokens: MAX_TOKENS,
-      }),
+      body: JSON.stringify(payload),
       signal: combinedSignal,
     })
     clearTimeout(timeout)

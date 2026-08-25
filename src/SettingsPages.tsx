@@ -1,14 +1,16 @@
-import { Check, ChevronRight, Download, Laptop, Moon, Sun, Trash2, Upload } from 'lucide-react'
+import { Check, ChevronRight, Download, Laptop, Moon, Sun, Trash2, Upload, Wallet, PiggyBank, ChartPie, CalendarClock, Sparkles, Zap, SlidersHorizontal } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { Card, CategoryIcon, Modal, PageTitle, SelectMenu } from './components'
 import { currentSnapshot, useFinanceStore } from './store'
 import { BackupFileSchema, summarizeBackup, type BackupSummary } from './data/backupSchema'
-import type { FinanceData, Theme } from './domain'
+import type { FinanceData, Theme, HomeVisual } from './domain'
 import { DEFAULT_SHORTCUTS, MAX_SHORTCUTS, NAV_DESTINATIONS } from './navigation'
+import { getAdaptiveSuggestionIds } from './lib/homeAdaptive'
 
 export function SettingsMenu() {
   const configLinks = [
+    { to: '/settings/home', label: 'Tela inicial', description: 'Escolha o visual e os cards de sugestões do dia.' },
     { to: '/settings/appearance', label: 'Aparência', description: 'Claro, escuro ou seguir o sistema.' },
     { to: '/settings/nav', label: 'Navegação', description: 'Escolha os atalhos da barra inferior.' },
     { to: '/settings/finance', label: 'Financeiro', description: 'Margem de segurança e previsão de saldo.' },
@@ -134,6 +136,104 @@ export function AppearanceSettings() {
           </div>
         </div>
       </Card>
+    </div>
+  </>
+}
+
+const homeVisualOptions: Array<{ value: HomeVisual; label: string; desc: string; icon: typeof Wallet }> = [
+  { value: 'adaptive', label: 'Adaptativa (nova)', desc: 'Muda sozinha: fim de mês, início após pagamento, uso do dia.', icon: Zap },
+  { value: 'daily', label: 'Dia a dia', desc: 'Foco no hoje: gasto do dia e próximos vencimentos.', icon: CalendarClock },
+  { value: 'planning', label: 'Planejamento', desc: 'Gráficos, orçamento e previsão.', icon: ChartPie },
+  { value: 'balanced', label: 'Clássica', desc: 'Versão clássica: saldo, resumo e sugestões como antes.', icon: Wallet },
+  { value: 'custom', label: 'Personalizado', desc: 'Escolha só os cards de sugestão que deseja ver.', icon: SlidersHorizontal },
+]
+
+const HOME_CARD_OPTIONS: Array<{ id: string; label: string; desc: string; icon: typeof Wallet }> = [
+  { id: 'dailySpend', label: 'Gasto do dia', desc: 'Limite diário e progresso', icon: CalendarClock },
+  { id: 'freeMoney', label: 'Dinheiro livre', desc: 'Quanto posso gastar', icon: PiggyBank },
+  { id: 'payment', label: 'Organizar pagamento', desc: 'Distribuição de recebimentos', icon: Wallet },
+  { id: 'recurring', label: 'Gastos recorrentes', desc: 'Próximos vencimentos', icon: CalendarClock },
+  { id: 'forecast', label: 'Previsão de saldo', desc: 'Simulação 30 dias', icon: ChartPie },
+  { id: 'chart', label: 'Gráfico despesas', desc: 'Últimos 6 meses', icon: ChartPie },
+  { id: 'budget', label: 'Orçamento', desc: 'Limites por categoria', icon: PiggyBank },
+  { id: 'recent', label: 'Transações recentes', desc: 'Últimas movimentações', icon: Wallet },
+]
+
+function HomePreview({ visual }: { visual: HomeVisual }) {
+  const data = useFinanceStore(state => state as unknown as import('./domain').FinanceData)
+  const adaptiveIds = visual === 'adaptive' ? getAdaptiveSuggestionIds(data) : null
+  const cardMap: Record<HomeVisual, string[]> = {
+    daily: ['dailySpend', 'recurring', 'freeMoney'],
+    planning: ['chart', 'budget', 'forecast'],
+    balanced: ['chart', 'budget', 'recent'],
+    custom: ['dailySpend', 'freeMoney', 'chart'],
+    adaptive: adaptiveIds ?? ['dailySpend', 'freeMoney', 'recurring'],
+  }
+  const ids = cardMap[visual] ?? cardMap.balanced
+  return <div className="grid grid-cols-3 gap-2">
+    {ids.map(id => {
+      const opt = HOME_CARD_OPTIONS.find(o => o.id === id)
+      const Icon = opt?.icon ?? Wallet
+      return <div key={id} className="rounded-xl border bg-white p-2 text-center dark:bg-slate-800 dark:border-slate-700">
+        <span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-blue-50 text-brand dark:bg-blue-950/30"><Icon size={14}/></span>
+        <p className="mt-1.5 text-[10px] font-semibold leading-3 text-ink line-clamp-2">{opt?.label ?? id}</p>
+      </div>
+    })}
+  </div>
+}
+
+export function HomeSettings() {
+  const { homeVisual, setHomeVisual, homeCards, setHomeCards } = useFinanceStore() as { homeVisual: HomeVisual; setHomeVisual: (v: HomeVisual) => void; homeCards: string[]; setHomeCards: (c: string[]) => void }
+  const current: HomeVisual = homeVisual ?? 'balanced'
+  const toggleCard = (id: string) => {
+    const has = (homeCards ?? []).includes(id)
+    const next = has ? (homeCards ?? []).filter(c => c !== id) : [...(homeCards ?? []), id]
+    setHomeCards(next)
+    if (current !== 'custom') setHomeVisual('custom')
+  }
+  return <>
+    <PageTitle eyebrow="Configurações" title="Tela inicial"/>
+    <div className="space-y-5">
+      <Card>
+        <h2 className="section-title">Estilo da tela inicial</h2>
+        <p className="mt-1 text-sm text-muted">Escolha como a sua tela de início deve parecer. Veja a prévia abaixo.</p>
+        <div className="mt-4">
+          <SelectMenu ariaLabel="Estilo da tela inicial" value={current} onChange={v => setHomeVisual(v as HomeVisual)} options={homeVisualOptions.map(o => ({ value: o.value, label: o.label }))} />
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {homeVisualOptions.map(opt => {
+            const Icon = opt.icon
+            const active = current === opt.value
+            return <button key={opt.value} type="button" onClick={() => setHomeVisual(opt.value)} aria-pressed={active} className={`flex gap-3 rounded-2xl border-2 p-4 text-left transition ${active ? 'border-brand bg-blue-50/60 dark:bg-blue-950/30' : 'border-slate-200 bg-white hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700'}`}>
+              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${active ? 'bg-brand text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}><Icon size={20}/></span>
+              <span className="min-w-0 flex-1"><span className={`block text-sm font-semibold ${active ? 'text-brand' : 'text-ink'}`}>{opt.label}</span><span className="mt-1 block text-xs leading-4 text-muted line-clamp-2">{opt.desc}</span></span>
+            </button>
+          })}
+        </div>
+        <div className="mt-5 rounded-xl border bg-slate-50 p-4 dark:bg-slate-800/50 dark:border-slate-700">
+          <p className="text-xs font-semibold text-muted">Prévia</p>
+          <p className="mt-1 text-xs text-muted">Como seus cards aparecerão na tela inicial.</p>
+          <div className="mt-3 rounded-xl border bg-canvas p-3 dark:border-slate-700">
+            <HomePreview visual={current} />
+          </div>
+        </div>
+      </Card>
+      {current === 'custom' && <Card>
+        <h2 className="section-title">Cards personalizados</h2>
+        <p className="mt-1 text-sm text-muted">Escolha os cards de sugestões do dia que você quer ver.</p>
+        <div className="mt-4 space-y-2">
+          {HOME_CARD_OPTIONS.map(opt => {
+            const selected = (homeCards ?? []).includes(opt.id)
+            const Icon = opt.icon
+            return <button key={opt.id} type="button" onClick={() => toggleCard(opt.id)} aria-pressed={selected} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${selected ? 'border-brand bg-blue-50/50 dark:bg-blue-950/30' : 'border-slate-200 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700'}`}>
+              <span className={`grid h-9 w-9 place-items-center rounded-xl ${selected ? 'bg-brand text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}><Icon size={18}/></span>
+              <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-ink">{opt.label}</span><span className="block text-xs text-muted">{opt.desc}</span></span>
+              <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 ${selected ? 'border-brand bg-brand text-white' : 'border-slate-300 text-transparent'}`}><Check size={14} strokeWidth={3}/></span>
+            </button>
+          })}
+        </div>
+        {(homeCards ?? []).length === 0 && <p className="mt-3 text-xs text-amber-600">Selecione ao menos um card, ou volte para um estilo predefinido.</p>}
+      </Card>}
     </div>
   </>
 }

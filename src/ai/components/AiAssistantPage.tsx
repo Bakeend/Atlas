@@ -1,6 +1,6 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, History, Loader2, Plus, Send, Sparkles, Trash2, Wallet, Target, ReceiptText, Repeat2, ChartPie, Volume2, VolumeX } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Card } from '../../components'
 import { uid } from '../../domain'
 import { useFinanceStore } from '../../store'
@@ -23,6 +23,7 @@ const suggestions = [
 
 export function AiAssistantPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { aiConversations, deleteAiConversation } = useFinanceStore() as any
   const [convId, setConvId] = useState<string | undefined>(undefined)
   const [input, setInput] = useState('')
@@ -39,6 +40,17 @@ export function AiAssistantPage() {
   const pendingConfirmation = messages.find(m => m.pendingAction?.status === 'pending')?.pendingAction
 
   useEffect(()=> { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' }) }, [messages, isStreaming, step])
+
+  // HomeInput → /assistant?q= : pré-preenche e envia
+  useEffect(() => {
+    const q = searchParams.get('q')
+    if (q && q.trim() && !isStreaming) {
+      setInput('')
+      void send(q.trim())
+      setSearchParams({}, { replace: true })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   // TTS: fala respostas curtas em paralelo à exibição
   useEffect(() => {

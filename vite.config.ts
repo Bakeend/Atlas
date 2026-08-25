@@ -54,7 +54,16 @@ function aiApiPlugin() {
               res.statusCode = 503
               res.setHeader('Content-Type', 'application/json')
               res.setHeader('Access-Control-Allow-Origin', '*')
-              res.end(JSON.stringify({ error: 'Assistente não configurado. Defina OPENROUTER_API_KEY no servidor.', code: 'NOT_CONFIGURED' }))
+              res.end(JSON.stringify({ error: 'Assistente não configurado. Defina OPENROUTER_API_KEY no arquivo .env.', code: 'NOT_CONFIGURED' }))
+              return
+            }
+
+            const model = json.model || process.env.OPENROUTER_MODEL
+            if (!model) {
+              res.statusCode = 400
+              res.setHeader('Content-Type', 'application/json')
+              res.setHeader('Access-Control-Allow-Origin', '*')
+              res.end(JSON.stringify({ error: 'Modelo não configurado. Defina OPENROUTER_MODEL no arquivo .env (ex: deepseek/deepseek-chat).', code: 'MODEL_NOT_CONFIGURED' }))
               return
             }
 
@@ -62,7 +71,7 @@ function aiApiPlugin() {
             const appName = process.env.OPENROUTER_APP_NAME || 'Atlas Finance'
 
             const openRouterBody = {
-              model: json.model || 'deepseek/deepseek-v4-flash-0731',
+              model,
               messages: json.messages,
               tools: json.tools,
               tool_choice: json.tool_choice ?? 'auto',

@@ -70,6 +70,10 @@ type State = FinanceData & {
   deleteAllData: () => void
   theme: import('./domain').Theme
   setTheme: (theme: import('./domain').Theme) => void
+  homeVisual: import('./domain').HomeVisual
+  setHomeVisual: (visual: import('./domain').HomeVisual) => void
+  homeCards: string[]
+  setHomeCards: (cards: string[]) => void
 }
 
 let lastPersist: Promise<void> = Promise.resolve()
@@ -91,6 +95,11 @@ function migrateLoaded(loaded: Partial<FinanceData>): FinanceData {
   const allowedThemes: import('./domain').Theme[] = ['light', 'dark', 'system']
   const rawTheme = (loaded as any).theme
   const nextTheme: import('./domain').Theme = allowedThemes.includes(rawTheme) ? rawTheme : 'system'
+  const allowedVisuals: import('./domain').HomeVisual[] = ['daily', 'planning', 'balanced', 'custom', 'adaptive']
+  const rawVisual = (loaded as any).homeVisual
+  const nextVisual: import('./domain').HomeVisual = allowedVisuals.includes(rawVisual) ? rawVisual : 'balanced'
+  const rawCards = (loaded as any).homeCards
+  const nextCards: string[] = Array.isArray(rawCards) ? rawCards.filter((c: unknown) => typeof c === 'string') : []
   return {
     ...emptyData(),
     ...(loaded as FinanceData),
@@ -117,6 +126,8 @@ function migrateLoaded(loaded: Partial<FinanceData>): FinanceData {
     profileName: typeof (loaded as any).profileName === 'string' ? (loaded as any).profileName : '',
     onboardingDone: Boolean((loaded as any).onboardingDone),
     theme: nextTheme,
+    homeVisual: nextVisual,
+    homeCards: nextCards,
   }
 }
 const data = (s: State): FinanceData => ({
@@ -144,6 +155,8 @@ const data = (s: State): FinanceData => ({
   profileName: s.profileName ?? '',
   onboardingDone: (s as any).onboardingDone ?? false,
   theme: (s as any).theme ?? 'system',
+  homeVisual: (s as any).homeVisual ?? 'balanced',
+  homeCards: (s as any).homeCards ?? [],
 })
 
 export const useFinanceStore = create<State>((set, get) => ({
@@ -167,6 +180,7 @@ export const useFinanceStore = create<State>((set, get) => ({
       (loaded as any).paymentAllocationPreferences === undefined ||
       (loaded as any).navShortcuts === undefined ||
       (loaded as any).theme === undefined ||
+      (loaded as any).homeVisual === undefined ||
       migrated.accounts.some((account, index) => account.color !== (loaded.accounts ?? [])[index]?.color)
     if (needsPersist) persist(migrated)
     set({ ...migrated, ready: true })
@@ -474,6 +488,19 @@ export const useFinanceStore = create<State>((set, get) => ({
     const next = { ...s, theme } as State
     persist(data(next as any))
     void import('./lib/theme').then(m => m.syncTheme(theme))
+    return next
+  }),
+  setHomeVisual: visual => set(s => {
+    if ((s as any).homeVisual === visual) return s as State
+    const next = { ...s, homeVisual: visual } as State
+    persist(data(next as any))
+    return next
+  }),
+  setHomeCards: cards => set(s => {
+    const clean = cards.filter(c => typeof c === 'string').slice(0, 8)
+    if (JSON.stringify(clean) === JSON.stringify((s as any).homeCards ?? [])) return s as State
+    const next = { ...s, homeCards: clean } as State
+    persist(data(next as any))
     return next
   }),
 }))
