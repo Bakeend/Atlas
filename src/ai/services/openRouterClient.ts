@@ -1,14 +1,20 @@
+export type AiProvider = 'openrouter' | 'opencode'
+
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
   tool_calls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }>
   tool_call_id?: string
   name?: string
+  // Alguns modelos reasoning (ex.: DeepSeek via OpenCode) exigem que este campo
+  // seja reenviado nas próximas etapas após tool calls.
+  reasoning_content?: string
 }
 
 export interface AiRequest {
   messages: ChatMessage[]
   model?: string
+  provider?: AiProvider
   signal?: AbortSignal
   tools?: unknown[]
 }
@@ -16,7 +22,7 @@ export interface AiRequest {
 // Teto de resposta — respostas do assistente são curtas e estruturadas
 const MAX_TOKENS = 700
 
-export async function requestAI({ messages, model, signal, tools }: AiRequest): Promise<any> {
+export async function requestAI({ messages, model, provider, signal, tools }: AiRequest): Promise<any> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 40000)
   const combinedSignal = signal ? anySignal([signal, controller.signal]) : controller.signal
@@ -31,6 +37,7 @@ export async function requestAI({ messages, model, signal, tools }: AiRequest): 
       max_tokens: MAX_TOKENS,
     }
     if (model) payload.model = model
+    if (provider) payload.provider = provider
 
     const r = await fetch('/api/ai', {
       method: 'POST',
@@ -58,10 +65,11 @@ export async function requestAI({ messages, model, signal, tools }: AiRequest): 
     // metrics logging (no sensitive data)
     try {
       const latencyMs = Date.now() - startedAt
-      console.debug('[AI] usage', json.usage, 'model', json.model, `latency ${latencyMs}ms`)
+      const activeProvider = r.headers.get('x-ai-provider') || json.provider || provider || 'server-default'
+      console.debug('[AI] usage', json.usage, 'provider', activeProvider, 'model', json.model, `latency ${latencyMs}ms`)
       const key = 'ai-metrics'
       const prev = JSON.parse(localStorage.getItem(key) ?? '[]')
-      prev.push({ ts: new Date().toISOString(), model: json.model, usage: json.usage, latency: latencyMs })
+      prev.push({ ts: new Date().toISOString(), provider: activeProvider, model: json.model, usage: json.usage, latency: latencyMs })
       if (prev.length>100) prev.splice(0, prev.length-100)
       localStorage.setItem(key, JSON.stringify(prev))
     } catch { /* métrica local é best-effort; nunca afeta a resposta */ }
