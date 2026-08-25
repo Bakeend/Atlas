@@ -2,6 +2,7 @@ import { ArrowUpRight, ArrowDownLeft, Check, X, AlertTriangle, PiggyBank, Receip
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts'
 import { money } from '../../domain'
 import type { AiVisualBlock, AiAction } from './types'
+import { useResolvedTheme } from '../../lib/theme'
 
 // Props do renderer central (01:57)
 export function AiVisualRenderer({
@@ -59,6 +60,10 @@ function BlockRenderer({ block, onAction }: { block: AiVisualBlock; onAction?: (
 
 function MetricBlock({ block, onAction }: { block: Extract<AiVisualBlock, { type: 'metric' }>; onAction?: (a: AiAction) => void }) {
   const deltaUp = block.delta && block.delta.value >= 0
+  const isDark = useResolvedTheme() === 'dark'
+  const gridColor = isDark ? '#334155' : '#E9EDF3'
+  const tickColor = isDark ? '#94A3B8' : '#7A8392'
+  const tickColorY = isDark ? '#94A3B8' : '#8A93A1'
   return (
     <div className="ai-card ai-metric">
       <div className="ai-card-header">
@@ -78,9 +83,9 @@ function MetricBlock({ block, onAction }: { block: Extract<AiVisualBlock, { type
           <div className="h-[86px] w-full mt-2">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={block.chart} margin={{ top: 6, right: 0, left: -20, bottom: 0 }}>
-                <CartesianGrid stroke="#E9EDF3" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#7A8392' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#8A93A1' }} />
+                <CartesianGrid stroke={gridColor} strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: tickColor }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: tickColorY }} />
                 <Tooltip />
                 <Area type="monotone" dataKey="value" stroke="#2F80ED" strokeWidth={2.5} fill="rgba(47,128,237,0.12)" />
               </AreaChart>
@@ -113,15 +118,19 @@ function CategoryBlock({ block }: { block: Extract<AiVisualBlock, { type: 'categ
 }
 
 function ChartBlock({ block }: { block: Extract<AiVisualBlock, { type: 'chart' }> }) {
+  const isDark = useResolvedTheme() === 'dark'
+  const gridColor = isDark ? '#334155' : '#E9EDF3'
+  const tickColor = isDark ? '#94A3B8' : '#7A8392'
+  const tickColorY = isDark ? '#94A3B8' : '#8A93A1'
   return (
     <div className="ai-card">
       <div className="ai-card-header"><ChartPie size={16} className="text-brand" /> <strong>{block.title}</strong></div>
       <div className="h-[180px] w-full mt-2">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={block.data} margin={{ top: 10, right: 8, left: -14, bottom: 0 }}>
-            <CartesianGrid stroke="#E9EDF3" strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#7A8392' }} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#8A93A1' }} />
+            <CartesianGrid stroke={gridColor} strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: tickColor }} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: tickColorY }} />
             <Tooltip />
             <Area type="monotone" dataKey="value" stroke="#2F80ED" strokeWidth={3} fill="rgba(47,128,237,0.15)" />
           </AreaChart>

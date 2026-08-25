@@ -2,9 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --canvas: #F7F8FA;
+  --surface: #FFFFFF;
+  --surface-2: #F8FAFC;
+  --ink: #111827;
+  --muted: #6B7280;
+  --border: #E2E8F0;
+}
+html.dark {
+  --canvas: #0F172A;
+  --surface: #1E293B;
+  --surface-2: #1E293B;
+  --ink: #F1F5F9;
+  --muted: #94A3B8;
+  --border: #334155;
+}
 @layer base {
   * { @apply border-slate-200; }
-  html { background: #f7f8fa; }
+  html { background: var(--canvas); color-scheme: light; }
+  html.dark { color-scheme: dark; background: var(--canvas); }
   body { @apply min-h-screen bg-canvas font-sans text-ink antialiased; }
   button, input, select, textarea { font: inherit; }
   button { @apply disabled:cursor-not-allowed disabled:opacity-50; }
@@ -508,3 +525,148 @@
 @media (min-width: 640px) {
   .chart-card .card-heading h2 { font-size: 16px; }
 }
+
+/* ===== DARK MODE — overrides centralizados ===== */
+@layer components {
+  html.dark body { background-image: none; }
+  html.dark .card { @apply bg-slate-800 border-slate-700/60; box-shadow: 0 6px 22px rgba(0,0,0,0.35); }
+  html.dark .dashboard-card:hover { box-shadow: 0 8px 26px rgba(0,0,0,0.45); }
+  html.dark .label { @apply text-slate-300; }
+  html.dark .field { @apply bg-slate-800 border-slate-700 text-slate-100; }
+  html.dark .field::placeholder { color: rgb(148 163 184); }
+  html.dark .field:focus { @apply border-brand ring-brand/20; }
+  html.dark .money-trigger { @apply bg-slate-800 border-slate-700 text-slate-100; }
+  html.dark .money-trigger.placeholder .money-display { color: rgb(148 163 184); }
+  html.dark .money-overlay-panel { @apply bg-slate-800 border-slate-700; }
+  html.dark .money-overlay-header span { @apply text-slate-100; }
+  html.dark .money-overlay-header button { @apply bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-blue-400; }
+  html.dark .money-overlay-value { @apply bg-blue-950/40 text-slate-100 border-blue-800/50; box-shadow: 0 0 0 4px rgba(47,128,237,0.18); }
+  html.dark .money-overlay-value.placeholder { color: rgb(148 163 184); }
+  html.dark .money-keypad { @apply bg-slate-800 border-slate-700; }
+  html.dark .money-key { @apply bg-slate-700 text-slate-100 hover:bg-slate-600 hover:text-blue-400 active:bg-slate-600; }
+  html.dark .money-delete { @apply text-slate-400; }
+  html.dark .select-trigger { @apply bg-slate-800 border-slate-700 text-slate-200; }
+  html.dark .select-trigger .placeholder { color: rgb(148 163 184); }
+  html.dark .select-menu.open .select-trigger { @apply bg-slate-800 border-blue-500; }
+  html.dark .select-option { @apply text-slate-300; }
+  html.dark .select-option.highlighted { @apply bg-slate-700 text-blue-400; }
+  html.dark .select-option.selected { @apply bg-blue-900/40 text-blue-400; }
+  html.dark .date-trigger { @apply bg-slate-800 border-slate-700 text-slate-200; }
+  html.dark .date-picker.open .date-trigger { @apply border-blue-500; }
+  html.dark .control-overlay-panel { @apply bg-slate-800 border-slate-700; }
+  html.dark .control-overlay-header span { @apply text-slate-100; }
+  html.dark .control-overlay-header button { @apply bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-blue-400; }
+  html.dark .select-overlay-list { @apply bg-slate-900/50 border-slate-700; }
+  html.dark .select-overlay-list .select-option { @apply bg-slate-800 text-slate-200 shadow-none border border-slate-700/50; }
+  html.dark .select-overlay-list .select-option.highlighted { @apply bg-slate-700; }
+  html.dark .select-overlay-list .select-option.selected { @apply bg-blue-900/40 text-blue-400 ring-blue-800; }
+  html.dark .calendar-header { @apply bg-slate-900/60; }
+  html.dark .calendar-header strong { @apply text-slate-100; }
+  html.dark .calendar-header button { @apply text-slate-400 hover:bg-slate-700 hover:text-blue-400; }
+  html.dark .calendar-weekdays span { color: rgb(148 163 184); }
+  html.dark .calendar-grid button { @apply text-slate-300 hover:bg-slate-700 hover:text-blue-400; }
+  html.dark .calendar-grid button.outside { color: rgb(71 85 105); }
+  html.dark .calendar-today { @apply bg-slate-700 text-blue-400 hover:bg-slate-600; }
+  html.dark .color-trigger { @apply bg-slate-800 border-slate-700; }
+  html.dark .color-popover { @apply bg-slate-800 border-slate-700; }
+  html.dark .color-popover p { @apply text-slate-400; }
+  html.dark .btn-secondary { @apply bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700; }
+  html.dark .icon-button { @apply text-slate-400 hover:bg-slate-700 hover:text-slate-200; }
+  html.dark .notification-button { @apply text-slate-300 hover:bg-slate-800; }
+  html.dark .notification-panel { @apply bg-slate-800 border-slate-700; }
+  html.dark .notification-item { @apply bg-slate-800 border-slate-700 hover:border-slate-600 hover:bg-slate-700/50; }
+  html.dark .notification-item.unread { @apply border-blue-900/50 bg-blue-950/30; }
+  html.dark .chart-tooltip { @apply bg-slate-800 border-slate-700; }
+  html.dark .chart-tooltip strong { @apply text-slate-100; }
+  html.dark .bottom-nav-shell { @apply bg-slate-900/95 border-slate-800; box-shadow: 0 -8px 28px rgba(0,0,0,0.35); }
+  html.dark .bottom-nav-item { color: rgb(100 116 139); }
+  html.dark .bottom-nav-item:hover { color: rgb(203 213 225); }
+  html.dark .bottom-nav-item.active { @apply text-blue-400; }
+  html.dark .transaction-list { @apply divide-slate-700; }
+  html.dark .budget-note { @apply bg-slate-700/50 text-slate-300; }
+  html.dark .period-button { @apply bg-slate-700 text-slate-300 hover:bg-slate-600; }
+  html.dark .recurring-search { @apply bg-slate-800 border-slate-700 text-slate-400; }
+  html.dark .recurring-search input { @apply text-slate-100; }
+  html.dark .recurring-search input::placeholder { color: rgb(148 163 184); }
+  html.dark .recurring-month-title { @apply text-slate-400; }
+  html.dark .recurring-row { @apply hover:bg-slate-700/40; }
+  html.dark .recurring-row strong { @apply text-slate-100; }
+  html.dark .recurring-detail-hero { @apply bg-slate-800; }
+  html.dark .recurring-detail-grid > div { @apply bg-slate-800 border-slate-700; }
+  html.dark .settings-row { @apply border-slate-700 hover:bg-slate-700/50; }
+  html.dark .toggle { @apply bg-slate-700; }
+  html.dark .toggle > span { background-color: #fff; }
+  html.dark .import-dropzone { @apply bg-slate-800 border-slate-700; }
+  html.dark .import-dropzone-icon { @apply bg-slate-700 text-blue-400; }
+  html.dark .import-search { @apply bg-slate-800 border-slate-700 text-slate-400; }
+  html.dark .import-search input { @apply text-slate-100; }
+  html.dark .import-search input::placeholder { color: rgb(148 163 184); }
+  html.dark .import-row.dup { @apply bg-amber-950/30; }
+  html.dark .import-row.invalid { @apply bg-red-950/30; }
+  html.dark .ai-back { @apply bg-slate-800 text-slate-300; }
+  html.dark .ai-history-item { @apply bg-slate-800 border-slate-700; }
+  html.dark .ai-history-item.active { @apply border-blue-800 bg-blue-950/40; }
+  html.dark .ai-suggestion { @apply bg-slate-800 border-slate-700 hover:border-slate-600 hover:bg-slate-700; }
+  html.dark .ai-bubble.assistant { @apply bg-slate-800 border-slate-700 text-slate-100; }
+  html.dark .ai-bubble.streaming { @apply bg-blue-950/40 border-blue-800 text-blue-300; }
+  html.dark .ai-card { @apply bg-slate-800 border-slate-700; }
+  html.dark .ai-card-header { @apply text-slate-200; }
+  html.dark .ai-plan { @apply bg-slate-800 border-slate-700; }
+  html.dark .ai-plan-item { @apply bg-slate-700; }
+  html.dark .ai-generic { @apply bg-slate-800; }
+  html.dark .ai-confirm-card { @apply bg-slate-800 border-slate-700; }
+  html.dark .ai-input-wrap { @apply bg-slate-800 border-slate-700; }
+  html.dark .ai-input-wrap input { @apply text-slate-100; }
+  html.dark .ai-input-wrap input::placeholder { color: rgb(148 163 184); }
+  html.dark .ai-voice-btn { @apply bg-slate-800 border-slate-700 text-blue-400 hover:bg-slate-700; }
+  html.dark .ai-voice-cancel { @apply bg-slate-700 text-slate-400 hover:bg-slate-600; }
+  html.dark .ai-metric { @apply bg-slate-800 border-slate-700; }
+  html.dark .empty-inline { @apply text-slate-400; }
+  html.dark .transaction-row > .relative > [role='menu'] { @apply bg-slate-800 border-slate-700 shadow-2xl; }
+}
+
+/* Utilitários globais — mapeia bg-white/bg-slate-50 etc no dark */
+html.dark .bg-white { background-color: rgb(30 41 59) !important; }
+html.dark .bg-white\/95 { background-color: rgb(15 23 42 / 0.92) !important; }
+html.dark .bg-white\/70 { background-color: rgb(30 41 59 / 0.85) !important; }
+html.dark .bg-white\/15 { background-color: rgb(255 255 255 / 0.10) !important; }
+html.dark .border-white\/70 { border-color: rgb(51 65 85 / 0.7) !important; }
+html.dark .border-white\/15 { border-color: rgb(255 255 255 / 0.10) !important; }
+html.dark .bg-slate-50 { background-color: rgb(30 41 59 / 0.85) !important; }
+html.dark .bg-slate-50\/50 { background-color: rgb(30 41 59 / 0.5) !important; }
+html.dark .bg-slate-50\/40 { background-color: rgb(30 41 59 / 0.45) !important; }
+html.dark .bg-slate-100 { background-color: rgb(51 65 85) !important; }
+html.dark .bg-slate-200 { background-color: rgb(51 65 85) !important; }
+html.dark .bg-slate-200\/80 { background-color: rgb(51 65 85 / 0.8) !important; }
+html.dark .bg-blue-50 { background-color: rgb(30 58 138 / 0.18) !important; }
+html.dark .bg-blue-50\/20 { background-color: rgb(30 58 138 / 0.12) !important; }
+html.dark .bg-blue-50\/30 { background-color: rgb(30 58 138 / 0.16) !important; }
+html.dark .bg-blue-50\/40 { background-color: rgb(30 58 138 / 0.18) !important; }
+html.dark .bg-blue-50\/50 { background-color: rgb(30 58 138 / 0.20) !important; }
+html.dark .bg-blue-50\/60 { background-color: rgb(30 58 138 / 0.20) !important; }
+html.dark .bg-blue-50\/70 { background-color: rgb(30 58 138 / 0.22) !important; }
+html.dark .bg-blue-100 { background-color: rgb(30 58 138 / 0.30) !important; }
+html.dark .bg-emerald-50 { background-color: rgb(6 78 59 / 0.22) !important; }
+html.dark .bg-emerald-100 { background-color: rgb(6 78 59 / 0.30) !important; }
+html.dark .bg-red-50 { background-color: rgb(127 29 29 / 0.22) !important; }
+html.dark .bg-red-100 { background-color: rgb(127 29 29 / 0.30) !important; }
+html.dark .bg-amber-50 { background-color: rgb(120 53 15 / 0.22) !important; }
+html.dark .bg-amber-50\/40 { background-color: rgb(120 53 15 / 0.18) !important; }
+html.dark .bg-amber-100 { background-color: rgb(120 53 15 / 0.30) !important; }
+html.dark .border-slate-100 { border-color: rgb(51 65 85) !important; }
+html.dark .border-slate-200 { border-color: rgb(51 65 85) !important; }
+html.dark .border-slate-300 { border-color: rgb(71 85 105) !important; }
+html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(51 65 85) !important; }
+html.dark .text-slate-500 { color: rgb(148 163 184) !important; }
+html.dark .text-slate-600 { color: rgb(148 163 184) !important; }
+html.dark .text-slate-700 { color: rgb(203 213 225) !important; }
+html.dark .hover\:bg-slate-50:hover { background-color: rgb(51 65 85) !important; }
+html.dark .hover\:bg-slate-100:hover { background-color: rgb(71 85 105) !important; }
+html.dark .hover\:bg-slate-200:hover { background-color: rgb(71 85 105) !important; }
+html.dark .hover\:border-slate-300:hover { border-color: rgb(71 85 105) !important; }
+
+/* gradientes claros → escuros */
+html.dark .ai-hero-card { background: linear-gradient(to bottom right, rgb(30 58 138 / 0.20), rgb(30 41 59)) !important; }
+html.dark .import-dropzone { background-color: rgb(30 58 138 / 0.12) !important; }
+html.dark .import-dropzone.drag-over { background-color: rgb(30 58 138 / 0.20) !important; }
+html.dark .hover\:bg-slate-50\/60:hover { background-color: rgb(51 65 85 / 0.6) !important; }

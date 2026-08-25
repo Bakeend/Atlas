@@ -68,6 +68,8 @@ type State = FinanceData & {
   completeOnboarding: () => void
   restoreBackup: (backup: import('./domain').FinanceData) => void
   deleteAllData: () => void
+  theme: import('./domain').Theme
+  setTheme: (theme: import('./domain').Theme) => void
 }
 
 let lastPersist: Promise<void> = Promise.resolve()
@@ -86,6 +88,9 @@ export function currentSnapshot(): FinanceData {
 
 // Migração única de dados carregados (IndexedDB ou backup importado) — nunca confiar em JSON externo
 function migrateLoaded(loaded: Partial<FinanceData>): FinanceData {
+  const allowedThemes: import('./domain').Theme[] = ['light', 'dark', 'system']
+  const rawTheme = (loaded as any).theme
+  const nextTheme: import('./domain').Theme = allowedThemes.includes(rawTheme) ? rawTheme : 'system'
   return {
     ...emptyData(),
     ...(loaded as FinanceData),
@@ -111,6 +116,7 @@ function migrateLoaded(loaded: Partial<FinanceData>): FinanceData {
     navShortcuts: sanitizeShortcuts((loaded as any).navShortcuts),
     profileName: typeof (loaded as any).profileName === 'string' ? (loaded as any).profileName : '',
     onboardingDone: Boolean((loaded as any).onboardingDone),
+    theme: nextTheme,
   }
 }
 const data = (s: State): FinanceData => ({
@@ -137,10 +143,11 @@ const data = (s: State): FinanceData => ({
   navShortcuts: s.navShortcuts ?? [],
   profileName: s.profileName ?? '',
   onboardingDone: (s as any).onboardingDone ?? false,
+  theme: (s as any).theme ?? 'system',
 })
 
 export const useFinanceStore = create<State>((set, get) => ({
-  ...emptyData(), ready: false,
+  ...(emptyData() as unknown as State), ready: false,
   hydrate: async () => {
     const loaded = await indexedDbRepository.load() as Partial<FinanceData>
     const migrated = migrateLoaded(loaded)
@@ -159,9 +166,12 @@ export const useFinanceStore = create<State>((set, get) => ({
       (loaded as any).paymentAllocationPriority === undefined ||
       (loaded as any).paymentAllocationPreferences === undefined ||
       (loaded as any).navShortcuts === undefined ||
+      (loaded as any).theme === undefined ||
       migrated.accounts.some((account, index) => account.color !== (loaded.accounts ?? [])[index]?.color)
     if (needsPersist) persist(migrated)
     set({ ...migrated, ready: true })
+    // Import dinâmico para evitar ciclo: aplica tema após hydrate
+    void import('./lib/theme').then(m => m.syncTheme(migrated.theme ?? 'system'))
   },
   addAccount: account => set(s => { const next = { ...s, accounts: [...s.accounts, account] }; persist(data(next)); return next }),
   updateAccount: account => set(s => { const next = { ...s, accounts: s.accounts.map(a => a.id === account.id ? account : a) }; persist(data(next)); return next }),
@@ -451,10 +461,19 @@ export const useFinanceStore = create<State>((set, get) => ({
     const migrated = migrateLoaded(backup)
     persist(migrated)
     set({ ...migrated, ready: true })
+    void import('./lib/theme').then(m => m.syncTheme(migrated.theme ?? 'system'))
   },
   deleteAllData: () => {
     const fresh = emptyData()
     persist(fresh)
     set({ ...fresh, ready: true })
+    void import('./lib/theme').then(m => m.syncTheme('system'))
   },
+  setTheme: theme => set(s => {
+    if ((s as any).theme === theme) return s as State
+    const next = { ...s, theme } as State
+    persist(data(next as any))
+    void import('./lib/theme').then(m => m.syncTheme(theme))
+    return next
+  }),
 }))

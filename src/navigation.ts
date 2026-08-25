@@ -1,4 +1,4 @@
-import { ChartPie, House, ListChecks, ReceiptText, Repeat2, Sparkles, TrendingUp, UserRound, Wallet, type LucideIcon } from 'lucide-react'
+import { BarChart3, ChartPie, House, ListChecks, ReceiptText, Repeat2, Sparkles, TrendingUp, UserRound, Wallet, type LucideIcon } from 'lucide-react'
 
 export interface NavDestination { to: string; label: string; icon: LucideIcon }
 
@@ -6,6 +6,7 @@ export const NAV_DESTINATIONS: NavDestination[] = [
   { to: '/transactions', label: 'Transações', icon: ReceiptText },
   { to: '/organizar', label: 'Organizar', icon: ListChecks },
   { to: '/planning', label: 'Orçamento', icon: ChartPie },
+  { to: '/charts', label: 'Gráficos', icon: BarChart3 },
   { to: '/recurring', label: 'Recorrentes', icon: Repeat2 },
   { to: '/forecast', label: 'Previsão', icon: TrendingUp },
   { to: '/accounts', label: 'Contas', icon: Wallet },

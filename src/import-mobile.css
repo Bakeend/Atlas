@@ -172,3 +172,14 @@
     line-height: 1.35;
   }
 }
+
+/* — DARK: import-mobile overrides — */
+html.dark .recurring-dashboard-card .card-heading h2::after { color: #F1F5F9; }
+html.dark .import-row-actions > div > div::before { color: #64748B; }
+html.dark .transaction-row > .relative > [role='menu'] {
+  border-color: rgba(51, 65, 85, 0.95) !important;
+  background: rgba(30, 41, 59, 0.98) !important;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.45) !important;
+}
+html.dark .transaction-row > .relative > [role='menu'] > button { background: #334155; color: #E2E8F0; }
+html.dark .transaction-row > .relative > [role='menu'] > button:last-child { background: #4C0519; color: #FECDD3; }

@@ -1,14 +1,15 @@
-import { Check, ChevronRight, Download, Trash2, Upload } from 'lucide-react'
+import { Check, ChevronRight, Download, Laptop, Moon, Sun, Trash2, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { Card, CategoryIcon, Modal, PageTitle, SelectMenu } from './components'
 import { currentSnapshot, useFinanceStore } from './store'
 import { BackupFileSchema, summarizeBackup, type BackupSummary } from './data/backupSchema'
-import type { FinanceData } from './domain'
+import type { FinanceData, Theme } from './domain'
 import { DEFAULT_SHORTCUTS, MAX_SHORTCUTS, NAV_DESTINATIONS } from './navigation'
 
 export function SettingsMenu() {
   const configLinks = [
+    { to: '/settings/appearance', label: 'Aparência', description: 'Claro, escuro ou seguir o sistema.' },
     { to: '/settings/nav', label: 'Navegação', description: 'Escolha os atalhos da barra inferior.' },
     { to: '/settings/finance', label: 'Financeiro', description: 'Margem de segurança e previsão de saldo.' },
     { to: '/settings/payment', label: 'Pagamento', description: 'Prioridades e preferências do organizador.' },
@@ -92,6 +93,46 @@ export function PaymentSettings() {
         <p className="mt-1 text-sm text-muted">Registre regras explícitas como "Todo salário guarda 10%" ou "Sempre separa R$ 600 para alimentação". Nunca inferimos regra sem autorização.</p>
         <div className="mt-3 flex gap-2"><input className="field flex-1" placeholder="Ex: Todo salário guarda 10%" value={newPref} onChange={event => setNewPref(event.target.value)}/><button className="btn-primary !px-3" onClick={() => { if (newPref.trim()) { addPaymentAllocationPreference(newPref.trim()); setNewPref('') } }}>Salvar</button></div>
         {(paymentAllocationPreferences ?? []).length > 0 ? <div className="mt-3 space-y-2">{(paymentAllocationPreferences as any[]).map((preference: any) => <div key={preference.id} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm"><span>{preference.rule}</span><button className="text-xs font-semibold text-red-600" onClick={() => removePaymentAllocationPreference(preference.id)}>Remover</button></div>)}</div> : <p className="mt-3 text-xs text-muted">Nenhuma preferência salva.</p>}
+      </Card>
+    </div>
+  </>
+}
+
+export function AppearanceSettings() {
+  const { theme, setTheme } = useFinanceStore() as { theme: Theme; setTheme: (t: Theme) => void }
+  const current: Theme = theme ?? 'system'
+  const options: Array<{ value: Theme; label: string; desc: string; icon: typeof Sun }> = [
+    { value: 'light', label: 'Claro', desc: 'Fundo claro, ideal para dia.', icon: Sun },
+    { value: 'dark', label: 'Escuro', desc: 'Fundo escuro, confortável à noite.', icon: Moon },
+    { value: 'system', label: 'Sistema', desc: 'Segue o ajuste do aparelho.', icon: Laptop },
+  ]
+  return <>
+    <PageTitle eyebrow="Configurações" title="Aparência"/>
+    <div className="space-y-5">
+      <Card>
+        <h2 className="section-title">Tema</h2>
+        <p className="mt-1 text-sm text-muted">Escolha como o Atlas deve exibir cores.</p>
+        <div className="mt-4">
+          <SelectMenu ariaLabel="Tema" value={current} onChange={v => setTheme(v as Theme)} options={options.map(o => ({ value: o.value, label: o.label }))} />
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {options.map(opt => {
+            const Icon = opt.icon
+            const active = current === opt.value
+            return <button key={opt.value} type="button" onClick={() => setTheme(opt.value)} aria-pressed={active} className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center transition ${active ? 'border-brand bg-blue-50/60' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+              <span className={`grid h-10 w-10 place-items-center rounded-xl ${active ? 'bg-brand text-white' : 'bg-slate-100 text-slate-600'}`}><Icon size={20}/></span>
+              <span className={`text-sm font-semibold ${active ? 'text-brand' : 'text-ink'}`}>{opt.label}</span>
+              <span className="text-xs leading-4 text-muted">{opt.desc}</span>
+            </button>
+          })}
+        </div>
+        <div className="mt-5 rounded-xl border bg-slate-50 p-4">
+          <p className="text-xs font-semibold text-muted">Prévia</p>
+          <div className="mt-2 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-white p-3 shadow-sm border"><p className="text-sm font-semibold text-ink">Cartão exemplo</p><p className="mt-1 text-xs text-muted">O tema se aplica a todos os cards e superfícies.</p></div>
+            <div className="rounded-xl bg-slate-900 p-3"><p className="text-sm font-semibold text-white">Cartão escuro</p><p className="mt-1 text-xs text-slate-400">No modo sistema, muda com o aparelho.</p></div>
+          </div>
+        </div>
       </Card>
     </div>
   </>

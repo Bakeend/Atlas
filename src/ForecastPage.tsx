@@ -6,6 +6,7 @@ import { Card, CategoryIcon } from './components'
 import { accountBalance, money, today } from './domain'
 import { calculateForecast, getAverageDailyVariable, summarizeForecast, type ForecastPoint } from './forecast/calculate'
 import { useFinanceStore } from './store'
+import { useResolvedTheme } from './lib/theme'
 
 function shortMoney(value: number) {
   return value >= 100000 ? `R$ ${Math.round(value / 100000)}k` : value ? `R$ ${Math.round(value / 100)}` : 'R$ 0'
@@ -25,6 +26,10 @@ function ForecastTooltip({ active, payload, label, hidden }: { active?: boolean;
 
 export function ForecastDashboardCard() {
   const { accounts, transactions, recurringExpenses, forecastRealistic, hideBalances } = useFinanceStore()
+  const isDark = useResolvedTheme() === 'dark'
+  const gridColor = isDark ? '#334155' : '#E9EDF3'
+  const tickColor = isDark ? '#94A3B8' : '#7A8392'
+  const tickColorY = isDark ? '#94A3B8' : '#8A93A1'
   const live = transactions.filter(t => !t.deletedAt)
   const total = accounts.filter(a => !a.archived).reduce((s, acc) => s + accountBalance(acc, live), 0)
   const points = useMemo(() => calculateForecast({ accounts, transactions, recurringExpenses, startDate: today(), days: 30, realistic: forecastRealistic }), [accounts, transactions, recurringExpenses, forecastRealistic])
@@ -63,9 +68,9 @@ export function ForecastDashboardCard() {
                 <stop offset="95%" stopColor="#2F80ED" stopOpacity={0.01} />
               </linearGradient>
             </defs>
-            <CartesianGrid stroke="#E9EDF3" strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#7A8392', fontSize: 11 }} interval={Math.floor(points.length / 5)} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8A93A1', fontSize: 11 }} tickFormatter={shortMoney} width={56} />
+            <CartesianGrid stroke={gridColor} strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: tickColor, fontSize: 11 }} interval={Math.floor(points.length / 5)} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fill: tickColorY, fontSize: 11 }} tickFormatter={shortMoney} width={56} />
             <Tooltip content={<ForecastTooltip hidden={hideBalances} />} />
             <ReferenceLine y={0} stroke="#DC2626" strokeDasharray="3 3" />
             <Area type="monotone" dataKey="balance" stroke="#2F80ED" strokeWidth={2.5} fill="url(#forecastDash)" dot={false} activeDot={{ r: 4, fill: '#fff', stroke: '#2F80ED', strokeWidth: 2.5 }} />
@@ -83,6 +88,10 @@ export function ForecastDashboardCard() {
 export function ForecastPage() {
   const navigate = useNavigate()
   const { accounts, transactions, recurringExpenses, forecastRealistic, setForecastRealistic, hideBalances } = useFinanceStore()
+  const isDarkFP = useResolvedTheme() === 'dark'
+  const gridColorFP = isDarkFP ? '#334155' : '#E9EDF3'
+  const tickColorFP = isDarkFP ? '#94A3B8' : '#7A8392'
+  const tickColorYFP = isDarkFP ? '#94A3B8' : '#8A93A1'
   const [days, setDays] = useState<30 | 90>(30)
   const live = transactions.filter(t => !t.deletedAt)
   const total = accounts.filter(a => !a.archived).reduce((s, acc) => s + accountBalance(acc, live), 0)
@@ -139,9 +148,9 @@ export function ForecastPage() {
                   <stop offset="95%" stopColor="#2F80ED" stopOpacity={0.01} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="#E9EDF3" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#7A8392', fontSize: 11 }} interval={Math.floor(points.length / 7)} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8A93A1', fontSize: 11 }} tickFormatter={shortMoney} width={62} />
+              <CartesianGrid stroke={gridColorFP} strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: tickColorFP, fontSize: 11 }} interval={Math.floor(points.length / 7)} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: tickColorYFP, fontSize: 11 }} tickFormatter={shortMoney} width={62} />
               <Tooltip content={<ForecastTooltip hidden={hideBalances} />} />
               <ReferenceLine y={0} stroke="#DC2626" strokeDasharray="3 3" />
               <Area type="monotone" dataKey="balance" stroke="#2F80ED" strokeWidth={2.5} fill="url(#forecastFull)" dot={false} />
