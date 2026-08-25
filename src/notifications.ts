@@ -1,5 +1,6 @@
 import type { Budget, FinanceTransaction } from './domain'
 import type { RecurringExpense } from './recurring'
+import { calculateBudgetUsage } from './financialView'
 import { getNextUnrecordedOccurrence, getUnrecordedOccurrencesBetween } from './recurring'
 
 export type NotificationKind = 'overdue' | 'reminder' | 'budget-warning' | 'budget-exceeded'
@@ -16,12 +17,8 @@ export interface FinanceNotification {
 const addDays = (value: string, amount: number) => {
   const date = new Date(`${value}T12:00:00`)
   date.setDate(date.getDate() + amount)
-  return date.toISOString().slice(0, 10)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
-
-const spentByCategory = (transactions: FinanceTransaction[], month: string, category: string) => transactions
-  .filter(item => !item.deletedAt && item.type === 'expense' && item.date.startsWith(month) && item.category === category)
-  .reduce((total, item) => total + item.amountCents, 0)
 
 export function getFinanceNotifications({
   recurringExpenses, transactions, budgets, referenceDate,
@@ -50,14 +47,17 @@ export function getFinanceNotifications({
   })
 
   const budgetAlerts: FinanceNotification[] = budgets.filter(budget => budget.month === month).flatMap<FinanceNotification>(budget => {
-    const spent = spentByCategory(transactions, month, budget.category)
-    if (spent < budget.limitCents * 0.8) return []
-    const exceeded = spent >= budget.limitCents
+    const usage = calculateBudgetUsage({ budget, transactions, recurringExpenses })
+    if (usage.projectedCents < budget.limitCents * 0.8) return []
+    const exceeded = usage.projectedCents >= budget.limitCents
+    const detail = usage.committedCents > 0
+      ? `${formatMoney(usage.realizedCents)} realizados + ${formatMoney(usage.committedCents)} comprometidos.`
+      : `${formatMoney(usage.realizedCents)} realizados.`
     return [{
       id: `budget:${budget.id}:${month}:${exceeded ? 'exceeded' : 'warning'}`,
       kind: exceeded ? 'budget-exceeded' : 'budget-warning',
       title: exceeded ? `Orçamento de ${budget.category} excedido` : `Orçamento de ${budget.category} em alerta`,
-      message: exceeded ? 'Você atingiu ou ultrapassou o limite mensal.' : 'Você já utilizou mais de 80% do limite mensal.',
+      message: exceeded ? `O projetado atingiu ou ultrapassou o limite mensal. ${detail}` : `O projetado já passou de 80% do limite mensal. ${detail}`,
       date: referenceDate, href: '/planning',
     }]
   })
@@ -71,4 +71,8 @@ export function getFinanceNotifications({
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' })
     .format(new Date(`${value}T12:00:00`)).replace('.', '')
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value / 100)
 }
