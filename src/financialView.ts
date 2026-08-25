@@ -23,6 +23,7 @@ export interface IncomeView {
 
 export interface BudgetUsageView {
   category: string
+  month: string
   limitCents: number
   realizedCents: number
   committedCents: number
@@ -141,7 +142,7 @@ export function calculateBudgetUsage({
   const projectedCents = realizedCents + committedCents
   const remainingCents = Math.max(0, budget.limitCents - projectedCents)
   const percentProjected = budget.limitCents > 0 ? Math.round((projectedCents / budget.limitCents) * 100) : 0
-  return { category: budget.category, limitCents: budget.limitCents, realizedCents, committedCents, projectedCents, remainingCents, percentProjected }
+  return { category: budget.category, month: budget.month, limitCents: budget.limitCents, realizedCents, committedCents, projectedCents, remainingCents, percentProjected }
 }
 
 export function calculateRemainingEssentialBudgets({
