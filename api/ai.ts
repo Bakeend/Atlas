@@ -1,20 +1,11 @@
 // Vercel / Netlify serverless handler — mesma lógica do Vite middleware
 // Chaves ficam SOMENTE no servidor (nunca usar prefixo VITE_).
 
-type AiProvider = 'openai' | 'opencode' | 'openrouter'
+type AiProvider = 'opencode' | 'openrouter'
 
 const DEFAULT_OPENCODE_MODEL = 'mimo-v2.5-free'
 
 function getProviderConfig(provider: AiProvider, json: any) {
-  if (provider === 'openai') {
-    return {
-      apiKey: process.env.OPENAI_API_KEY,
-      model: json.model || process.env.OPENAI_MODEL || 'gpt-4.1-mini',
-      url: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1/chat/completions',
-      headers: {},
-    }
-  }
-
   if (provider === 'opencode') {
     return {
       apiKey: process.env.OPENCODE_API_KEY,
@@ -24,11 +15,10 @@ function getProviderConfig(provider: AiProvider, json: any) {
     }
   }
 
-  // Compatibilidade com instalações antigas do projeto.
   return {
     apiKey: process.env.OPENROUTER_API_KEY,
     model: json.model || process.env.OPENROUTER_MODEL,
-    url: 'https://openrouter.ai/api/v1/chat/completions',
+    url: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1/chat/completions',
     headers: {
       'HTTP-Referer': process.env.OPENROUTER_SITE_URL || 'https://atlas-finance.app',
       'X-Title': process.env.OPENROUTER_APP_NAME || 'Atlas Finance',
@@ -49,11 +39,9 @@ export default async function handler(req: any, res: any) {
 
   const json = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body ?? {})
   const mock = process.env.AI_MOCK === 'true'
-
-  // OpenCode é o padrão porque há modelos gratuitos adequados para o agente.
-  // OPENROUTER continua aceito somente para compatibilidade com deploys antigos.
   const provider = (json.provider || process.env.AI_PROVIDER || 'opencode') as AiProvider
-  if (!['openai', 'opencode', 'openrouter'].includes(provider)) {
+
+  if (!['opencode', 'openrouter'].includes(provider)) {
     return res.status(400).json({ error: `Provedor inválido: ${provider}`, code: 'INVALID_PROVIDER' })
   }
 
@@ -71,7 +59,7 @@ export default async function handler(req: any, res: any) {
 
   const cfg = getProviderConfig(provider, json)
   if (!cfg.apiKey) {
-    const envName = provider === 'openai' ? 'OPENAI_API_KEY' : provider === 'opencode' ? 'OPENCODE_API_KEY' : 'OPENROUTER_API_KEY'
+    const envName = provider === 'opencode' ? 'OPENCODE_API_KEY' : 'OPENROUTER_API_KEY'
     return res.status(503).json({ error: `Assistente não configurado. Defina ${envName} no servidor.`, code: 'NOT_CONFIGURED', provider })
   }
   if (!cfg.model) {
