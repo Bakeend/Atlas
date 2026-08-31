@@ -6,7 +6,7 @@ import {
 import { useEffect, useMemo, useState, Fragment, type ReactNode } from 'react'
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { AccountIcon, AccountModal, Card, CategoryIcon, Empty, Modal, MoneyInput, PageTitle, SelectMenu, TransactionModal, TransactionRow } from './components'
+import { AccountIcon, AccountModal, BackButton, Card, CategoryIcon, Empty, Modal, MoneyInput, PageTitle, SelectMenu, TransactionModal, TransactionRow } from './components'
 import { accountBalance, categories, currentMonth, money, parseMoney, today, uid, type FinanceTransaction, type FinancialProfile } from './domain'
 import { useFinanceStore } from './store'
 import { RecurringExpensesPage } from './RecurringExpenses'
@@ -19,11 +19,12 @@ import { getFinanceNotifications, type FinanceNotification } from './notificatio
 import { OrganizePage } from './OrganizePage'
 import { DailySpendCard } from './DailySpend'
 import { FreeMoneyCard } from './FreeMoneyCard'
-import { SettingsMenu, NavigationSettings, FinanceSettings, PaymentSettings, PrivacySettings } from './SettingsPages'
+import { DashboardSettings, SettingsMenu, NavigationSettings, FinanceSettings, PaymentSettings, PrivacySettings } from './SettingsPages'
 import { resolveShortcutItems, APP_PAGES } from './navigation'
 import { OnboardingPage } from './onboarding/OnboardingPage'
 import { buildFinancialProfile, getDashboardPriority, getEffectiveFinancialProfile, type DashboardCardKey } from './onboarding/onboardingProfile'
 import { GOAL_LABELS, LEVEL_LABELS, LEVEL_OPTIONS, GOAL_OPTIONS, PRIORITY_OPTIONS } from './onboarding/onboardingConfig'
+import { type DashboardWidgetKey } from './dashboardLayout'
 
 function Shell() {
   const [newTransaction, setNewTransaction] = useState(false)
@@ -37,7 +38,7 @@ function Shell() {
   // Gatilho exclusivo: onboardingDone (usuário pode criar conta no meio e fechar o app sem perder o fluxo).
   if (!onboardingDone) return <OnboardingPage/>
   return <div className="min-h-screen"><main className="app-content"><Routes>
-    <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/organizar" element={<OrganizePage/>}/><Route path="/import" element={<ImportPage/>}/><Route path="/forecast" element={<ForecastPage/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/recurring" element={<RecurringExpensesPage/>}/><Route path="/assistant" element={<AiAssistantPage/>}/><Route path="/profile" element={<Profile/>}/><Route path="/settings" element={<SettingsMenu/>}/><Route path="/settings/nav" element={<NavigationSettings/>}/><Route path="/settings/finance" element={<FinanceSettings/>}/><Route path="/settings/payment" element={<PaymentSettings/>}/><Route path="/settings/privacy" element={<PrivacySettings/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
+    <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/organizar" element={<OrganizePage/>}/><Route path="/import" element={<ImportPage/>}/><Route path="/forecast" element={<ForecastPage/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/recurring" element={<RecurringExpensesPage/>}/><Route path="/assistant" element={<AiAssistantPage/>}/><Route path="/profile" element={<Profile/>}/><Route path="/settings" element={<SettingsMenu/>}/><Route path="/settings/home" element={<DashboardSettings/>}/><Route path="/settings/nav" element={<NavigationSettings/>}/><Route path="/settings/finance" element={<FinanceSettings/>}/><Route path="/settings/payment" element={<PaymentSettings/>}/><Route path="/settings/privacy" element={<PrivacySettings/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
   </Routes></main><BottomNavigation onNew={() => setNewTransaction(true)}/>{newTransaction && <TransactionModal close={() => setNewTransaction(false)}/>}</div>
 }
 
@@ -60,7 +61,7 @@ function AiFab() {
 }
 
 function Dashboard() {
-  const { accounts, transactions, budgets, recurringExpenses, readNotificationIds, markNotificationRead, markAllNotificationsRead, hideBalances, toggleBalances, profileName } = useFinanceStore()
+  const { accounts, transactions, budgets, recurringExpenses, readNotificationIds, markNotificationRead, markAllNotificationsRead, hideBalances, toggleBalances, profileName, dashboardWidgets } = useFinanceStore()
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const live = transactions.filter(transaction => !transaction.deletedAt)
   const month = currentMonth()
@@ -94,13 +95,18 @@ function Dashboard() {
     'budget': budgetCard,
     'recent': recentCard,
   }
+  const widgetCards: Record<DashboardWidgetKey, ReactNode> = {
+    balance: <section className="balance-card"><Wallet className="balance-card-watermark" size={94} strokeWidth={1.8}/><div className="relative z-10 flex items-center gap-2"><span className="text-sm font-medium text-white/90">Saldo total</span><button className="balance-eye" onClick={toggleBalances} aria-label={hideBalances ? 'Mostrar valores' : 'Ocultar valores'}>{hideBalances ? <EyeOff size={19}/> : <Eye size={19}/>}</button></div><p className="balance-value">{money(total, hideBalances)}</p><div className="balance-trend">{balanceTrend >= 0 ? <TrendingUp size={16}/> : <TrendingDown size={16}/>}<span>{formatPercent(Math.abs(balanceTrend))} vs mês anterior</span></div></section>,
+    summary: <section className="summary-grid"><SummaryCard title="Receitas" value={money(income, hideBalances)} trend={percentageChange(income, previousIncome)} icon={ArrowDownLeft} tone="income"/><SummaryCard title="Despesas" value={money(expense, hideBalances)} trend={percentageChange(expense, previousExpense)} icon={ArrowUpRight} tone="expense"/></section>,
+    ...secondaryCards,
+  }
+  const configuredLayout = dashboardWidgets?.filter(widget => widget.visible).map(widget => widget.key)
+  const widgetLayout: DashboardWidgetKey[] = configuredLayout ?? ['balance', 'summary', ...layout]
 
   return <>
     <header className="dashboard-header"><div><h1>{profileName ? `Olá, ${profileName}` : 'Olá'} <span aria-hidden="true">👋</span></h1><p>Aqui está o resumo das suas finanças</p></div><div className="flex items-center gap-2"><NavLink to="/assistant" className="ai-header-fab"><Sparkles size={16}/> Assistente</NavLink><button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`Notificações${unreadNotifications.length ? `: ${unreadNotifications.length} não lidas` : ''}`} aria-haspopup="dialog" aria-expanded={notificationsOpen}><Bell size={23} strokeWidth={1.9}/>{unreadNotifications.length > 0 && <span className="notification-dot"/>}</button></div></header>
     {notificationsOpen && <NotificationCenter notifications={notifications} unreadIds={readNotificationIds} close={() => setNotificationsOpen(false)} markRead={markNotificationRead} markAllRead={markAllNotificationsRead}/>}
-    <section className="balance-card"><Wallet className="balance-card-watermark" size={94} strokeWidth={1.8}/><div className="relative z-10 flex items-center gap-2"><span className="text-sm font-medium text-white/90">Saldo total</span><button className="balance-eye" onClick={toggleBalances} aria-label={hideBalances ? 'Mostrar valores' : 'Ocultar valores'}>{hideBalances ? <EyeOff size={19}/> : <Eye size={19}/>}</button></div><p className="balance-value">{money(total, hideBalances)}</p><div className="balance-trend">{balanceTrend >= 0 ? <TrendingUp size={16}/> : <TrendingDown size={16}/>}<span>{formatPercent(Math.abs(balanceTrend))} vs mês anterior</span></div></section>
-    <section className="summary-grid"><SummaryCard title="Receitas" value={money(income, hideBalances)} trend={percentageChange(income, previousIncome)} icon={ArrowDownLeft} tone="income"/><SummaryCard title="Despesas" value={money(expense, hideBalances)} trend={percentageChange(expense, previousExpense)} icon={ArrowUpRight} tone="expense"/></section>
-    {layout.map(key => <Fragment key={key}>{secondaryCards[key]}</Fragment>)}
+    {widgetLayout.map(key => <Fragment key={key}>{widgetCards[key]}</Fragment>)}
   </>
 }
 
@@ -147,7 +153,7 @@ function Transactions() {
   const { transactions, accounts, softDeleteTransaction } = useFinanceStore()
   const [query, setQuery] = useState(''); const [type, setType] = useState('all'); const [account, setAccount] = useState('all'); const [edit, setEdit] = useState<FinanceTransaction>(); const [confirm, setConfirm] = useState<string>(); const [openId, setOpenId] = useState<string | null>(null)
   const list = useMemo(() => transactions.filter(item => !item.deletedAt).filter(item => !query || item.description.toLowerCase().includes(query.toLowerCase())).filter(item => type === 'all' || item.type === type).filter(item => account === 'all' || item.accountId === account).sort((a, b) => b.date.localeCompare(a.date)), [transactions, query, type, account])
-  return <><div className="page-title"><div><p>Histórico</p><h1>Transações</h1></div><NavLink to="/import" className="btn-secondary"><FileUp size={16}/> Importar extrato</NavLink></div><Card><div className="filter-grid"><input className="field" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar por descrição…"/><SelectMenu ariaLabel="Filtrar por tipo" value={type} onChange={setType} options={[{ value: 'all', label: 'Todos os tipos' }, { value: 'income', label: 'Receitas' }, { value: 'expense', label: 'Despesas' }, { value: 'transfer', label: 'Transferências' }]}/><SelectMenu ariaLabel="Filtrar por conta" value={account} onChange={setAccount} options={[{ value: 'all', label: 'Todas as contas' }, ...accounts.map(item => ({ value: item.id, label: item.name }))]}/></div><div className="transaction-list mt-4">{list.length ? list.map(item => <TransactionRow key={item.id} item={item} isMenuOpen={openId === item.id} onMenuToggle={next => setOpenId(next ? item.id : null)} onEdit={() => { setOpenId(null); setEdit(item) }} onDelete={() => { setOpenId(null); setConfirm(item.id) }}/>) : <p className="empty-inline">Nenhuma movimentação encontrada.</p>}</div></Card>{edit && <TransactionModal item={edit} close={() => setEdit(undefined)}/>} {confirm && <ConfirmDelete close={() => setConfirm(undefined)} confirm={() => { softDeleteTransaction(confirm); setConfirm(undefined) }}/>}</>
+  return <><BackButton className="mb-3" /><div className="page-title"><div><h1>Transações</h1></div><NavLink to="/import" className="btn-secondary"><FileUp size={16}/> Importar extrato</NavLink></div><Card><div className="filter-grid"><input className="field" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar por descrição…"/><SelectMenu ariaLabel="Filtrar por tipo" value={type} onChange={setType} options={[{ value: 'all', label: 'Todos os tipos' }, { value: 'income', label: 'Receitas' }, { value: 'expense', label: 'Despesas' }, { value: 'transfer', label: 'Transferências' }]}/><SelectMenu ariaLabel="Filtrar por conta" value={account} onChange={setAccount} options={[{ value: 'all', label: 'Todas as contas' }, ...accounts.map(item => ({ value: item.id, label: item.name }))]}/></div><div className="transaction-list mt-4">{list.length ? list.map(item => <TransactionRow key={item.id} item={item} isMenuOpen={openId === item.id} onMenuToggle={next => setOpenId(next ? item.id : null)} onEdit={() => { setOpenId(null); setEdit(item) }} onDelete={() => { setOpenId(null); setConfirm(item.id) }}/>) : <p className="empty-inline">Nenhuma movimentação encontrada.</p>}</div></Card>{edit && <TransactionModal item={edit} close={() => setEdit(undefined)}/>} {confirm && <ConfirmDelete close={() => setConfirm(undefined)} confirm={() => { softDeleteTransaction(confirm); setConfirm(undefined) }}/>}</>
 }
 
 function Accounts() {

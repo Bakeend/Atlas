@@ -1,2894 +1,1741 @@
-Implemente no aplicativo financeiro existente um sistema de **assistente financeiro com IA, voz e dashboard dinâmico dentro do chat da assistente**, seguindo fielmente a referência visual fornecida.
+Implemente no projeto existente `Bakeend/financas` um **onboarding interativo, mobile-first e altamente animado**, inspirado na experiência de progressão do Duolingo, mas **sem copiar identidade visual, assets, personagens ou layout exato do Duolingo**.
 
-O objetivo NÃO é criar uma tela de voz separada nem apenas adicionar um botão de microfone.
+O objetivo não é criar um simples formulário de cadastro.
 
-O sistema deve permanecer dentro do chat da assistente. O chat continua sendo o espaço principal da interação, mas cada solicitação do cliente deve gerar uma resposta visual dinâmica no dashboard da conversa.
+O onboarding deve fazer o usuário sentir que está **montando o próprio Atlas**, respondendo perguntas curtas e selecionando objetivos. As respostas devem efetivamente personalizar o comportamento e a tela inicial do aplicativo.
 
-Tudo que o cliente pedir deve aparecer visualmente dentro do chat, incluindo:
+---
 
-* resultados financeiros;
-* cards;
-* gráficos;
-* listas;
-* confirmações;
-* botões de ação;
-* formulários curtos;
-* estados de processamento;
-* mensagens de sucesso;
-* mensagens de erro;
-* solicitações de confirmação.
+# 1. Antes de implementar
 
-Exemplo:
+Leia obrigatoriamente:
 
 ```text
-Cliente:
-Crie uma categoria chamada Viagens.
+AGENTS.md
+REGRAS_VISUAIS.md
 ```
 
-A assistente deve responder dentro do chat e exibir um card de confirmação:
+Depois analise:
 
 ```text
-Nova categoria
-
-Viagens
-
-A categoria será criada para organizar
-suas despesas de viagem.
-
-[Cancelar] [Criar categoria]
+src/domain.ts
+src/store.ts
+src/components.tsx
+src/styles.css
+src/App.tsx
+src/PaymentAllocationCard.tsx
+src/DailySpend.tsx
+src/FreeMoneyCard.tsx
+src/RecurringExpenses.tsx
 ```
 
-Depois da confirmação:
+Não crie componentes que já tenham equivalente no projeto.
+
+Reutilize:
 
 ```text
-✓ Categoria criada
-
-Viagens
-
-Agora você pode usar essa categoria
-ao registrar novas despesas.
-```
-
-O dashboard dentro do chat deve mostrar exatamente o resultado ou a ação solicitada pelo cliente.
-
-O projeto atual já utiliza:
-
-```text
-React
-Vite
-TypeScript
-Zustand
-IndexedDB
+Card
+Field
+MoneyInput
+SelectMenu
+DatePicker
+Modal
+CategoryIcon
+botões existentes
 Lucide React
-Recharts
-DeepSeek via OpenRouter
+tokens visuais atuais
 ```
 
-Não recrie o projeto.
-
-Antes de implementar:
-
-1. analise a arquitetura existente;
-2. encontre o módulo da IA;
-3. encontre o agent loop;
-4. encontre as tools financeiras;
-5. encontre stores e repositories;
-6. reutilize os cálculos financeiros existentes;
-7. reutilize o design system atual;
-8. identifique como o chat da assistente é renderizado;
-9. identifique como mensagens e ações são armazenadas;
-10. faça mudanças incrementais;
-11. mantenha o sistema dentro do chat existente;
-12. não crie uma experiência paralela desconectada da assistente.
-
----
-
-# 1. Conceito principal
-
-O usuário deve conversar com a assistente pelo chat, usando texto ou voz.
-
-Exemplo:
+Não utilizar:
 
 ```text
-Quanto gastei com mercado?
-```
-
-A assistente deve responder dentro do chat e inserir um dashboard visual na própria conversa:
-
-```text
-Mercado
-
-R$ 500,00
-
-↓ 12%
-vs. mês anterior
-```
-
-Abaixo do card:
-
-```text
-Aqui está seu resumo
-
-Você gastou R$ 500,00 em Mercado
-este mês, 12% menos que no mês anterior.
-```
-
-A interface de voz pode continuar disponível no campo de entrada do chat, mas o resultado deve aparecer dentro da conversa.
-
-A experiência deve combinar:
-
-```text
-CHAT
-+
-VOZ
-+
-IA
-+
-DADOS FINANCEIROS
-+
-DASHBOARD DINÂMICO
-+
-AÇÕES CONFIRMÁVEIS
+input type="date"
+select nativo
+input type="number"
+emoji como ícone
+alert()
+confirm()
 ```
 
 ---
 
-# 2. O chat é o centro do sistema
+# 2. Conceito
 
-Não criar uma tela de voz independente como principal experiência.
-
-Não criar uma rota separada que substitua o chat.
-
-O sistema deve funcionar dentro do chat da assistente:
+Na primeira abertura, em vez de jogar o usuário diretamente em um dashboard vazio, mostrar uma experiência guiada:
 
 ```text
-pergunta do cliente
-↓
-mensagem aparece no chat
-↓
-IA entende
-↓
-consulta tools ou executa ação
-↓
-dashboard visual aparece na resposta da assistente
-↓
-cliente pode clicar em botões
-↓
-cliente pode continuar escrevendo ou falando
+Bem-vindo ao Atlas
+
+Vamos montar seu planejamento
+em menos de um minuto.
+
+[ Começar ]
 ```
 
-A rota `/voice` só deve ser criada se a arquitetura existente exigir isso, mas não deve substituir o chat principal.
-
-Se existir uma tela ou componente de chat da assistente, reutilizá-lo.
-
----
-
-# 3. Não criar chat tradicional simples
-
-O sistema não deve parecer apenas:
+Depois:
 
 ```text
-Cliente:
-Quanto gastei?
-
-Assistente:
-Você gastou R$ 500.
+Etapa curta
+↓
+usuário escolhe
+↓
+feedback visual
+↓
+transição animada
+↓
+próxima pergunta
 ```
 
-Também não deve transformar o chat em uma sequência de balões sem conteúdo visual.
+Evitar telas com muitos campos.
 
-O foco deve ser:
+A maioria das etapas deve exigir apenas **um toque**.
+
+---
+
+# 3. Experiência desejada
+
+Deve transmitir:
 
 ```text
-mensagem do cliente
-↓
-resposta da assistente
-↓
-dashboard contextual dentro da mensagem
-↓
-ações relacionadas
-↓
-confirmação quando necessário
+leveza
+progresso
+recompensa
+clareza
+personalização
+sensação de evolução
 ```
 
-O chat continua existindo, mas as respostas da assistente devem ser ricas e interativas.
-
----
-
-# 4. Estrutura visual dentro do chat
-
-A composição deve seguir aproximadamente esta estrutura:
+Não deve parecer:
 
 ```text
-┌────────────────────────────┐
-│ Assistente financeira      │
-│                            │
-│ Cliente                    │
-│ Quanto gastei no mercado?  │
-│                            │
-│ Assistente                 │
-│ Aqui está seu resumo       │
-│                            │
-│ ┌────────────────────────┐ │
-│ │ 🛒 Mercado             │ │
-│ │                        │ │
-│ │ R$ 500,00              │ │
-│ │ ↓ 12% vs mês anterior │ │
-│ │                        │ │
-│ │ gráfico      detalhes │ │
-│ └────────────────────────┘ │
-│                            │
-│ Você gastou R$ 500...      │
-│                            │
-│ [Ver transações]           │
-│ [Comparar com mês passado] │
-│                            │
-│ ┌────────────────────────┐ │
-│ │ Digite ou fale...      │ │
-│ │                 🎙      │ │
-│ └────────────────────────┘ │
-└────────────────────────────┘
+formulário bancário
+wizard corporativo
+configuração técnica
+questionário longo
 ```
-
-O dashboard deve ser uma parte da resposta da assistente dentro do chat.
-
-Não colocar o dashboard fora da conversa como uma área independente sem relação com a mensagem.
 
 ---
 
-# 5. Fidelidade visual
+# 4. Fluxo principal
 
-A referência visual fornecida é a fonte principal para:
+Criar aproximadamente **7 etapas**.
 
-* hierarquia;
-* posicionamento;
-* espaçamento;
-* tamanho dos componentes;
-* estilo dos cards;
-* relação entre texto e dashboard;
-* aparência da assistente;
-* posição do campo de entrada;
-* uso de voz;
-* destaque das ações;
-* estados de confirmação.
+## Tela 0 — Boas-vindas
 
-Não transformar o chat em dashboard administrativo.
+```text
+[logo Atlas]
 
-Não adicionar sidebar.
+Seu dinheiro,
+do seu jeito.
 
-Não criar uma tela cheia de gráficos sem contexto.
+Responda algumas perguntas
+e o Atlas monta sua experiência.
 
-Não colocar vários dashboards simultaneamente sem necessidade.
+[ Começar ]
+```
 
-Não encher a interface de informações.
+Mostrar indicação discreta:
 
-O dashboard deve aparecer somente quando fizer sentido para o pedido do cliente.
+```text
+Leva menos de 1 minuto
+```
 
 ---
 
-# 6. Dashboard dentro da mensagem da assistente
+# 5. Etapa 1 — Objetivo principal
 
-Criar uma estrutura de mensagem capaz de renderizar conteúdo visual.
+Pergunta:
 
-Exemplo:
-
-```ts
-interface AssistantMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  text?: string;
-  presentation?: AiPresentation;
-  createdAt: number;
-}
+```text
+O que você mais quer melhorar?
 ```
 
-A resposta da assistente pode conter:
+Cards grandes:
 
-```ts
-interface AiPresentation {
-  speech?: string;
-  text?: string;
-  summary?: string;
-  blocks: AiVisualBlock[];
-  actions?: AiAction[];
-  requiresConfirmation?: boolean;
-}
+```text
+Organizar meu dinheiro
+
+Gastar menos
+
+Juntar dinheiro
+
+Sair das dívidas
+
+Saber quanto posso gastar
+
+Só acompanhar minhas finanças
 ```
 
-O dashboard deve ser renderizado dentro da mensagem da assistente.
-
-Exemplo:
-
-```tsx
-<ChatMessage message={message}>
-  <AssistantText text={message.text} />
-  <AiVisualRenderer blocks={message.presentation?.blocks ?? []} />
-  <AiActionRenderer actions={message.presentation?.actions ?? []} />
-</ChatMessage>
-```
-
-Não criar um dashboard global separado para cada pergunta.
-
----
-
-# 7. Tudo que o cliente pedir deve aparecer visualmente
-
-Esta é uma regra central.
-
-Se o cliente pedir uma informação, mostrar o resultado.
-
-Se o cliente pedir uma criação, mostrar o que será criado e a confirmação.
-
-Se o cliente pedir uma edição, mostrar os dados atuais e os novos dados.
-
-Se o cliente pedir uma exclusão, mostrar o item e os botões de confirmação.
-
-Se o cliente pedir uma análise, mostrar cards ou gráficos.
-
-Se o cliente pedir uma ação, mostrar o estado da ação.
+Ícones Lucide apropriados.
 
 Exemplos:
 
 ```text
-Criar categoria
-→ card de pré-visualização + botão Criar categoria
+Wallet
+TrendingDown
+Target
+ReceiptText
+Gauge
+ChartPie
 ```
 
-```text
-Editar categoria
-→ card com dados atuais + campos ou opções de edição
-```
+Uma única opção principal.
 
-```text
-Excluir categoria
-→ card de confirmação + Cancelar + Excluir
-```
+Ao selecionar:
 
-```text
-Criar transação
-→ card com valor, categoria, data e descrição + Confirmar
-```
-
-```text
-Criar gasto recorrente
-→ card com valor, frequência e vencimento + Criar recorrência
-```
-
-```text
-Organizar salário
-→ plano financeiro visual + Editar + Aplicar
-```
-
-```text
-Quanto gastei?
-→ métrica, comparação, gráfico ou lista
-```
-
-Nunca responder apenas com texto quando a solicitação puder ser representada visualmente.
+* card ganha destaque;
+* ícone anima;
+* check aparece;
+* botão Continuar é liberado.
 
 ---
 
-# 8. Ações não devem ser executadas automaticamente
+# 6. Etapa 2 — Situação de renda
 
-Para ações que alteram dados, exigir confirmação quando apropriado.
-
-Exemplos:
-
-* criar categoria;
-* editar categoria;
-* excluir categoria;
-* criar transação;
-* editar transação;
-* excluir transação;
-* criar recorrência;
-* aplicar planejamento;
-* alterar orçamento.
-
-Fluxo:
+Pergunta:
 
 ```text
-cliente solicita ação
-↓
-IA interpreta
-↓
-tool prepara a ação
-↓
-dashboard de confirmação aparece no chat
-↓
-cliente toca em Confirmar
-↓
-ação é executada
-↓
-dashboard de sucesso aparece no chat
+Como seu dinheiro costuma entrar?
 ```
 
-Não executar ações destrutivas ou relevantes apenas porque a IA interpretou a frase.
-
----
-
-# 9. Exemplo: criar categoria
-
-Cliente:
+Opções:
 
 ```text
-Crie uma categoria chamada Viagens.
+Salário fixo
+
+Renda variável
+
+Várias fontes de renda
+
+Ainda não quero informar
 ```
 
-A assistente deve responder:
+Salvar:
 
-```text
-Posso criar esta categoria para você:
-```
-
-Dashboard:
-
-```text
-┌────────────────────────────┐
-│ Nova categoria             │
-│                            │
-│ Viagens                    │
-│                            │
-│ Ícone: Mala               │
-│ Cor: Azul                 │
-│                            │
-│ [Cancelar] [Criar categoria] │
-└────────────────────────────┘
-```
-
-Ao clicar em `Criar categoria`:
-
-```text
-┌────────────────────────────┐
-│ ✓ Categoria criada         │
-│                            │
-│ Viagens                    │
-│                            │
-│ A categoria está pronta    │
-│ para ser usada.            │
-└────────────────────────────┘
-```
-
-A assistente pode falar:
-
-```text
-A categoria Viagens foi criada.
-```
-
-Se o cliente disser por voz:
-
-```text
-Sim, pode criar.
-```
-
-a confirmação deve executar a mesma ação do botão.
-
----
-
-# 10. Exemplo: editar categoria
-
-Cliente:
-
-```text
-Mude a cor da categoria Viagens para verde.
-```
-
-Dashboard:
-
-```text
-Editar categoria
-
-Viagens
-
-Cor atual: Azul
-Nova cor: Verde
-
-[Cancelar] [Salvar alteração]
-```
-
-Após salvar:
-
-```text
-✓ Categoria atualizada
-
-Viagens agora está na cor verde.
+```ts
+incomePattern:
+  | 'fixed'
+  | 'variable'
+  | 'multiple'
+  | 'unknown'
 ```
 
 ---
 
-# 11. Exemplo: excluir categoria
+# 7. Etapa 3 — Principal dificuldade
 
-Cliente:
-
-```text
-Apague a categoria Viagens.
-```
-
-Dashboard:
+Pergunta:
 
 ```text
-Excluir categoria
-
-Viagens
-
-Essa ação pode afetar transações
-associadas a esta categoria.
-
-[Cancelar] [Excluir categoria]
+O que mais atrapalha hoje?
 ```
 
-A assistente deve pedir confirmação.
-
-Não excluir imediatamente.
-
-Após confirmação:
+Permitir selecionar até 2:
 
 ```text
-✓ Categoria excluída
+Não sei para onde o dinheiro vai
 
-A categoria Viagens foi removida.
+Gasto demais no dia a dia
+
+Tenho muitas contas fixas
+
+Esqueço vencimentos
+
+Tenho dificuldade para guardar
+
+Minha renda varia muito
+
+Quero controlar melhor o cartão
 ```
 
-Se houver transações associadas, mostrar essa informação no dashboard e solicitar uma decisão adicional quando necessário.
+Ao atingir limite de 2:
+
+* cards restantes continuam visíveis;
+* tentativa de selecionar terceiro gera pequeno feedback visual;
+* não usar alert.
 
 ---
 
-# 12. Exemplo: criar transação
+# 8. Etapa 4 — Prioridades
 
-Cliente:
+Pergunta:
 
 ```text
-Gastei 80 reais de gasolina hoje.
+O que é mais importante proteger?
 ```
 
-Dashboard:
+Selecionar até 3:
 
 ```text
-Nova despesa
-
-Gasolina
-R$ 80,00
-
-Categoria
-Transporte
-
-Data
-Hoje
-
-[Editar] [Cancelar] [Registrar despesa]
-```
-
-Após confirmação:
-
-```text
-✓ Despesa registrada
-
-Gasolina
-R$ 80,00
-
-Transporte
-Hoje
-```
-
-A assistente pode falar:
-
-```text
-Registrei a despesa de 80 reais em gasolina.
-```
-
----
-
-# 13. Exemplo: criar gasto recorrente
-
-Cliente:
-
-```text
-Todo dia 10 pago 120 de internet.
-```
-
-Dashboard:
-
-```text
-Novo gasto recorrente
-
-Internet
-R$ 120,00
-
-Frequência
-Todo mês
-
-Vencimento
-Dia 10
-
-[Cancelar] [Criar recorrência]
-```
-
-Após confirmação:
-
-```text
-✓ Gasto recorrente criado
-
-Internet
-R$ 120,00
-Todo dia 10
-```
-
----
-
-# 14. Exemplo: consultar gastos
-
-Cliente:
-
-```text
-Quanto gastei com mercado?
-```
-
-Dashboard dentro da resposta da assistente:
-
-```text
-Mercado
-
-R$ 500,00
-
-↓ 12%
-vs. mês anterior
-```
-
-Complemento:
-
-```text
-Você gastou R$ 500,00 em Mercado
-este mês, 12% menos que no mês anterior.
-```
-
-Ações:
-
-```text
-[Ver transações]
-[Comparar com mês passado]
-```
-
----
-
-# 15. Exemplo: gráfico
-
-Cliente:
-
-```text
-Como meus gastos mudaram nos últimos 6 meses?
-```
-
-A assistente deve inserir no chat:
-
-```text
-Gastos nos últimos 6 meses
-
-[gráfico de linha]
-
-Total atual
-R$ 3.420
-
-Média mensal
-R$ 3.610
-```
-
-Não mostrar gráfico se a pergunta não se beneficiar dele.
-
-Usar Recharts já existente.
-
----
-
-# 16. Exemplo: próximas contas
-
-Cliente:
-
-```text
-Quais são minhas próximas contas?
-```
-
-Dashboard:
-
-```text
-Próximos compromissos
-
-Internet
-Amanhã
-R$ 119,90
-
-Faculdade
-Em 5 dias
-R$ 450,00
-
-Energia
-Em 9 dias
-~ R$ 190,00
-
-[Ver todos]
-```
-
-A assistente deve resumir verbalmente, sem ler todos os detalhes de forma cansativa.
-
----
-
-# 17. Exemplo: organização financeira
-
-Cliente:
-
-```text
-Organiza meus R$ 4.500.
-```
-
-Dashboard dentro do chat:
-
-```text
-Organização sugerida
-
-Contas
-R$ 1.995
-
+Moradia
 Alimentação
-R$ 600
-
 Transporte
-R$ 300
-
+Saúde
+Dívidas
 Reserva
-R$ 500
-
-Margem
-R$ 300
-
-Livre
-R$ 805
-
-[Editar] [Aplicar]
+Metas
+Lazer
 ```
 
-A assistente:
+Usar ícones de categoria existentes.
+
+---
+
+# 9. Etapa 5 — Quanto controle deseja
+
+Pergunta:
 
 ```text
-Preparei uma organização.
-R$ 3.695 ficam reservados
-e R$ 805 permanecem livres.
+Como você quer que o Atlas te ajude?
 ```
 
-Não aplicar automaticamente.
+Opções:
 
-Ao tocar em `Aplicar`, executar a ação ou abrir confirmação final, conforme a regra do domínio.
-
----
-
-# 18. Resposta multimodal
-
-O agente não deve retornar somente texto.
-
-Criar um modelo intermediário de apresentação:
-
-```ts
-interface AiPresentation {
-  speech?: string;
-  text?: string;
-  summary?: string;
-  blocks: AiVisualBlock[];
-  actions?: AiAction[];
-  confirmation?: AiConfirmation;
-}
-```
-
-A resposta deve ser adequada para:
-
-* renderização no chat;
-* leitura visual;
-* reprodução por voz;
-* interação por botões;
-* confirmação;
-* continuidade da conversa.
-
----
-
-# 19. Visual Blocks
-
-Criar union tipada:
-
-```ts
-type AiVisualBlock =
-  | AiMetricBlock
-  | AiCategoryBlock
-  | AiTransactionsBlock
-  | AiChartBlock
-  | AiBudgetBlock
-  | AiRecurringBlock
-  | AiPlanBlock
-  | AiComparisonBlock
-  | AiEntityPreviewBlock
-  | AiConfirmationBlock
-  | AiSuccessBlock
-  | AiErrorBlock
-  | AiActionBlock
-  | AiFormBlock;
-```
-
-A IA não deve gerar HTML.
-
-A IA não deve gerar JSX.
-
-A IA não escolhe CSS.
-
-A IA apenas solicita componentes previamente definidos.
-
----
-
-# 20. Tipos de blocos
-
-Os blocos devem cobrir tanto consultas quanto ações.
-
-Exemplos:
+### Simples
 
 ```text
-metric
-category
-transactions
-chart
-budget
-recurring
-plan
-comparison
-entity-preview
-confirmation
-success
-error
-action
-form
+Só quero acompanhar
 ```
+
+Descrição:
+
+```text
+Saldo, gastos e histórico.
+```
+
+### Guiado
+
+```text
+Quero sugestões
+```
+
+Descrição:
+
+```text
+Alertas, limites e recomendações.
+```
+
+### Assistido
+
+```text
+Quero organizar junto com o Atlas
+```
+
+Descrição:
+
+```text
+Planejamento, dinheiro livre e IA.
+```
+
+### Automático
+
+```text
+Quero automatizar o máximo possível
+```
+
+Descrição:
+
+```text
+O Atlas prepara tudo e você revisa.
+```
+
+Salvar:
+
+```ts
+organizationLevel:
+  | 'tracking'
+  | 'guided'
+  | 'assisted'
+  | 'automatic'
+```
+
+Não conceder permissões destrutivas extras por causa desta escolha.
+
+A política de confirmação continua valendo.
 
 ---
 
-# 21. Metric Block
+# 10. Etapa 6 — Nome
+
+Pergunta:
+
+```text
+Como podemos chamar você?
+```
+
+Usar:
+
+```text
+Field
+input text
+```
 
 Exemplo:
 
+```text
+Claudio
+```
+
+Salvar em:
+
 ```ts
-{
-  type: 'metric',
-  label: 'Dinheiro livre',
-  valueInCents: 184500,
-  helper: 'Até o próximo pagamento',
-  icon: 'wallet'
+profileName
+```
+
+Essa informação deve substituir qualquer:
+
+```text
+Olá, Daniel
+```
+
+hardcoded.
+
+Dashboard:
+
+```text
+Olá, Claudio
+```
+
+---
+
+# 11. Etapa 7 — Configuração financeira inicial
+
+Título:
+
+```text
+Vamos dar contexto ao Atlas?
+```
+
+Oferecer três caminhos:
+
+```text
+Adicionar minha primeira conta
+
+Importar meu extrato
+
+Fazer isso depois
+```
+
+Não obrigar o usuário a fornecer dinheiro.
+
+---
+
+# 12. Primeira conta
+
+Se escolher adicionar conta:
+
+reutilizar fluxo existente de conta.
+
+Perguntar apenas:
+
+```text
+Nome da conta
+Saldo atual
+```
+
+Não duplicar `AccountModal`.
+
+Se for necessário criar uma versão simplificada, utilizar os mesmos services/store/componentes.
+
+---
+
+# 13. Próximo recebimento
+
+Se `incomePattern === fixed`, depois da conta pode aparecer:
+
+```text
+Quando costuma receber?
+```
+
+Campos:
+
+```text
+Valor
+Data
+```
+
+Usar obrigatoriamente:
+
+```text
+MoneyInput
+DatePicker
+```
+
+Mostrar:
+
+```text
+Pular por enquanto
+```
+
+---
+
+# 14. Finalização
+
+Última tela deve mostrar uma pequena montagem do perfil.
+
+Exemplo:
+
+```text
+Seu Atlas está pronto
+
+Objetivo
+Juntar dinheiro
+
+Prioridades
+Moradia • Reserva • Alimentação
+
+Estilo
+Acompanhamento guiado
+```
+
+CTA:
+
+```text
+[ Entrar no Atlas ]
+```
+
+---
+
+# 15. PERSONALIZAÇÃO REAL DO APLICATIVO
+
+O onboarding não pode ser apenas decorativo.
+
+Criar algo equivalente a:
+
+```ts
+export interface FinancialProfile {
+  primaryGoal:
+    | 'organize'
+    | 'reduce-spending'
+    | 'save'
+    | 'debt'
+    | 'safe-spend'
+    | 'tracking'
+
+  incomePattern:
+    | 'fixed'
+    | 'variable'
+    | 'multiple'
+    | 'unknown'
+
+  difficulties: string[]
+
+  priorities: string[]
+
+  organizationLevel:
+    | 'tracking'
+    | 'guided'
+    | 'assisted'
+    | 'automatic'
+
+  preferredFeatures: {
+    freeMoney: boolean
+    dailySpend: boolean
+    recurring: boolean
+    budgets: boolean
+    goals: boolean
+    alerts: boolean
+    aiPlanning: boolean
+    forecast: boolean
+  }
 }
 ```
 
-Renderização:
+Salvar dentro do `FinanceData`.
+
+Também adicionar:
+
+```ts
+profileName: string
+onboardingCompleted: boolean
+financialProfile?: FinancialProfile
+```
+
+Criar migração segura para usuários existentes.
+
+Usuários atuais não podem perder dados.
+
+---
+
+# 16. Regras automáticas de features
+
+Derivar `preferredFeatures` das respostas.
+
+Exemplo:
+
+## `safe-spend`
+
+Ativar destaque:
 
 ```text
+Quanto posso gastar hoje
 Dinheiro livre
+Alertas
+```
 
-R$ 1.845,00
+## `save`
 
-Até o próximo pagamento
+Destacar:
+
+```text
+Metas
+Dinheiro livre
+Organizar pagamento
+```
+
+## `debt`
+
+Destacar:
+
+```text
+Compromissos
+Orçamento
+Previsão
+```
+
+## `tracking`
+
+Dashboard mais enxuto:
+
+```text
+Saldo
+Receitas
+Despesas
+Categorias
+Transações
 ```
 
 ---
 
-# 22. Category Block
+# 17. Dashboard adaptativo
+
+Não criar dashboards completamente diferentes.
+
+Usar o dashboard existente e apenas:
+
+```text
+ordenar
+destacar
+reduzir
+ocultar elementos secundários
+```
+
+baseado no perfil.
 
 Exemplo:
 
 ```ts
-{
-  type: 'category',
-  categoryId: 'category-id',
-  label: 'Mercado',
-  valueInCents: 50000,
-  comparison: {
-    direction: 'down',
-    percentage: 12,
-    label: 'vs. mês anterior'
-  },
-  showSparkline: true,
-  actions: [
-    {
-      type: 'open-category',
-      entityId: 'category-id',
-      label: 'Ver detalhes'
-    }
-  ]
-}
+getDashboardPriority(financialProfile)
 ```
 
-Renderização:
-
-```text
-Mercado
-
-R$ 500,00
-
-↓ 12%
-vs. mês anterior
-
-[mini gráfico]
-[Ver detalhes]
-```
-
----
-
-# 23. Chart Block
-
-Exemplo:
+Retornar:
 
 ```ts
-{
-  type: 'chart',
-  title: 'Gastos nos últimos 6 meses',
-  chartType: 'line',
-  data: [...]
-}
+[
+  'safe-daily-spend',
+  'free-money',
+  'recurring',
+  'budget',
+  'forecast'
+]
 ```
 
-Renderizar com Recharts.
+Evitar dezenas de condições dentro de `Dashboard()`.
 
 ---
 
-# 24. Transaction List Block
+# 18. ANIMAÇÕES — PRIORIDADE MÁXIMA
 
-Exemplo:
+A experiência precisa ser extremamente bem polida.
 
-```ts
-{
-  type: 'transactions',
-  title: 'Últimas compras no mercado',
-  items: [...],
-  maxItems: 5,
-  actions: [
-    {
-      type: 'open-transactions',
-      label: 'Ver todas'
-    }
-  ]
-}
-```
+Não usar animações simplesmente decorativas.
 
----
-
-# 25. Budget Block
-
-Exemplo:
-
-```ts
-{
-  type: 'budget',
-  categoryId: 'food',
-  label: 'Alimentação',
-  usedInCents: 62000,
-  limitInCents: 80000,
-  percentage: 77,
-  remainingInCents: 18000
-}
-```
-
-Renderização:
+Cada animação deve informar:
 
 ```text
-Alimentação
-
-R$ 620 de R$ 800
-
-77% utilizado
-
-[barra de progresso]
+seleção
+progresso
+mudança de estado
+avanço
+sucesso
+erro
 ```
 
 ---
 
-# 26. Recurring Block
+# 19. Tecnologia das animações
 
-Exemplo:
+Priorizar:
 
-```ts
-{
-  type: 'recurring',
-  recurringId: 'recurring-id',
-  label: 'Internet',
-  amountInCents: 11990,
-  dueLabel: 'Vence amanhã',
-  actions: [
-    {
-      type: 'open-recurring',
-      entityId: 'recurring-id',
-      label: 'Ver compromisso'
-    }
-  ]
-}
+```text
+CSS transitions
+CSS keyframes
+transform
+opacity
+```
+
+Não adicionar Framer Motion ou GSAP automaticamente.
+
+O projeto precisa continuar leve e funcionar bem no Android WebView.
+
+Se realmente houver necessidade de biblioteca externa, justificar antes.
+
+---
+
+# 20. Performance obrigatória
+
+Animar principalmente:
+
+```text
+transform
+opacity
+```
+
+Evitar animações contínuas de:
+
+```text
+width
+height
+top
+left
+box-shadow gigante
+filter pesado
+```
+
+quando `transform` puder resolver.
+
+Objetivo:
+
+```text
+60 FPS em aparelho Android intermediário
 ```
 
 ---
 
-# 27. Financial Plan Block
+# 21. Entrada de cada tela
 
-Exemplo:
+Ao avançar:
 
-```ts
-{
-  type: 'plan',
-  title: 'Organização sugerida',
-  items: [
-    {
-      label: 'Contas',
-      amountInCents: 199500
-    },
-    {
-      label: 'Alimentação',
-      amountInCents: 60000
-    }
-  ],
-  actions: [
-    {
-      type: 'edit-plan',
-      label: 'Editar'
-    },
-    {
-      type: 'apply-plan',
-      label: 'Aplicar'
-    }
-  ]
-}
-```
-
----
-
-# 28. Entity Preview Block
-
-Usar para ações de criação ou edição antes da confirmação.
-
-Exemplo:
-
-```ts
-{
-  type: 'entity-preview',
-  entityType: 'category',
-  operation: 'create',
-  title: 'Nova categoria',
-  fields: [
-    {
-      label: 'Nome',
-      value: 'Viagens'
-    },
-    {
-      label: 'Cor',
-      value: 'Azul'
-    }
-  ],
-  confirmationRequired: true
-}
-```
-
----
-
-# 29. Confirmation Block
-
-Usar para ações que precisam de confirmação.
-
-Exemplo:
-
-```ts
-{
-  type: 'confirmation',
-  title: 'Criar categoria',
-  description: 'Confirme a criação da categoria Viagens.',
-  severity: 'normal',
-  confirmAction: {
-    type: 'create-category',
-    payload: {
-      name: 'Viagens'
-    },
-    label: 'Criar categoria'
-  },
-  cancelAction: {
-    type: 'cancel',
-    label: 'Cancelar'
-  }
-}
-```
-
-Para exclusões:
-
-```ts
-{
-  type: 'confirmation',
-  title: 'Excluir categoria',
-  description: 'Essa ação não poderá ser desfeita.',
-  severity: 'danger',
-  confirmAction: {
-    type: 'delete-category',
-    payload: {
-      categoryId: '...'
-    },
-    label: 'Excluir categoria'
-  }
-}
-```
-
----
-
-# 30. Success Block
-
-Após uma ação concluída:
-
-```ts
-{
-  type: 'success',
-  title: 'Categoria criada',
-  description: 'A categoria Viagens está pronta para ser usada.',
-  entity: {
-    type: 'category',
-    id: '...'
-  }
-}
-```
-
-Renderização:
+Tela atual:
 
 ```text
-✓ Categoria criada
-
-Viagens
-
-A categoria está pronta para ser usada.
+opacity 1 → 0
+translateX(0) → translateX(-18px)
+scale(1) → .99
 ```
 
----
-
-# 31. Error Block
-
-Se uma ação falhar:
-
-```ts
-{
-  type: 'error',
-  title: 'Não foi possível criar a categoria',
-  description: 'Tente novamente em alguns instantes.',
-  retryAction: {
-    type: 'retry',
-    label: 'Tentar novamente'
-  }
-}
-```
-
----
-
-# 32. Form Block
-
-Quando o pedido estiver incompleto, mostrar um formulário curto dentro do chat.
-
-Exemplo:
-
-Cliente:
+aproximadamente:
 
 ```text
-Crie uma categoria.
+180–220ms
 ```
 
-Assistente:
-
-```text
-Qual nome você quer usar?
-```
-
-Se for melhor apresentar uma interface:
-
-```text
-Nova categoria
-
-Nome
-[Digite o nome]
-
-Cor
-[Selecionar cor]
-
-[Cancelar] [Continuar]
-```
-
-Não exigir que o cliente repita informações que já forneceu.
-
----
-
-# 33. Regra crítica de segurança
-
-Nunca fazer:
-
-```text
-DeepSeek → HTML → dangerouslySetInnerHTML
-```
-
-Nunca deixar o modelo construir a interface arbitrariamente.
-
-Fluxo correto:
-
-```text
-DeepSeek
-↓
-JSON estruturado
-↓
-Zod
-↓
-AiVisualBlock
-↓
-React Component dentro da mensagem do chat
-```
-
----
-
-# 34. Ações seguras
-
-A IA nunca recebe controle direto da UI.
-
-Não permitir:
-
-```text
-navigateTo arbitrary URL
-execute JS
-render HTML
-run code
-```
-
-Ações permitidas devem ser enumerações seguras.
-
-Exemplo:
-
-```ts
-type AiActionType =
-  | 'create-category'
-  | 'update-category'
-  | 'delete-category'
-  | 'create-transaction'
-  | 'update-transaction'
-  | 'delete-transaction'
-  | 'create-recurring'
-  | 'apply-plan'
-  | 'open-category'
-  | 'open-transactions'
-  | 'open-recurring'
-  | 'retry'
-  | 'cancel';
-```
-
----
-
-# 35. Execução de ações
-
-O fluxo de ações deve ser:
-
-```text
-cliente solicita
-↓
-IA interpreta
-↓
-tool valida os dados
-↓
-dashboard de confirmação aparece no chat
-↓
-cliente confirma
-↓
-aplicação executa a tool
-↓
-resultado é salvo no repository/store
-↓
-mensagem de sucesso aparece no chat
-```
-
-O botão não deve executar lógica financeira diretamente dentro do componente visual.
-
-O botão deve disparar uma ação segura para o agent/action handler.
-
----
-
-# 36. Agent loop existente
-
-O sistema deve utilizar o mesmo agente financeiro existente.
-
-Não criar um segundo sistema de IA separado para o chat.
-
-Fluxo para texto:
-
-```text
-mensagem do cliente
-↓
-chat agent
-↓
-DeepSeek
-↓
-tools financeiras
-↓
-JSON estruturado
-↓
-Zod
-↓
-mensagem da assistente
-↓
-dashboard dentro do chat
-```
-
-Fluxo para voz:
-
-```text
-fala
-↓
-STT
-↓
-mensagem do cliente no chat
-↓
-DeepSeek
-↓
-tools financeiras
-↓
-JSON estruturado
-↓
-dashboard dentro do chat
-↓
-TTS
-```
-
----
-
-# 37. Mensagem de voz dentro do chat
-
-Quando o cliente fizer uma pergunta por voz, a transcrição deve aparecer como mensagem do cliente no chat.
-
-Exemplo:
-
-```text
-Cliente
-Quanto gastei com mercado este mês?
-```
-
-Depois a resposta da assistente aparece normalmente:
-
-```text
-Assistente
-Aqui está seu resumo.
-```
-
-Com o dashboard abaixo.
-
-Não esconder completamente a pergunta reconhecida.
-
-A transcrição pode ser compacta, mas deve fazer parte do histórico da conversa.
-
----
-
-# 38. Speech-to-Text
-
-Criar uma abstração:
-
-```ts
-SpeechRecognitionService
-```
-
-Não colocar implementação de reconhecimento de voz diretamente no componente do chat.
-
-Interface possível:
-
-```ts
-interface SpeechRecognitionService {
-  start(): Promise<void>;
-  stop(): Promise<string>;
-  cancel(): void;
-  isSupported(): boolean;
-}
-```
-
----
-
-# 39. Implementação inicial Web
-
-Como o projeto roda no navegador, pode utilizar inicialmente APIs compatíveis com Web Speech quando disponíveis.
-
-Porém:
-
-* encapsular a implementação;
-* detectar suporte;
-* oferecer fallback;
-* não acoplar domínio à API do navegador;
-* integrar o resultado ao composer do chat.
-
-Estrutura:
-
-```text
-SpeechRecognitionService
-        ↓
-WebSpeechRecognitionAdapter
-        ↓
-ChatComposer
-        ↓
-Mensagem do cliente
-```
-
-Isso permitirá trocar posteriormente por:
-
-```text
-Whisper
-Deepgram
-Google Speech
-OpenAI Speech
-outro serviço
-```
-
----
-
-# 40. Fallback de voz
-
-Se reconhecimento de voz não estiver disponível:
-
-mostrar no composer ou dentro do chat:
-
-```text
-Seu navegador não oferece reconhecimento de voz.
-
-Você ainda pode escrever sua pergunta.
-```
-
-Adicionar botão:
-
-```text
-Usar teclado
-```
-
-Nunca impedir o acesso à assistente.
-
----
-
-# 41. Text-to-Speech
-
-Criar abstração:
-
-```ts
-TextToSpeechService
-```
-
-Exemplo:
-
-```ts
-interface TextToSpeechService {
-  speak(text: string): Promise<void>;
-  stop(): void;
-  pause(): void;
-  resume(): void;
-}
-```
-
-Inicialmente pode utilizar:
-
-```text
-SpeechSynthesis API
-```
-
-quando adequado.
-
-Não chamar diretamente:
-
-```ts
-window.speechSynthesis
-```
-
-dentro do componente do chat.
-
----
-
-# 42. Preparar TTS melhor
-
-A arquitetura deve permitir futuramente usar:
-
-```text
-ElevenLabs
-OpenAI TTS
-Google TTS
-Azure Speech
-```
-
-sem reescrever a interface do chat.
-
----
-
-# 43. Sincronização entre voz e dashboard
-
-Não esperar o TTS terminar para exibir o resultado.
-
-Fluxo:
-
-```text
-tools concluíram
-↓
-mensagem da assistente é adicionada ao chat
-↓
-dashboard é renderizado dentro da mensagem
-↓
-TTS reproduz o speech
-```
-
-O cliente deve ver o resultado enquanto escuta a assistente.
-
----
-
-# 44. Respostas curtas em voz
-
-O texto falado não deve ser uma leitura completa do dashboard.
-
-Exemplo ruim:
-
-```text
-Mercado, valor gasto 500 reais,
-queda de 12 por cento,
-ver transações,
-comparar com mês passado...
-```
-
-Preferir:
-
-```text
-Você gastou R$ 500 em mercado neste mês,
-12% menos que no mês passado.
-```
-
-O dashboard fornece os detalhes visualmente.
-
----
-
-# 45. Separar speech de display
-
-Criar:
-
-```ts
-{
-  speech: 'Você gastou R$ 500 em mercado neste mês, 12% menos que no mês passado.',
-  text: 'Aqui está seu resumo.',
-  summary: 'Você gastou R$ 500,00 em Mercado este mês.',
-  blocks: [...],
-  actions: [...]
-}
-```
-
-`speech` deve ser otimizado para voz.
-
-`text` e `summary` devem ser otimizados para leitura no chat.
-
----
-
-# 46. Estado do chat
-
-O chat deve possuir estados explícitos para processamento e ações.
-
-Exemplo:
-
-```ts
-type ChatRequestState =
-  | 'idle'
-  | 'transcribing'
-  | 'processing'
-  | 'awaiting-confirmation'
-  | 'executing-action'
-  | 'responding'
-  | 'error';
-```
-
-Evitar vários booleanos independentes que possam gerar estados impossíveis.
-
----
-
-# 47. Feedback de processamento dentro do chat
-
-Enquanto a IA processa:
-
-```text
-Consultando seus gastos...
-```
-
-```text
-Comparando os meses...
-```
-
-```text
-Preparando sua categoria...
-```
-
-```text
-Validando os dados...
-```
-
-```text
-Preparando a confirmação...
-```
-
-Esses estados devem aparecer como mensagens temporárias ou indicadores da assistente dentro do chat.
-
-Nunca mostrar:
-
-```text
-getTransactionsByCategory()
-```
-
-ou nomes técnicos de tools.
-
----
-
-# 48. Confirmação por botão ou voz
-
-Toda confirmação deve funcionar por:
-
-* botão dentro do dashboard;
-* texto no chat;
-* voz.
-
-Exemplo:
-
-Assistente:
-
-```text
-Preparei a categoria Viagens.
-Quer criar?
-```
-
-Cliente:
-
-```text
-Sim.
-```
-
-ou:
-
-```text
-[Cancelar] [Criar categoria]
-```
-
-Ambos devem executar a mesma ação segura.
-
----
-
-# 49. Contexto da confirmação
-
-O agente deve saber que a resposta:
-
-```text
-Sim
-```
-
-refere-se à última ação pendente.
-
-Criar contexto semelhante a:
-
-```ts
-interface PendingAction {
-  id: string;
-  type: AiActionType;
-  payload: unknown;
-  confirmationRequired: boolean;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'failed';
-}
-```
-
-Não executar uma ação antiga ou ambígua.
-
-Se houver mais de uma ação pendente, pedir esclarecimento.
-
----
-
-# 50. Contexto da conversa
-
-Manter contexto suficiente para follow-ups.
-
-Exemplo:
-
-```text
-Cliente:
-Quanto gastei no mercado?
-
-Assistente:
-[dashboard Mercado]
-
-Cliente:
-E mês passado?
-```
-
-O agente deve entender que:
-
-```text
-mês passado
-```
-
-refere-se a:
-
-```text
-Mercado
-```
-
-Outro exemplo:
-
-```text
-Cliente:
-Crie uma categoria chamada Viagens.
-
-Assistente:
-[confirmação]
-
-Cliente:
-Sim.
-```
-
-O agente deve entender que `Sim` confirma a criação da categoria.
-
----
-
-# 51. Contexto visual
-
-O agente deve saber quais dashboards estão visíveis no chat e qual é o foco atual.
-
-Criar contexto semelhante a:
-
-```ts
-interface ChatVisualContext {
-  visibleBlocks: string[];
-  focusedEntity?: {
-    type: string;
-    id: string;
-  };
-  pendingAction?: PendingAction;
-  lastAssistantPresentation?: AiPresentation;
-}
-```
-
-Assim:
-
-```text
-E essa categoria?
-```
-
-pode referir-se ao card atual.
-
----
-
-# 52. Histórico do chat
-
-O histórico deve manter:
-
-* mensagens do cliente;
-* mensagens da assistente;
-* dashboards;
-* confirmações;
-* resultados de ações;
-* erros relevantes.
-
-Não transformar o histórico em uma lista de dashboards desconectados.
-
-Cada dashboard deve permanecer associado à mensagem que o gerou.
-
----
-
-# 53. Atualização dinâmica
-
-Quando uma nova pergunta chegar, adicionar uma nova mensagem da assistente com o dashboard correspondente.
-
-Não substituir silenciosamente o histórico anterior.
-
-Porém, dentro da mensagem atual, não empilhar dezenas de cards sem necessidade.
-
-Exemplo:
-
-```text
-Pergunta 1
-→ mensagem da assistente com CategoryBlock
-
-Pergunta 2
-→ nova mensagem da assistente com ChartBlock
-```
-
-O histórico permanece coerente.
-
----
-
-# 54. Layout do dashboard dentro do chat
-
-Cada mensagem da assistente pode conter:
-
-```text
-1 texto curto
-+
-1 dashboard principal
-+
-1 bloco complementar
-+
-2–3 ações contextuais
-```
-
-Evitar excesso de conteúdo.
-
-Exemplo adequado:
-
-```text
-texto da assistente
-+
-CategoryBlock
-+
-ComparisonBlock
-+
-2 ações
-```
-
-Exemplo inadequado:
-
-```text
-texto
-+
-5 gráficos
-+
-4 listas
-+
-10 botões
-+
-3 formulários
-```
-
----
-
-# 55. Animações de entrada
-
-Quando uma mensagem da assistente ou dashboard surgir:
+Próxima tela:
 
 ```text
 opacity 0 → 1
-translateY 8px → 0
+translateX(22px) → 0
+scale(.985) → 1
+```
+
+aproximadamente:
+
+```text
+280–340ms
+```
+
+Curva sugerida:
+
+```css
+cubic-bezier(.22, 1, .36, 1)
+```
+
+Não fazer slides exagerados.
+
+---
+
+# 22. Botão Voltar
+
+Ao voltar:
+
+inverter direção.
+
+```text
+tela atual → direita
+tela anterior → entra pela esquerda
+```
+
+Assim o movimento comunica navegação espacial.
+
+---
+
+# 23. Progress bar
+
+Topo:
+
+```text
+←   ███████████░░░░
+```
+
+Barra fina e arredondada.
+
+Ao trocar de etapa:
+
+não atualizar instantaneamente.
+
+Animar:
+
+```text
+scaleX
+```
+
+ou transform equivalente.
+
+Duração:
+
+```text
+350–450ms
+```
+
+Easing suave.
+
+Nunca animar `width` a cada frame se puder usar `transform: scaleX`.
+
+---
+
+# 24. Seleção dos cards
+
+Card normal:
+
+```text
+scale(1)
+border neutra
+background branco
+```
+
+Ao tocar:
+
+FASE 1:
+
+```text
+scale(.97)
+80ms
+```
+
+FASE 2:
+
+```text
+scale(1.015)
+border brand
+background azul extremamente suave
+```
+
+FASE 3:
+
+```text
+scale(1)
+```
+
+Total:
+
+```text
+220–300ms
+```
+
+Resultado deve parecer “resposta física” ao toque.
+
+---
+
+# 25. Check animado
+
+Quando selecionar:
+
+um círculo/check aparece no lado direito.
+
+Entrada:
+
+```text
+scale(.4)
+opacity 0
+rotation -20deg
+```
+
+para:
+
+```text
+scale(1)
+opacity 1
+rotation 0
+```
+
+aproximadamente:
+
+```text
+220ms
+```
+
+Usar `Check` do Lucide.
+
+---
+
+# 26. Ícones
+
+Ícone do card selecionado pode fazer:
+
+```text
+translateY(0)
+→ -2px
+→ 0
+```
+
+ou pequeno:
+
+```text
+scale 1 → 1.12 → 1
+```
+
+Não girar ícones financeiros sem sentido.
+
+---
+
+# 27. CTA Continuar
+
+Enquanto nenhuma opção estiver selecionada:
+
+```text
+disabled
+opacity .45
+```
+
+Quando seleção se tornar válida:
+
+```text
+opacity .45 → 1
+translateY(4px) → 0
+scale(.98) → 1
 ```
 
 Duração:
 
 ```text
-180–300ms
-```
-
-Cards de confirmação e sucesso podem ter uma animação discreta.
-
-Não utilizar animações excessivas.
-
----
-
-# 56. Componentes sugeridos
-
-Criar ou adaptar aproximadamente:
-
-```text
-AssistantChat
-ChatMessageList
-ChatMessage
-AssistantMessage
-UserMessage
-ChatComposer
-ChatVoiceButton
-ChatTypingIndicator
-ChatConfirmationHandler
-AiVisualRenderer
-AiMetricCard
-AiCategoryCard
-AiChartCard
-AiTransactionsCard
-AiBudgetCard
-AiRecurringCard
-AiPlanCard
-AiEntityPreviewCard
-AiConfirmationCard
-AiSuccessCard
-AiErrorCard
-AiFormCard
-AiActionButtons
-VoiceWaveform
-VoiceTranscript
-```
-
-Reutilizar componentes existentes quando possível.
-
-Não criar uma segunda interface de chat.
-
----
-
-# 57. Visual Renderer dentro do chat
-
-Criar componente central:
-
-```tsx
-<AiVisualRenderer
-  blocks={message.presentation?.blocks ?? []}
-  actions={message.presentation?.actions ?? []}
-/>
-```
-
-Ele deve mapear:
-
-```text
-metric → AiMetricCard
-category → AiCategoryCard
-chart → AiChartCard
-transactions → AiTransactionsCard
-budget → AiBudgetCard
-recurring → AiRecurringCard
-plan → AiPlanCard
-entity-preview → AiEntityPreviewCard
-confirmation → AiConfirmationCard
-success → AiSuccessCard
-error → AiErrorCard
-form → AiFormCard
-```
-
-Não usar condições gigantes dentro de `AssistantChat`.
-
----
-
-# 58. Validação
-
-Todo conteúdo vindo da IA deve passar por Zod.
-
-Fluxo:
-
-```text
-AI
-↓
-JSON
-↓
-Zod
-↓
-AiPresentation
-↓
-ChatMessage
-↓
-AiVisualRenderer
-```
-
-Se um bloco for inválido:
-
-* ignorar o bloco com segurança;
-* manter o texto da assistente;
-* mostrar fallback quando necessário;
-* não quebrar o chat.
-
----
-
-# 59. Tools financeiras
-
-Reutilizar as tools existentes.
-
-As tools devem ser responsáveis por:
-
-* consultar transações;
-* consultar categorias;
-* criar categorias;
-* editar categorias;
-* excluir categorias;
-* criar transações;
-* editar transações;
-* excluir transações;
-* consultar recorrências;
-* criar recorrências;
-* editar recorrências;
-* excluir recorrências;
-* consultar orçamentos;
-* criar ou atualizar orçamentos;
-* gerar planejamento financeiro;
-* aplicar planejamento após confirmação.
-
-Não duplicar regras de negócio nos componentes visuais.
-
----
-
-# 60. Separação de camadas
-
-Não misturar:
-
-```text
-STT
-TTS
-IA
-chat
-UI
-domínio financeiro
-persistência
-```
-
-em um único componente.
-
-Manter camadas separadas:
-
-```text
-Chat UI
-↓
-Chat Controller
-↓
-Agent Service
-↓
-Tool Executor
-↓
-Repositories / Stores
-```
-
-Para voz:
-
-```text
-Chat Voice Button
-↓
-SpeechRecognitionService
-↓
-Chat Controller
-```
-
-Para áudio da assistente:
-
-```text
-Chat Controller
-↓
-TextToSpeechService
+200–240ms
 ```
 
 ---
 
-# 61. Privacidade
+# 28. Feedback após algumas respostas
 
-Não gravar áudio permanentemente por padrão.
+Depois de determinadas respostas, mostrar micro-feedback antes da próxima pergunta.
 
-Não salvar gravações no IndexedDB.
+Exemplo:
 
-Não enviar áudio para serviços externos quando a implementação atual estiver usando reconhecimento local/nativo do navegador.
+usuário escolheu:
 
-Se futuramente houver STT remoto, deixar explícito.
+```text
+Renda variável
+```
+
+Mostrar por ~600ms:
+
+```text
+Tudo bem.
+
+Vamos deixar uma margem maior
+para meses imprevisíveis.
+```
+
+Com animação:
+
+```text
+check-pop
++
+fade
+```
+
+Depois avançar.
+
+Não mostrar isso em todas as telas.
+
+Aproximadamente 2 ou 3 vezes durante onboarding.
 
 ---
 
-# 62. Permissão de microfone
+# 29. Multi-select
 
-No primeiro uso:
+Ao selecionar prioridades:
 
-```text
-O microfone será utilizado apenas enquanto você estiver usando a assistente.
-```
+os chips/cards devem reorganizar visualmente sem saltos.
 
-Depois solicitar permissão.
+Não alterar layout dramaticamente.
 
-Se a permissão for negada:
+Mostrar indicador:
 
 ```text
-Não conseguimos acessar o microfone.
-
-Você pode permitir o acesso nas configurações do navegador
-ou continuar usando o teclado.
+2 de 3 selecionados
 ```
+
+Quando chegar a 3:
+
+```text
+3 de 3 selecionados
+```
+
+com pequeno `check-pop`.
+
+---
+
+# 30. Limite excedido
+
+Se tentar selecionar quarta prioridade:
+
+não mostrar modal.
+
+Fazer card:
+
+```text
+translateX(-3px)
+→ +3px
+→ -2px
+→ 0
+```
+
+durante ~220ms.
+
+Mostrar texto curto:
+
+```text
+Escolha até 3 prioridades.
+```
+
+---
+
+# 31. Campo de nome
+
+Quando usuário começar a digitar:
+
+avatar/logo visual acima pode trocar:
+
+```text
+Olá!
+```
+
+para:
+
+```text
+Olá, Claudio
+```
+
+com crossfade.
+
+Não esperar clicar em Continuar.
+
+---
+
+# 32. Primeira conta
+
+Ao inserir saldo:
+
+valor deve usar comportamento visual já existente do `MoneyInput`.
+
+Não inventar nova animação conflitante.
+
+---
+
+# 33. Tela de conclusão
+
+Essa deve ser a animação mais satisfatória.
+
+Sequência:
+
+## 1
+
+Logo Atlas:
+
+```text
+scale .82 → 1
+opacity 0 → 1
+```
+
+## 2
+
+Check:
+
+```text
+draw/pop visual
+```
+
+## 3
+
+Título:
+
+```text
+Seu Atlas está pronto
+```
+
+entra com:
+
+```text
+translateY(12px) → 0
+opacity 0 → 1
+```
+
+## 4
+
+Resumo aparece em stagger:
+
+```text
+Objetivo
+Prioridades
+Estilo
+```
+
+aproximadamente:
+
+```text
+70–100ms entre itens
+```
+
+## 5
+
+Botão:
+
+```text
+Entrar no Atlas
+```
+
+aparece por último.
+
+---
+
+# 34. NÃO utilizar confetti pesado
+
+Se houver celebração, usar apenas partículas muito discretas ou pequenas formas do design system.
+
+Preferível:
+
+```text
+sparkles sutis
+```
+
+com Lucide ou elementos CSS.
+
+Não instalar biblioteca de confetti.
+
+---
+
+# 35. Stagger
+
+Cards da pergunta podem entrar sequencialmente:
+
+```text
+card 1 → 0ms
+card 2 → 45ms
+card 3 → 90ms
+card 4 → 135ms
+```
+
+Máximo recomendado:
+
+```text
+40–60ms
+```
+
+Não tornar onboarding lento.
+
+---
+
+# 36. Primeira renderização
+
+Evitar que todos os cards façam animações pesadas imediatamente.
+
+Entrada inicial:
+
+```text
+título
+↓ 50ms
+descrição
+↓ 50ms
+cards
+```
+
+Tempo total:
+
+```text
+< 500ms
+```
+
+---
+
+# 37. Gesture feedback
+
+Android precisa parecer responsivo ao toque.
 
 Adicionar:
 
+```css
+touch-action: manipulation;
+-webkit-tap-highlight-color: transparent;
+```
+
+nos cards/botões apropriados.
+
+Usar `active:` visual.
+
+---
+
+# 38. Haptic feedback — opcional Android
+
+Se Capacitor possuir solução leve já disponível ou for possível sem complicar arquitetura, usar haptic extremamente curto em:
+
 ```text
-Usar teclado
+seleção importante
+conclusão
+```
+
+Nunca em todo clique.
+
+Se exigir nova dependência apenas para isso, deixar preparado mas não instalar nesta tarefa.
+
+---
+
+# 39. Reduced motion
+
+Obrigatório respeitar:
+
+```css
+@media (prefers-reduced-motion: reduce)
+```
+
+Nessa condição:
+
+* remover slides;
+* remover spring/bounce;
+* usar fade muito curto;
+* não bloquear navegação esperando animação.
+
+---
+
+# 40. Navegação inferior
+
+Durante onboarding:
+
+```text
+bottom navigation
+FAB "+"
+Assistente
+```
+
+devem ficar ocultos.
+
+O onboarding ocupa a aplicação inteira.
+
+---
+
+# 41. Safe area Android
+
+Obrigatório:
+
+```css
+padding-top: env(safe-area-inset-top);
+padding-bottom: env(safe-area-inset-bottom);
+```
+
+Principalmente:
+
+```text
+progress bar
+CTA inferior
 ```
 
 ---
 
-# 63. Voice Button dentro do composer
+# 42. CTA inferior
 
-O botão de voz deve ficar dentro do campo de entrada do chat.
+No mobile, botão Continuar deve ficar próximo do polegar.
+
+Estrutura:
+
+```text
+conteúdo scrollável
+
+──────────────
+
+[ Continuar ]
+
+safe area
+```
+
+Pode ser sticky/fixed conforme arquitetura existente.
+
+Não permitir que teclado cubra CTA em telas com campo.
+
+---
+
+# 43. Layout mobile
+
+Container:
+
+```text
+max-width aproximado: 520–640px
+```
+
+Centralizado em desktop.
+
+No celular:
+
+```text
+padding lateral 20–24px
+```
+
+Cards grandes:
+
+```text
+min-height 68–76px
+```
+
+Não ocupar altura absurda.
+
+---
+
+# 44. Desktop
+
+Desktop não deve virar sidebar/admin.
+
+Continuar mostrando experiência central:
+
+```text
+       onboarding
+        520px
+```
+
+com fundo neutro.
+
+---
+
+# 45. Estado temporário do onboarding
+
+Durante as etapas:
+
+```ts
+interface OnboardingDraft {
+  step: number
+  profileName: string
+  primaryGoal?: ...
+  incomePattern?: ...
+  difficulties: string[]
+  priorities: string[]
+  organizationLevel?: ...
+}
+```
+
+Não persistir cada clique financeiro imediatamente.
+
+Persistir configuração final quando apropriado.
+
+Pode salvar progresso do onboarding de forma segura se necessário para recuperação após fechar app.
+
+---
+
+# 46. Botão voltar
+
+Usuário pode voltar sem perder escolhas anteriores.
+
+Não resetar respostas.
+
+---
+
+# 47. Fechar o aplicativo durante onboarding
+
+Ao voltar:
+
+restaurar etapa e escolhas, quando tecnicamente simples.
+
+Não obrigar usuário a começar tudo de novo.
+
+---
+
+# 48. Usuários existentes
+
+Migração:
+
+Se já houver dados financeiros reais no storage e:
+
+```ts
+onboardingCompleted === undefined
+```
+
+não forçar onboarding completo destrutivamente.
+
+Criar regra segura.
 
 Exemplo:
 
 ```text
-┌────────────────────────────┐
-│ Digite sua mensagem...     │
-│                       Mic  │
-└────────────────────────────┘
+dados existentes
+→ onboardingCompleted = true
 ```
 
-Estados:
+ou oferecer onboarding opcional pelo Perfil.
 
-```text
-idle
-listening
-processing
-responding
-error
-```
-
-Durante a gravação:
-
-```text
-Ouvindo...
-```
-
-Mostrar waveform compacta no composer ou acima dele.
-
-Não deslocar o dashboard para uma tela separada.
+Não bloquear usuários atuais.
 
 ---
 
-# 64. Interrupção
+# 49. Editar preferências depois
 
-Se a assistente estiver falando e o cliente tocar no botão de voz:
-
-```text
-TTS para
-↓
-começa a ouvir o cliente
-```
-
-Não obrigar o cliente a esperar toda a resposta terminar.
-
-Preparar arquitetura para futuramente permitir:
+Criar no Perfil:
 
 ```text
-barge-in
+Personalização
 ```
 
-quando o cliente começar a falar durante a resposta.
+Opções:
+
+```text
+Meu objetivo
+Prioridades
+Como o Atlas me ajuda
+Refazer configuração
+```
+
+Não obrigar repetir onboarding inteiro para mudar uma preferência.
 
 ---
 
-# 65. Erro da IA
+# 50. Integração com IA
 
-Se OpenRouter falhar:
+O `FinancialProfile` pode ser incluído de forma compacta no contexto da IA quando relevante.
 
-```text
-Não consegui consultar a assistente agora.
+Exemplo:
 
-Seus dados continuam disponíveis normalmente.
+```json
+{
+  "primaryGoal": "save",
+  "organizationLevel": "assisted",
+  "priorities": ["Moradia", "Reserva", "Alimentação"]
+}
 ```
 
-Dentro do chat, adicionar:
-
-```text
-[Tentar novamente]
-[Usar aplicativo]
-```
+Não mandar o onboarding inteiro para o modelo.
 
 ---
 
-# 66. Erro de ação
+# 51. IA não decide preferências silenciosamente
 
-Se uma criação, edição ou exclusão falhar:
+Preferências explícitas escolhidas pelo usuário são fonte de verdade.
 
-```text
-Não foi possível concluir essa ação.
-
-Nenhuma alteração foi feita.
-```
-
-Dashboard:
+DeepSeek pode sugerir:
 
 ```text
-[ Tentar novamente ]
+Talvez você queira priorizar reserva.
 ```
 
-Não mostrar sucesso se a persistência falhar.
+Mas não alterar `FinancialProfile` sozinho.
 
 ---
 
-# 67. Erro de voz
+# 52. Componentes sugeridos
 
-Se STT falhar:
+Estrutura limpa:
 
 ```text
-Não consegui entender.
-
-Tente novamente ou use o teclado.
+src/onboarding/
+  OnboardingPage.tsx
+  OnboardingShell.tsx
+  OnboardingProgress.tsx
+  OnboardingChoiceCard.tsx
+  OnboardingMultiChoice.tsx
+  OnboardingWelcome.tsx
+  OnboardingComplete.tsx
+  onboardingConfig.ts
+  onboardingProfile.ts
 ```
 
-Não enviar texto vazio à IA.
+Não obrigatoriamente esses nomes, mas separar responsabilidades.
 
 ---
 
-# 68. Timeout
+# 53. Evitar giant component
 
-Adicionar timeout para:
+Não implementar todas as 7 etapas dentro de um JSX com centenas de condicionais.
 
-* reconhecimento;
-* IA;
-* execução de tools;
-* TTS quando necessário.
+Criar configuração declarativa quando fizer sentido.
 
-Não deixar o chat preso em:
+Exemplo:
 
-```text
-Analisando...
+```ts
+const steps = [...]
 ```
 
-ou:
-
-```text
-Preparando...
-```
+E componentes específicos apenas para etapas diferentes.
 
 ---
 
-# 69. Cancelamento
+# 54. Estado de transição
 
-Adicionar cancelamento quando aplicável.
+Evitar clique múltiplo durante transição.
 
-Durante processamento:
+Exemplo:
 
-```text
-Cancelar
+```ts
+isTransitioning
 ```
 
-Abortar request usando:
+Enquanto troca de tela:
 
 ```text
-AbortController
+bloquear Continue por ~300ms
 ```
 
-Se o cliente cancelar uma ação pendente:
-
-```text
-Ação cancelada.
-
-Nenhuma alteração foi feita.
-```
+Não bloquear por segundos.
 
 ---
 
-# 70. Acessibilidade
+# 55. Animações reutilizáveis
 
-Todos os botões devem possuir:
-
-```text
-aria-label
-```
-
-Exemplos:
-
-```text
-Iniciar conversa por voz
-Parar gravação
-Criar categoria
-Cancelar criação de categoria
-Excluir categoria
-Confirmar ação
-```
-
-O estado deve ser anunciado:
-
-```text
-Ouvindo
-Processando
-Aguardando confirmação
-Executando ação
-Falando
-```
-
-Os dashboards devem ser navegáveis por teclado.
-
----
-
-# 71. Usuário que não pode usar voz
-
-Todas as funcionalidades precisam continuar acessíveis via teclado.
-
-O modo de voz é uma interface alternativa.
-
-O chat deve funcionar completamente por texto.
-
-As confirmações devem funcionar por teclado e clique.
-
----
-
-# 72. Performance
-
-Não manter waveform em 60 FPS quando não necessário.
-
-Pausar animações:
-
-* quando a aba não estiver visível;
-* quando o chat estiver inativo;
-* quando o estado for idle;
-* quando o componente desmontar.
-
-Cancelar AudioContext corretamente.
-
-Evitar renderizar novamente todo o histórico quando apenas uma mensagem nova for adicionada.
-
----
-
-# 73. Mobile-first
-
-O chat deve ser projetado primeiro para celular.
-
-Os dashboards dentro das mensagens devem ocupar a largura disponível sem quebrar o layout.
-
-Em desktop:
-
-* centralizar o chat;
-* manter largura confortável;
-* não transformar a tela em dashboard de duas colunas;
-* preservar a sensação de conversa com a assistente.
-
----
-
-# 74. Desktop
+Criar classes/tokens, não dezenas de inline styles.
 
 Exemplo:
 
 ```css
-.chat-container {
-  max-width: 720px;
-  margin: 0 auto;
-}
+.onboarding-enter
+.onboarding-exit
+.onboarding-card
+.onboarding-card-selected
+.onboarding-check
+.onboarding-progress
+.onboarding-feedback
+.onboarding-complete-item
 ```
-
-Os cards podem ocupar a largura da mensagem, mas não devem parecer uma página administrativa.
 
 ---
 
-# 75. Safe areas
+# 56. Não espalhar animationDelay inline indiscriminadamente
 
-Respeitar:
+Para stagger, pode utilizar CSS custom property:
 
-```text
-env(safe-area-inset-top)
-env(safe-area-inset-bottom)
+```tsx
+style={{
+  '--delay': `${index * 45}ms`
+} as React.CSSProperties}
 ```
 
-quando aplicável.
+E CSS central.
 
-O composer deve permanecer acessível acima da área segura do dispositivo.
+Ou equivalente limpo.
 
 ---
 
-# 76. Sugestões contextuais
+# 57. Curvas de movimento
 
-Depois de responder, oferecer sugestões dentro da mensagem da assistente.
+Padronizar.
 
-Exemplo:
-
-```text
-[Ver transações]
-[Comparar com mês passado]
-[Definir orçamento]
-```
-
-Máximo:
+Entrada:
 
 ```text
-2–3 sugestões
+cubic-bezier(.22,1,.36,1)
 ```
 
-As sugestões devem ser ações reais do chat.
-
-Se o cliente tocar em:
+Interação rápida:
 
 ```text
-Comparar com mês passado
+cubic-bezier(.2,.8,.2,1)
 ```
 
-isso deve ser tratado como uma nova solicitação ao agente.
+Evitar:
 
-Não duplicar lógica manual.
+```text
+linear
+```
+
+em elementos importantes.
 
 ---
 
-# 77. Ações faláveis
+# 58. Durações
 
-O cliente deve poder dizer:
-
-```text
-Sim
-```
+Usar aproximadamente:
 
 ```text
-Pode criar
+micro interação    100–180ms
+seleção            180–260ms
+entrada de tela    280–340ms
+progress           350–450ms
+celebração         500–800ms
 ```
 
-```text
-Cancela
-```
-
-```text
-Aplica
-```
-
-```text
-Mostra os detalhes
-```
-
-O agente deve interpretar essas respostas usando o contexto da última mensagem e da ação pendente.
+Não fazer onboarding “lento porque é animado”.
 
 ---
 
-# 78. Confirmações destrutivas
+# 59. Estados de erro
 
-Para exclusões ou alterações importantes:
+Se persistência final falhar:
+
+não entrar no dashboard fingindo sucesso.
+
+Mostrar:
 
 ```text
-cliente solicita
+Não conseguimos salvar sua configuração.
+
+Seus dados não foram perdidos.
+
+[Tentar novamente]
+```
+
+Não chamar IA.
+
+---
+
+# 60. Testes
+
+Adicionar testes para:
+
+```text
+novo usuário abre onboarding
+usuário existente não perde dados
+progresso avança corretamente
+voltar mantém respostas
+limites multi-select
+profileName persistido
+financialProfile persistido
+onboardingCompleted
+dashboard usa profileName
+dashboard recebe prioridades
+skip funciona
+restore de onboarding
+reduced motion não bloqueia navegação
+```
+
+---
+
+# 61. Critério visual
+
+A experiência deve passar esta sensação:
+
+```text
+TOCAR
 ↓
-assistente explica o que será alterado
+CARD RESPONDE
 ↓
-dashboard mostra detalhes
+CHECK APARECE
 ↓
-cliente confirma
+PROGRESSO AVANÇA
 ↓
-tool executa
+TELA DESLIZA
 ↓
-resultado aparece no chat
+NOVA PERGUNTA
 ```
 
-Nunca executar exclusões apenas com uma interpretação ambígua.
+Tudo deve parecer conectado.
 
 ---
 
-# 79. Testes
+# 62. Critério final
 
-Criar testes para:
-
-### Chat state
+Considere concluído somente se:
 
 ```text
-idle
-→ processing
-→ responding
-→ idle
-```
-
-### Confirmação
-
-```text
-solicitação
-→ awaiting-confirmation
-→ confirmed
-→ executing-action
-→ success
-```
-
-### Cancelamento
-
-```text
-awaiting-confirmation
-→ cancelled
-```
-
-### Visual renderer
-
-Cada schema deve renderizar o componente correto dentro de uma mensagem da assistente.
-
-### Bloco inválido
-
-Não deve quebrar o chat.
-
-### Criação de categoria
-
-```text
-Crie uma categoria chamada Viagens.
-```
-
-deve gerar:
-
-```text
-preview
-→ confirmação
-→ categoria criada
-```
-
-### Exclusão
-
-Não deve executar sem confirmação.
-
-### Continuidade
-
-```text
-Quanto gastei no mercado?
-E mês passado?
-```
-
-deve manter contexto.
-
-### Confirmação por voz
-
-```text
-Crie a categoria Viagens.
-Sim.
-```
-
-deve executar a ação pendente.
-
-### TTS
-
-Nova pergunta interrompe áudio anterior.
-
-### STT indisponível
-
-Fallback de teclado deve aparecer.
-
-### Erro de persistência
-
-Não deve mostrar sucesso falso.
-
-### Histórico
-
-Dashboard deve permanecer associado à mensagem correta.
-
----
-
-# 80. Exemplo completo 1: consulta
-
-Cliente fala ou escreve:
-
-```text
-Quanto eu gastei com mercado este mês?
-```
-
-Chat:
-
-```text
-Cliente
-Quanto eu gastei com mercado este mês?
-
-Assistente
-Aqui está seu resumo.
-```
-
-Dashboard dentro da mensagem:
-
-```text
-Mercado
-R$ 500
-↓ 12%
-
-[mini gráfico]
-
-Você gastou R$ 500 em Mercado,
-12% menos que no mês passado.
-
-[Ver transações]
-[Comparar com mês passado]
-```
-
-A assistente fala:
-
-```text
-Você gastou R$ 500 em mercado neste mês,
-12% menos que no mês passado.
+onboarding aparece apenas quando apropriado
+navegação inferior fica oculta
+7 etapas funcionam
+voltar funciona
+skip funciona
+preferências persistem
+dashboard realmente usa perfil
+nome não está mais hardcoded
+MoneyInput/DatePicker são reutilizados
+mobile 360–412px está correto
+safe-area está correto
+animações estão fluidas
+não há controles nativos indesejados
+prefers-reduced-motion funciona
+nenhuma dependência pesada de animação foi adicionada sem necessidade
+lint passa
+testes passam
+build passa
+APK continua compilável
 ```
 
 ---
 
-# 81. Exemplo completo 2: criação de categoria
+# Resultado esperado
 
-Cliente:
+A primeira abertura deve parecer uma experiência de produto, não um cadastro.
+
+Algo como:
 
 ```text
-Crie uma categoria chamada Viagens.
+        ATLAS
+
+  O que você quer melhorar?
+
+╭────────────────────────────╮
+│   Organizar meu dinheiro   │
+╰────────────────────────────╯
+
+╭────────────────────────────╮
+│   Juntar dinheiro          │ ✓
+╰────────────────────────────╯
+
+╭────────────────────────────╮
+│   Gastar menos             │
+╰────────────────────────────╯
+
+
+███████████░░░░░
+
+       [ Continuar ]
 ```
 
-Assistente:
+Ao selecionar “Juntar dinheiro”:
 
 ```text
-Posso criar esta categoria para você:
-```
-
-Dashboard:
-
-```text
-Nova categoria
-
-Viagens
-
-[Cancelar] [Criar categoria]
-```
-
-Cliente toca em:
-
-```text
-Criar categoria
-```
-
-Assistente:
-
-```text
-✓ Categoria criada
-```
-
-Dashboard:
-
-```text
-Viagens
-
-A categoria está pronta para ser usada.
-```
-
----
-
-# 82. Exemplo completo 3: criação por voz
-
-Cliente fala:
-
-```text
-Crie uma categoria chamada Estudos.
-```
-
-Assistente mostra:
-
-```text
-Nova categoria
-
-Estudos
-
-[Cancelar] [Criar categoria]
-```
-
-Assistente fala:
-
-```text
-Preparei a categoria Estudos.
-Quer criar?
-```
-
-Cliente fala:
-
-```text
-Sim.
-```
-
-Resultado:
-
-```text
-✓ Categoria criada
-
-Estudos
-```
-
----
-
-# 83. Exemplo completo 4: criação de despesa
-
-Cliente:
-
-```text
-Gastei 80 reais de gasolina hoje.
-```
-
-Assistente:
-
-```text
-Preparei esta despesa:
-```
-
-Dashboard:
-
-```text
-Nova despesa
-
-Gasolina
-R$ 80,00
-
-Categoria
-Transporte
-
-Data
-Hoje
-
-[Editar] [Cancelar] [Registrar despesa]
-```
-
-Após confirmação:
-
-```text
-✓ Despesa registrada
-
-Gasolina
-R$ 80,00
-Transporte
-Hoje
-```
-
----
-
-# 84. Exemplo completo 5: organização financeira
-
-Cliente:
-
-```text
-Organiza meus R$ 4.500.
-```
-
-Assistente:
-
-```text
-Preparei uma organização para você:
-```
-
-Dashboard:
-
-```text
-Organização sugerida
-
-Contas
-R$ 1.995
-
-Alimentação
-R$ 600
-
-Transporte
-R$ 300
-
-Reserva
-R$ 500
-
-Margem
-R$ 300
-
-Livre
-R$ 805
-
-[Editar] [Aplicar]
-```
-
-Assistente:
-
-```text
-R$ 3.695 ficam reservados
-e R$ 805 permanecem livres.
-```
-
----
-
-# 85. Exemplo completo 6: exclusão
-
-Cliente:
-
-```text
-Apaga essa transação.
-```
-
-Assistente:
-
-```text
-Encontrei esta transação:
-```
-
-Dashboard:
-
-```text
-Excluir transação
-
-Gasolina
-R$ 89,90
-Hoje
-
-Essa ação não poderá ser desfeita.
-
-[Cancelar] [Excluir transação]
-```
-
-Após confirmação:
-
-```text
-✓ Transação excluída
-
-A despesa de R$ 89,90 foi removida.
-```
-
----
-
-# 86. Critério visual
-
-A feature não está pronta se parecer:
-
-* formulário isolado;
-* chatbot simples;
-* página administrativa;
-* tela de configurações;
-* dashboard convencional;
-* botão de microfone adicionado sem integração;
-* tela de voz separada do chat;
-* lista de cards sem relação com as mensagens.
-
-Ela deve parecer uma **assistente financeira integrada ao chat**, na qual cada resposta pode se transformar em um dashboard interativo contextual.
-
----
-
-# 87. Critério funcional
-
-Considerar concluída apenas quando:
-
-* o chat existente continua sendo o centro da experiência;
-* mensagens do cliente e da assistente são mantidas;
-* voz funciona dentro do composer do chat;
-* STT funciona ou fallback existe;
-* DeepSeek recebe a pergunta;
-* tools reais são executadas;
-* resposta estruturada é gerada;
-* dashboard correto aparece dentro da mensagem da assistente;
-* tudo que o cliente pedir possui representação visual adequada;
-* criação de categoria mostra confirmação;
-* edição mostra confirmação;
-* exclusão exige confirmação;
-* criação de transações funciona;
-* criação de recorrências funciona;
-* análise financeira funciona;
-* TTS reproduz a resposta;
-* usuário consegue interromper;
-* contexto de follow-up funciona;
-* confirmação por voz funciona;
-* ações podem ser confirmadas pela interface;
-* mensagens de sucesso aparecem após persistência real;
-* erros não quebram o chat;
-* modo teclado funciona;
-* histórico permanece coerente.
-
----
-
-# 88. Critério arquitetural
-
-Não misturar:
-
-```text
-STT
-TTS
-IA
-chat
-UI
-domínio financeiro
-persistência
-```
-
-em um único componente.
-
-Manter camadas separadas.
-
-O dashboard deve ser uma extensão renderizável da mensagem da assistente, não uma tela independente.
-
----
-
-# 89. Entrega
-
-Ao concluir, apresente:
-
-1. arquitetura criada;
-2. como o dashboard foi integrado ao chat;
-3. componentes adicionados;
-4. serviços de STT/TTS;
-5. modelo dos Visual Blocks;
-6. modelo de mensagens da assistente;
-7. fluxo completo chat/voz → IA → tools → dashboard dentro do chat;
-8. como criação, edição e exclusão funcionam;
-9. como confirmações por botão e voz funcionam;
-10. como o contexto visual é mantido;
-11. como ações pendentes são controladas;
-12. como interrupção funciona;
-13. limitações dos navegadores;
-14. testes executados;
-15. próximos passos.
-
----
-
-# REGRA FINAL
-
-Não implemente apenas o visual da referência.
-
-Não crie apenas um modo de voz separado.
-
-O sistema deve permanecer dentro do chat da assistente.
-
-A referência representa o comportamento esperado.
-
-O resultado precisa funcionar desta forma:
-
-```text
-O cliente escreve ou fala uma solicitação
+card press
 ↓
-a mensagem aparece no chat
+scale
 ↓
-a assistente entende
+border azul
 ↓
-a IA consulta dados reais ou prepara uma ação
+check pop
 ↓
-a resposta da assistente aparece no chat
+progress bar avança
 ↓
-um dashboard visual mostra exatamente o que foi pedido
+tela sai à esquerda
 ↓
-se necessário, botões de confirmação aparecem
-↓
-o cliente confirma por clique, texto ou voz
-↓
-a ação é executada com segurança
-↓
-o resultado final aparece no chat
-↓
-o cliente continua a conversa
+próxima entra pela direita
 ```
 
-Essa interação entre **chat + voz + IA + dashboard dinâmico + ações confirmáveis** é o núcleo da feature.
+E ao terminar:
+
+```text
+✓
+
+Seu Atlas está pronto.
+
+Foco
+Juntar dinheiro
+
+Prioridades
+Reserva · Moradia · Alimentação
+
+Estilo
+Planejamento guiado
+
+[ Entrar no Atlas ]
+```
+
+A prioridade desta implementação é:
+
+```text
+PERSONALIZAÇÃO REAL
++
+ANIMAÇÕES FLUIDAS
++
+POUCOS TOQUES
++
+MOBILE-FIRST
++
+ZERO SENSAÇÃO DE FORMULÁRIO
+```

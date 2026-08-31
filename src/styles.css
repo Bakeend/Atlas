@@ -230,7 +230,10 @@
   .toggle { @apply h-6 w-11 shrink-0 rounded-full bg-slate-200 p-0.5 transition; }
   .toggle > span { @apply block h-5 w-5 rounded-full bg-white shadow transition; }
   .toggle.active { @apply bg-brand; }
-  .toggle.active > span { @apply translate-x-5; }
+    .toggle.active > span { @apply translate-x-5; }
+    .dashboard-widget-row { @apply items-center gap-2 p-3; }
+    .dashboard-widget-actions { @apply flex shrink-0 items-center gap-0.5; }
+    .dashboard-widget-actions .icon-button:disabled { @apply cursor-not-allowed opacity-30 hover:bg-transparent; }
 
   .import-dropzone { @apply flex flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-blue-200 bg-blue-50/40 px-5 py-8 text-center transition hover:border-blue-300 hover:bg-blue-50/70; }
   .import-dropzone.drag-over { @apply border-blue-500 bg-blue-50; }

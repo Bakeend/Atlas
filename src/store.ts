@@ -6,6 +6,7 @@ import type { RecurringExpense } from './domain'
 import { isOccurrenceRecorded } from './recurring'
 import { sanitizeShortcuts } from './navigation'
 import { hasSubstantialUserData, normalizeCompletionInput, sanitizeFinancialProfile } from './onboarding/onboardingProfile'
+import { sanitizeDashboardWidgets, type DashboardWidgetPreference } from './dashboardLayout'
 
 export interface RecurringPaymentInput {
   recurringExpenseId: string
@@ -65,6 +66,7 @@ type State = FinanceData & {
   addPaymentAllocationPreference: (rule: string) => void
   removePaymentAllocationPreference: (id: string) => void
   setNavShortcuts: (routes: string[]) => void
+  setDashboardWidgets: (widgets: DashboardWidgetPreference[]) => void
   setProfileName: (name: string) => void
   completeOnboarding: (input?: OnboardingCompletionInput) => void
   restoreBackup: (backup: import('./domain').FinanceData) => void
@@ -110,6 +112,7 @@ function migrateLoaded(loaded: Partial<FinanceData>): FinanceData {
     paymentAllocationPriority: (loaded as any).paymentAllocationPriority ?? ['overdue','essential','bills','food','transport','goals','reserve','leisure','free'],
     paymentAllocationPreferences: (loaded as any).paymentAllocationPreferences ?? [],
     navShortcuts: sanitizeShortcuts((loaded as any).navShortcuts),
+    dashboardWidgets: sanitizeDashboardWidgets((loaded as any).dashboardWidgets),
     profileName: typeof (loaded as any).profileName === 'string' ? (loaded as any).profileName : '',
     // Migração segura: quem já usava o app com dados reais não refaz onboarding; usuário no meio do fluxo (≤1 conta, sem lançamentos) retoma de onde parou.
     onboardingDone: Boolean((loaded as any).onboardingDone) || hasSubstantialUserData(loaded),
@@ -138,6 +141,7 @@ const data = (s: State): FinanceData => ({
   paymentAllocationPriority: (s as any).paymentAllocationPriority ?? ['overdue','essential','bills','food','transport','goals','reserve','leisure','free'],
   paymentAllocationPreferences: (s as any).paymentAllocationPreferences ?? [],
   navShortcuts: s.navShortcuts ?? [],
+  dashboardWidgets: s.dashboardWidgets,
   profileName: s.profileName ?? '',
   onboardingDone: (s as any).onboardingDone ?? false,
   financialProfile: (s as any).financialProfile,
@@ -167,6 +171,7 @@ export const useFinanceStore = create<State>((set, get) => ({
       (loaded as any).paymentAllocationPriority === undefined ||
       (loaded as any).paymentAllocationPreferences === undefined ||
       (loaded as any).navShortcuts === undefined ||
+      ((loaded as any).dashboardWidgets !== undefined && JSON.stringify((loaded as any).dashboardWidgets) !== JSON.stringify(migrated.dashboardWidgets)) ||
       legacyOnboardingMigration ||
       financialProfileChanged ||
       migrated.accounts.some((account, index) => account.color !== (loaded.accounts ?? [])[index]?.color)
@@ -444,6 +449,12 @@ export const useFinanceStore = create<State>((set, get) => ({
     const nextRoutes = sanitizeShortcuts(routes)
     if (JSON.stringify(nextRoutes) === JSON.stringify(s.navShortcuts)) return s
     const next = { ...s, navShortcuts: nextRoutes }
+    persist(data(next)); return next
+  }),
+  setDashboardWidgets: widgets => set(s => {
+    const nextWidgets = sanitizeDashboardWidgets(widgets)
+    if (!nextWidgets || JSON.stringify(nextWidgets) === JSON.stringify(s.dashboardWidgets)) return s
+    const next = { ...s, dashboardWidgets: nextWidgets }
     persist(data(next)); return next
   }),
   setProfileName: name => set(s => {

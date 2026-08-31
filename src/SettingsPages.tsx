@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Download, Trash2, Upload } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, ChevronUp, Download, Trash2, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { Card, CategoryIcon, Modal, PageTitle, SelectMenu } from './components'
@@ -6,22 +6,71 @@ import { currentSnapshot, useFinanceStore } from './store'
 import { BackupFileSchema, summarizeBackup, type BackupSummary } from './data/backupSchema'
 import type { FinanceData } from './domain'
 import { DEFAULT_SHORTCUTS, MAX_SHORTCUTS, NAV_DESTINATIONS } from './navigation'
+import { DASHBOARD_WIDGETS, DEFAULT_DASHBOARD_WIDGETS, type DashboardWidgetPreference } from './dashboardLayout'
 
 export function SettingsMenu() {
   const configLinks = [
+    { to: '/settings/home', label: 'Tela inicial', description: 'Escolha o que aparece e a ordem dos blocos.' },
     { to: '/settings/nav', label: 'Navegação', description: 'Escolha os atalhos da barra inferior.' },
     { to: '/settings/finance', label: 'Financeiro', description: 'Margem de segurança e previsão de saldo.' },
     { to: '/settings/payment', label: 'Pagamento', description: 'Prioridades e preferências do organizador.' },
     { to: '/settings/privacy', label: 'Privacidade e dados', description: 'Valores ocultos, exportação e exclusão.' },
   ]
   return <>
-    <PageTitle eyebrow="Perfil" title="Configurações"/>
+    <PageTitle eyebrow="Perfil" title="Configurações" backTo="/profile" />
     <div className="space-y-5">
       <Card><h2 className="section-title">Configurações</h2><div className="mt-2">
         {configLinks.map(link => <NavLink key={link.to} to={link.to} className="settings-row"><div className="min-w-0"><p className="font-semibold">{link.label}</p><p className="mt-1 text-sm text-muted">{link.description}</p></div><ChevronRight className="text-muted shrink-0" size={20}/></NavLink>)}
         <NavLink to="/accounts" className="settings-row"><div className="min-w-0"><p className="font-semibold">Contas e carteiras</p><p className="mt-1 text-sm text-muted">Gerencie saldos, contas ativas e arquivadas.</p></div><ChevronRight className="text-muted shrink-0" size={20}/></NavLink>
       </div></Card>
     </div>
+  </>
+}
+
+export function DashboardSettings() {
+  const { dashboardWidgets, setDashboardWidgets } = useFinanceStore()
+  const navigate = useNavigate()
+  const [draft, setDraft] = useState<DashboardWidgetPreference[]>(() => dashboardWidgets ?? DEFAULT_DASHBOARD_WIDGETS)
+  const visibleCount = draft.filter(widget => widget.visible).length
+  const updateWidget = (key: DashboardWidgetPreference['key'], update: Partial<DashboardWidgetPreference>) => {
+    setDraft(current => current.map(widget => widget.key === key ? { ...widget, ...update } : widget))
+  }
+  const moveWidget = (index: number, direction: -1 | 1) => {
+    setDraft(current => {
+      const target = index + direction
+      if (target < 0 || target >= current.length) return current
+      const next = [...current]
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    })
+  }
+  return <>
+    <PageTitle eyebrow="Configurações" title="Tela inicial" backTo="/settings" />
+    <Card>
+      <h2 className="section-title">Personalize seu painel</h2>
+      <p className="mt-1 text-sm text-muted">Mostre, oculte e reorganize cada bloco da tela inicial.</p>
+      <div className="mt-4 space-y-2">
+        {draft.map((widget, index) => {
+          const details = DASHBOARD_WIDGETS.find(item => item.key === widget.key)
+          if (!details) return null
+          return <div key={widget.key} className="settings-row dashboard-widget-row">
+            <button type="button" className="min-w-0 flex-1 text-left" onClick={() => updateWidget(widget.key, { visible: !widget.visible })} aria-pressed={widget.visible}>
+              <p className="font-semibold">{details.label}</p><p className="mt-1 text-sm text-muted">{details.description}</p>
+            </button>
+            <div className="dashboard-widget-actions">
+              <button type="button" className="icon-button" onClick={() => moveWidget(index, -1)} disabled={index === 0} aria-label={`Mover ${details.label} para cima`}><ChevronUp size={18}/></button>
+              <button type="button" className="icon-button" onClick={() => moveWidget(index, 1)} disabled={index === draft.length - 1} aria-label={`Mover ${details.label} para baixo`}><ChevronDown size={18}/></button>
+              <button type="button" className={`toggle ${widget.visible ? 'active' : ''}`} onClick={() => updateWidget(widget.key, { visible: !widget.visible })} aria-label={`${widget.visible ? 'Ocultar' : 'Mostrar'} ${details.label}`} aria-pressed={widget.visible}><span/></button>
+            </div>
+          </div>
+        })}
+      </div>
+      <p className={`mt-3 text-xs font-medium ${visibleCount ? 'text-muted' : 'text-red-600'}`}>{visibleCount ? `${visibleCount} blocos visíveis` : 'Escolha pelo menos um bloco para exibir.'}</p>
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        <button type="button" className="btn-secondary" onClick={() => setDraft(DEFAULT_DASHBOARD_WIDGETS.map(widget => ({ ...widget })))}>Mostrar todos</button>
+        <button type="button" className="btn-primary disabled:opacity-40" disabled={!visibleCount} onClick={() => { if (!visibleCount) return; setDashboardWidgets(draft); navigate('/settings') }}>Salvar</button>
+      </div>
+    </Card>
   </>
 }
 
@@ -32,7 +81,7 @@ export function NavigationSettings() {
   const toggle = (to: string) => setDraft(current => current.includes(to) ? current.filter(item => item !== to) : current.length >= MAX_SHORTCUTS ? current : [...current, to])
   const valid = draft.length === MAX_SHORTCUTS
   return <>
-    <PageTitle eyebrow="Configurações" title="Navegação"/>
+    <PageTitle eyebrow="Configurações" title="Navegação" backTo="/settings" />
     <Card>
       <h2 className="section-title">Atalhos da barra inferior</h2>
       <p className="mt-1 text-sm text-muted">Escolha {MAX_SHORTCUTS} destinos para acompanhar Início e Perfil. O botão + permanece fixo.</p>
@@ -57,7 +106,7 @@ export function NavigationSettings() {
 export function FinanceSettings() {
   const { safetyMarginPercent, setSafetyMarginPercent, forecastRealistic, setForecastRealistic } = useFinanceStore()
   return <>
-    <PageTitle eyebrow="Configurações" title="Financeiro"/>
+    <PageTitle eyebrow="Configurações" title="Financeiro" backTo="/settings" />
     <div className="space-y-5">
       <Card>
         <h2 className="section-title">Quanto posso gastar hoje?</h2>
@@ -79,7 +128,7 @@ export function PaymentSettings() {
   const { paymentAllocationPriority, setPaymentAllocationPriority, paymentAllocationPreferences, addPaymentAllocationPreference, removePaymentAllocationPreference } = useFinanceStore() as any
   const [newPref, setNewPref] = useState('')
   return <>
-    <PageTitle eyebrow="Configurações" title="Pagamento"/>
+    <PageTitle eyebrow="Configurações" title="Pagamento" backTo="/settings" />
     <div className="space-y-5">
       <Card>
         <h2 className="section-title">Organizar meu pagamento</h2>
@@ -135,7 +184,7 @@ export function PrivacySettings() {
   }
 
   return <>
-    <PageTitle eyebrow="Configurações" title="Privacidade e dados"/>
+    <PageTitle eyebrow="Configurações" title="Privacidade e dados" backTo="/settings" />
     <div className="space-y-5">
       <Card>
         <h2 className="section-title">Privacidade</h2>

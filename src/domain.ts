@@ -235,6 +235,7 @@ export interface FinanceData {
   paymentAllocationPriority?: AllocationPriority[]
   paymentAllocationPreferences?: PaymentAllocationPreference[]
   navShortcuts?: string[]
+  dashboardWidgets?: import('./dashboardLayout').DashboardWidgetPreference[]
   profileName?: string
   onboardingDone?: boolean
   financialProfile?: FinancialProfile
@@ -285,6 +286,7 @@ export function emptyData(): FinanceData {
     paymentAllocationPriority: ['overdue','essential','bills','food','transport','goals','reserve','leisure','free'] as AllocationPriority[],
     paymentAllocationPreferences: [],
     navShortcuts: [],
+    dashboardWidgets: undefined,
     profileName: '',
     onboardingDone: false,
   }
