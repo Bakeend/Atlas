@@ -3,7 +3,7 @@ import { CalendarClock, ShieldCheck, Wallet, Eye, EyeOff, Calculator } from 'luc
 import { Card, MoneyInput, SelectMenu } from './components'
 import { accountBalance, money, parseMoney } from './domain'
 import { useFinanceStore } from './store'
-import { calculateSafeDailySpend, simulateDailySpend } from './ai/services/financialEngine'
+import { calculateSafeDailySpend, simulateDailySpend } from './services/financialEngine'
 
 function ProgressBar({ percent, status }: { percent: number; status: string }) {
   const color = status === 'over' || status === 'negative_free' ? 'bg-red-500' : status === 'near_limit' || status === 'reached' ? 'bg-amber-500' : 'bg-emerald-500'

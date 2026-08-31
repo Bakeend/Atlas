@@ -14,6 +14,15 @@ export type NotificationKind =
   | 'recurring-increase'
   | 'free-money-drop'
   | 'goal-opportunity'
+  | 'card-closing-soon'
+  | 'card-due-soon'
+  | 'card-overdue'
+  | 'card-limit-warning'
+  | 'card-limit-critical'
+  | 'card-limit-exhausted'
+  | 'card-invoice-increase'
+  | 'card-installment-ending'
+  | 'card-partially-paid'
 
 export interface FinanceNotification {
   id: string
@@ -21,7 +30,7 @@ export interface FinanceNotification {
   title: string
   message: string
   date: string
-  href: '/recurring' | '/planning' | '/forecast' | '/transactions' | '/organizar' | '/'
+  href: string
 }
 
 const addDays = (value: string, amount: number) => {

@@ -66,7 +66,7 @@ export interface LevelOption {
 export const LEVEL_OPTIONS: LevelOption[] = [
   { value: 'tracking', title: 'Simples', subtitle: 'Só quero acompanhar', description: 'Saldo, gastos e histórico.', icon: Eye, feedback: { title: 'Feito.', text: 'Painel enxuto, sem excessos.' } },
   { value: 'guided', title: 'Guiado', subtitle: 'Quero sugestões', description: 'Alertas, limites e recomendações.', icon: BellRing, feedback: { title: 'Boa.', text: 'Alertas e limites te acompanham.' } },
-  { value: 'assisted', title: 'Assistido', subtitle: 'Quero organizar junto com o Atlas', description: 'Planejamento, dinheiro livre e IA.', icon: Sparkles, feedback: { title: 'Perfeito.', text: 'Planejamento, dinheiro livre e IA juntos.' } },
+  { value: 'assisted', title: 'Assistido', subtitle: 'Quero organizar junto com o Atlas', description: 'Planejamento e dinheiro livre.', icon: Sparkles, feedback: { title: 'Perfeito.', text: 'Planejamento e dinheiro livre juntos.' } },
   { value: 'automatic', title: 'Automático', subtitle: 'Quero automatizar o máximo possível', description: 'O Atlas prepara tudo e você revisa.', icon: Zap, feedback: { title: 'Avante.', text: 'O Atlas prepara e você só revisa.' } },
 ]
 

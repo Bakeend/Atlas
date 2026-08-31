@@ -47,6 +47,9 @@ export interface FinanceTransaction {
   plannedAmountCents?: number
   createdAt: string
   deletedAt?: string
+  creditCardId?: string
+  creditCardInvoiceClosingDate?: string
+  isCreditCardInvoicePayment?: boolean
 }
 
 export interface Budget { id: string; category: string; month: string; limitCents: number }
@@ -124,6 +127,69 @@ export interface PaymentAllocationPlan {
   status: 'draft' | 'applied' | 'cancelled'
   createdAt: string
   updatedAt: string
+}
+
+export interface CreditCard {
+  id: string
+  name: string
+  bank: string
+  limitCents: number
+  closingDay: number
+  dueDay: number
+  color: string
+  paymentAccountId: string
+  archived: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreditCardPurchase {
+  id: string
+  cardId: string
+  description: string
+  category: string
+  totalAmountCents: number
+  installments: number
+  purchaseDate: string
+  createdAt: string
+  status: 'active' | 'cancelled'
+  note?: string
+}
+
+export interface CreditCardInvoicePayment {
+  id: string
+  cardId: string
+  invoiceClosingDate: string
+  amountCents: number
+  accountId: string
+  date: string
+  createdAt: string
+  note?: string
+}
+
+export type CreditCardInvoiceStatus = 'open' | 'closed' | 'partially_paid' | 'paid' | 'overdue'
+
+export interface CreditCardInvoice {
+  id: string
+  cardId: string
+  closingDate: string
+  dueDate: string
+  periodStart: string
+  periodEnd: string
+  status: CreditCardInvoiceStatus
+  totalCents: number
+  paidCents: number
+  remainingCents: number
+  installments: Array<{
+    purchaseId: string
+    cardId: string
+    installmentNumber: number
+    totalInstallments: number
+    amountCents: number
+    purchaseDescription: string
+    category: string
+    purchaseDate: string
+  }>
 }
 
 export type AllocationPriority =
@@ -239,6 +305,9 @@ export interface FinanceData {
   profileName?: string
   onboardingDone?: boolean
   financialProfile?: FinancialProfile
+  creditCards: CreditCard[]
+  creditCardPurchases: CreditCardPurchase[]
+  creditCardInvoicePayments: CreditCardInvoicePayment[]
 }
 
 export const categories = ['Alimentação', 'Moradia', 'Transporte', 'Saúde', 'Lazer', 'Educação', 'Assinaturas', 'Outros']
@@ -289,5 +358,8 @@ export function emptyData(): FinanceData {
     dashboardWidgets: undefined,
     profileName: '',
     onboardingDone: false,
+    creditCards: [],
+    creditCardPurchases: [],
+    creditCardInvoicePayments: [],
   }
 }

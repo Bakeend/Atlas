@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { installMojibakeRepair } from './lib/repairMojibake'
 import { initPwaPlaceholder } from './pwa'
+import { initializeThemeSync } from './theme'
 import './styles.css'
 import './import-mobile.css'
 
@@ -12,4 +13,5 @@ createRoot(document.getElementById('root')!).render(
 )
 
 initPwaPlaceholder()
+initializeThemeSync()
 installMojibakeRepair()

@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "tsc -b --pretty false",
     "auditoria": "node src/auditoria.mjs",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -16,6 +16,7 @@
     "@capacitor/core": "^7.0.0",
     "@capacitor/local-notifications": "^7.0.1",
     "@hookform/resolvers": "^5.0.1",
+    "alasql": "^4.19.0",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

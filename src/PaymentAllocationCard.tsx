@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Check, Pencil, Sparkles, Wallet, X, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
-import { Card, MoneyInput, Modal, SelectMenu } from './components'
+import { Check, ChartPie, CircleDollarSign, Goal, Pencil, PiggyBank, ReceiptText, ShieldCheck, Sparkles, Wallet, X, Trash2, ChevronUp, ChevronDown, type LucideIcon } from 'lucide-react'
+import { Card, CategoryIcon, MoneyInput, Modal, SelectMenu } from './components'
 import { money, today, uid } from './domain'
 import { useFinanceStore } from './store'
-import { preparePaymentAllocationPlan } from './ai/services/financialEngine'
+import { preparePaymentAllocationPlan } from './services/financialEngine'
 
 function formatDate(d: string) {
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${d}T12:00:00`)).replace('.', '')
@@ -21,6 +21,16 @@ const planStatusLabels: Record<string, string> = { draft: 'Rascunho', applied: '
 const typeBadge = (item: { label: string; type: string }) => {
   const label = itemTypeLabels[item.type] ?? item.type
   return item.label.toLowerCase().includes(label.toLowerCase()) ? null : label
+}
+
+function paymentItemVisual(type: string): { icon: LucideIcon; color: string; backgroundColor: string } {
+  if (type === 'bill') return { icon: ReceiptText, color: '#B45309', backgroundColor: '#FEF3C7' }
+  if (type === 'budget') return { icon: ChartPie, color: '#2F80ED', backgroundColor: '#E8F1FE' }
+  if (type === 'goal') return { icon: Goal, color: '#7C3AED', backgroundColor: '#F0EAFE' }
+  if (type === 'reserve') return { icon: PiggyBank, color: '#16835D', backgroundColor: '#E5F8EF' }
+  if (type === 'safety') return { icon: ShieldCheck, color: '#2563EB', backgroundColor: '#DBEAFE' }
+  if (type === 'free') return { icon: CircleDollarSign, color: '#16835D', backgroundColor: '#E5F8EF' }
+  return { icon: Wallet, color: '#64748B', backgroundColor: '#F1F5F9' }
 }
 
 export function PaymentOrganizerCard() {
@@ -92,9 +102,11 @@ export function PaymentOrganizerCard() {
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${plan.freeAmountInCents < 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{plan.freeAmountInCents < 0 ? `Déficit ${money(Math.abs(plan.freeAmountInCents))}` : `Livre ${money(plan.freeAmountInCents)}`}</span>
                 </div>
                 <div className="mt-2 space-y-1 text-xs">
-                  {plan.items.slice(0, 4).map((it: any) => (
-                    <div key={it.id} className="flex justify-between"><span className="text-muted">{it.label}{typeBadge(it) && <small className="text-[10px]"> {typeBadge(it)}</small>}</span><span className={it.isConsumed ? 'line-through text-muted' : 'font-medium'}>{money(it.amountInCents)}</span></div>
-                  ))}
+                  {plan.items.slice(0, 4).map((it: any) => {
+                    const visual = paymentItemVisual(it.type)
+                    const ItemIcon = visual.icon
+                    return <div key={it.id} className="flex items-center justify-between gap-3"><span className="flex min-w-0 items-center gap-2 text-muted"><ItemIcon size={14} color={visual.color} strokeWidth={1.9}/><span className="truncate">{it.label}{typeBadge(it) && <small className="text-[10px]"> {typeBadge(it)}</small>}</span></span><span className={it.isConsumed ? 'line-through text-muted' : 'font-medium'}>{money(it.amountInCents)}</span></div>
+                  })}
                   {plan.items.length > 4 && <p className="text-muted">+{plan.items.length - 4} itens</p>}
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-2">
@@ -184,6 +196,10 @@ function PaymentAllocationPreview({ planId, close }: { planId: string; close: ()
                 <button disabled={idx>=plan.items.length-2} onClick={()=> handleMove(item.id, 1)} className="p-0.5 text-muted hover:text-brand disabled:opacity-20"><ChevronDown size={12}/></button>
               </div>
             )}
+            {(() => {
+              const visual = paymentItemVisual(item.type)
+              return <CategoryIcon icon={visual.icon} color={visual.color} backgroundColor={visual.backgroundColor} size={15} className="!h-8 !w-8" />
+            })()}
             <div className="min-w-0 flex-1">
               <p className={`truncate text-sm font-medium ${item.isConsumed ? 'line-through text-muted' : ''}`}>{item.label}{typeBadge(item) && <small className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px]">{typeBadge(item)}</small>} {item.isConsumed && <small className="text-emerald-600">• consumido</small>}</p>
               {item.recurringExpenseId && <p className="truncate text-xs text-muted">conta • {item.categoryId}</p>}

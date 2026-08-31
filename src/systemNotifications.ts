@@ -228,7 +228,6 @@ export async function showSystemNotification(notification: FinanceNotification):
             icon: iconForKind(notification.kind),
             badge: '/icons/icon-192.svg',
             tag: notification.id,
-            renotify: false,
             requireInteraction: false,
             data: { href: notification.href, notificationId: notification.id },
           } as any)

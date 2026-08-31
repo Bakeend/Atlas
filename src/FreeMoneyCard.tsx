@@ -3,7 +3,7 @@ import { Wallet, PiggyBank, CircleDollarSign, ChevronDown, ChevronUp, AlertTrian
 import { Card, SelectMenu, Modal, DatePicker } from './components'
 import { money } from './domain'
 import { useFinanceStore } from './store'
-import { calculateFreeMoney } from './ai/services/financialEngine'
+import { calculateFreeMoney } from './services/financialEngine'
 
 type PeriodOpt = 'nextIncome' | 'thisMonth' | 'next30' | 'custom'
 
@@ -133,7 +133,7 @@ function FreeMoneyDetailsModal({ result, close }: { result: ReturnType<typeof ca
         <Row label="Separado para contas" cents={result.committedCents} onToggle={() => toggle('contas')} expanded={!!open['contas']}>
           {result.committedDetails.length ? (
             <div className="space-y-1.5">
-              {result.committedDetails.map(d => (
+              {result.committedDetails.map((d: (typeof result.committedDetails)[number]) => (
                 <div key={d.id + d.dueDate} className="flex justify-between gap-2">
                   <span>{d.name} <small className="text-muted">• {d.dueDate} {d.isEstimated ? '• Estimado' : ''}</small></span>
                   <span className="font-semibold">{d.amountFormatted} {d.isEstimated && <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[10px] text-amber-700">Estimado</span>}</span>
@@ -148,7 +148,7 @@ function FreeMoneyDetailsModal({ result, close }: { result: ReturnType<typeof ca
         <Row label="Orçamentos essenciais" cents={result.essentialBudgetsCents} onToggle={() => toggle('orc')} expanded={!!open['orc']}>
           {result.essentialBudgetsDetails.length ? (
             <div className="space-y-1.5">
-              {result.essentialBudgetsDetails.map(b => (
+              {result.essentialBudgetsDetails.map((b: (typeof result.essentialBudgetsDetails)[number]) => (
                 <div key={b.category + b.month} className="flex justify-between"><span>{b.category} • {b.month}</span><span className="font-semibold">{b.limitFormatted}</span></div>
               ))}
             </div>
@@ -160,7 +160,7 @@ function FreeMoneyDetailsModal({ result, close }: { result: ReturnType<typeof ca
         <Row label="Metas e reservas" cents={result.goalsCents} onToggle={() => toggle('metas')} expanded={!!open['metas']}>
           {result.goalsDetails.length ? (
             <div className="space-y-1.5">
-              {result.goalsDetails.map(g => (
+              {result.goalsDetails.map((g: (typeof result.goalsDetails)[number]) => (
                 <div key={g.id} className="flex justify-between"><span>{g.title} {g.isVirtual ? '• Reservado' : ''}</span><span className="font-semibold">{g.amountFormatted}</span></div>
               ))}
             </div>

@@ -36,5 +36,8 @@ export function seededData(): FinanceData {
     safetyMarginPercent: 10,
     paymentAllocationPriority: ['overdue','essential','bills','food','transport','goals','reserve','leisure','free'] as AllocationPriority[],
     paymentAllocationPreferences: [],
+    creditCards: [],
+    creditCardPurchases: [],
+    creditCardInvoicePayments: [],
   }
 }

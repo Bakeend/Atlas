@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { indexedDbRepository } from './data/repository'
-import type { Account, AiActionLog, AiConversation, AiMessage, AiRule, AllocationPlan, Budget, FinanceData, FinanceTransaction, FinancialProfile, Goal, OnboardingCompletionInput, PaymentAllocationPlan, RecurringIncome } from './domain'
+import type { Account, AiActionLog, AiConversation, AiMessage, AiRule, AllocationPlan, Budget, CreditCard, CreditCardInvoicePayment, CreditCardPurchase, FinanceData, FinanceTransaction, FinancialProfile, Goal, OnboardingCompletionInput, PaymentAllocationPlan, RecurringIncome } from './domain'
 import { emptyData, uid } from './domain'
 import type { RecurringExpense } from './domain'
 import { isOccurrenceRecorded } from './recurring'
@@ -71,6 +71,15 @@ type State = FinanceData & {
   completeOnboarding: (input?: OnboardingCompletionInput) => void
   restoreBackup: (backup: import('./domain').FinanceData) => void
   deleteAllData: () => void
+  saveCreditCard: (card: CreditCard) => void
+  deleteCreditCard: (id: string) => void
+  archiveCreditCard: (id: string, archived: boolean) => void
+  saveCreditCardPurchase: (purchase: CreditCardPurchase) => void
+  deleteCreditCardPurchase: (id: string) => void
+  cancelCreditCardPurchase: (id: string) => void
+  addCreditCardInvoicePayment: (payment: CreditCardInvoicePayment) => void
+  deleteCreditCardInvoicePayment: (id: string) => void
+  payCreditCardInvoice: (input: { cardId: string; invoiceClosingDate: string; amountCents: number; accountId: string; date: string; note?: string }) => boolean
 }
 
 let lastPersist: Promise<void> = Promise.resolve()
@@ -117,6 +126,9 @@ function migrateLoaded(loaded: Partial<FinanceData>): FinanceData {
     // Migração segura: quem já usava o app com dados reais não refaz onboarding; usuário no meio do fluxo (≤1 conta, sem lançamentos) retoma de onde parou.
     onboardingDone: Boolean((loaded as any).onboardingDone) || hasSubstantialUserData(loaded),
     financialProfile: sanitizeFinancialProfile((loaded as any).financialProfile),
+    creditCards: (loaded as any).creditCards ?? [],
+    creditCardPurchases: (loaded as any).creditCardPurchases ?? [],
+    creditCardInvoicePayments: (loaded as any).creditCardInvoicePayments ?? [],
   }
 }
 const data = (s: State): FinanceData => ({
@@ -145,6 +157,9 @@ const data = (s: State): FinanceData => ({
   profileName: s.profileName ?? '',
   onboardingDone: (s as any).onboardingDone ?? false,
   financialProfile: (s as any).financialProfile,
+  creditCards: (s as any).creditCards ?? [],
+  creditCardPurchases: (s as any).creditCardPurchases ?? [],
+  creditCardInvoicePayments: (s as any).creditCardInvoicePayments ?? [],
 })
 
 export const useFinanceStore = create<State>((set, get) => ({
@@ -172,6 +187,9 @@ export const useFinanceStore = create<State>((set, get) => ({
       (loaded as any).paymentAllocationPreferences === undefined ||
       (loaded as any).navShortcuts === undefined ||
       ((loaded as any).dashboardWidgets !== undefined && JSON.stringify((loaded as any).dashboardWidgets) !== JSON.stringify(migrated.dashboardWidgets)) ||
+      (loaded as any).creditCards === undefined ||
+      (loaded as any).creditCardPurchases === undefined ||
+      (loaded as any).creditCardInvoicePayments === undefined ||
       legacyOnboardingMigration ||
       financialProfileChanged ||
       migrated.accounts.some((account, index) => account.color !== (loaded.accounts ?? [])[index]?.color)
@@ -347,10 +365,11 @@ export const useFinanceStore = create<State>((set, get) => ({
     const nextBudgets = s.budgets.map(b => b.category===oldName ? { ...b, category: n } : b)
     const nextRec = s.recurringExpenses.map(r => r.category===oldName ? { ...r, category: n, updatedAt: new Date().toISOString() } : r)
     const nextInc = (s.recurringIncomes ?? []).map((r:any) => r.category===oldName ? { ...r, category: n, updatedAt: new Date().toISOString() } : r)
+    const nextPurch = (s.creditCardPurchases ?? []).map((p:any) => p.category===oldName ? { ...p, category: n } : p)
     const nextCats = (s.customCategories ?? []).map(c => c===oldName? n : c)
     const icons = { ...((s as any).customCategoryIcons ?? {}) }
     if (icons[oldName]) { icons[n] = icons[oldName]; delete icons[oldName] }
-    const next = { ...s, transactions: nextTx, budgets: nextBudgets, recurringExpenses: nextRec, recurringIncomes: nextInc, customCategories: nextCats, customCategoryIcons: icons }
+    const next = { ...s, transactions: nextTx, budgets: nextBudgets, recurringExpenses: nextRec, recurringIncomes: nextInc, creditCardPurchases: nextPurch, customCategories: nextCats, customCategoryIcons: icons }
     persist(data(next as any)); return next as any
   }),
   deleteCustomCategory: name => set(s => {
@@ -374,6 +393,87 @@ export const useFinanceStore = create<State>((set, get) => ({
   }),
   addAiLog: log => set(s => { const next = { ...s, aiLogs: [...(s.aiLogs ?? []), log] }; persist(data(next)); return next }),
   addAiRule: rule => set(s => { const next = { ...s, aiRules: [...(s.aiRules ?? []), rule] }; persist(data(next)); return next }),
+  saveCreditCard: card => set(s => {
+    const exists = (s.creditCards ?? []).some(c => c.id === card.id)
+    const nextList = exists ? (s.creditCards ?? []).map(c => c.id === card.id ? card : c) : [...(s.creditCards ?? []), card]
+    const next = { ...s, creditCards: nextList }
+    persist(data(next as any)); return next as any
+  }),
+  deleteCreditCard: id => set(s => {
+    const next = {
+      ...s,
+      creditCards: (s.creditCards ?? []).filter(c => c.id !== id),
+      creditCardPurchases: (s.creditCardPurchases ?? []).filter(p => p.cardId !== id),
+      creditCardInvoicePayments: (s.creditCardInvoicePayments ?? []).filter(p => p.cardId !== id),
+    }
+    persist(data(next as any)); return next as any
+  }),
+  archiveCreditCard: (id, archived) => set(s => {
+    const next = { ...s, creditCards: (s.creditCards ?? []).map(c => c.id === id ? { ...c, archived, updatedAt: new Date().toISOString() } : c) }
+    persist(data(next as any)); return next as any
+  }),
+  saveCreditCardPurchase: purchase => set(s => {
+    const exists = (s.creditCardPurchases ?? []).some(p => p.id === purchase.id)
+    const nextList = exists ? (s.creditCardPurchases ?? []).map(p => p.id === purchase.id ? purchase : p) : [...(s.creditCardPurchases ?? []), purchase]
+    const next = { ...s, creditCardPurchases: nextList }
+    persist(data(next as any)); return next as any
+  }),
+  deleteCreditCardPurchase: id => set(s => {
+    const next = { ...s, creditCardPurchases: (s.creditCardPurchases ?? []).filter(p => p.id !== id) }
+    persist(data(next as any)); return next as any
+  }),
+  cancelCreditCardPurchase: id => set(s => {
+    const next = { ...s, creditCardPurchases: (s.creditCardPurchases ?? []).map(p => p.id === id ? { ...p, status: 'cancelled' as const } : p) }
+    persist(data(next as any)); return next as any
+  }),
+  addCreditCardInvoicePayment: payment => set(s => {
+    const next = { ...s, creditCardInvoicePayments: [...(s.creditCardInvoicePayments ?? []), payment] }
+    persist(data(next as any)); return next as any
+  }),
+  deleteCreditCardInvoicePayment: id => set(s => {
+    const next = { ...s, creditCardInvoicePayments: (s.creditCardInvoicePayments ?? []).filter(p => p.id !== id) }
+    persist(data(next as any)); return next as any
+  }),
+  payCreditCardInvoice: input => {
+    const current = get()
+    const card = (current.creditCards ?? []).find(c => c.id === input.cardId)
+    const account = current.accounts.find(a => a.id === input.accountId)
+    if (!card || !account) return false
+    if (input.amountCents <= 0) return false
+    const payment: CreditCardInvoicePayment = {
+      id: uid(),
+      cardId: input.cardId,
+      invoiceClosingDate: input.invoiceClosingDate,
+      amountCents: input.amountCents,
+      accountId: input.accountId,
+      date: input.date,
+      createdAt: new Date().toISOString(),
+      note: input.note,
+    }
+    const transaction: FinanceTransaction = {
+      id: uid(),
+      type: 'expense',
+      amountCents: input.amountCents,
+      description: `Pagamento fatura ${card.name}`,
+      category: 'Pagamento Cartão',
+      accountId: input.accountId,
+      date: input.date,
+      note: input.note ?? `Fatura ${input.invoiceClosingDate}`,
+      createdAt: new Date().toISOString(),
+      creditCardId: input.cardId,
+      creditCardInvoiceClosingDate: input.invoiceClosingDate,
+      isCreditCardInvoicePayment: true,
+    }
+    set(s => {
+      const next = {
+        ...s,
+        creditCardInvoicePayments: [...(s.creditCardInvoicePayments ?? []), payment],
+        transactions: [transaction, ...s.transactions],
+      }
+      persist(data(next as any)); return next as any
+    })
+    return true
+  },
   markRecurringPaid: input => {
     const current = get()
     const expense = current.recurringExpenses.find(item => item.id === input.recurringExpenseId)

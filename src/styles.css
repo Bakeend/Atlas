@@ -97,9 +97,13 @@
   .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-brand/30; }
   .btn-secondary { @apply inline-flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50; }
   .icon-button { @apply grid h-9 w-9 place-items-center rounded-full text-muted transition hover:bg-slate-100 hover:text-ink; }
+  .atlas-logo { @apply block shrink-0 rounded-xl; }
+  .atlas-logo-loading { @apply mx-auto h-11 w-11 animate-pulse rounded-xl; }
   .category-icon { @apply grid h-10 w-10 shrink-0 place-items-center rounded-full; }
 
   .dashboard-header { @apply mb-6 flex items-center justify-between gap-4 px-1; }
+  .dashboard-brand { @apply flex min-w-0 items-center gap-3; }
+  .dashboard-logo { @apply h-11 w-11 rounded-xl; }
   .dashboard-header h1 { @apply text-[25px] font-bold tracking-[-0.025em] text-ink; }
   .dashboard-header p { @apply mt-1 text-sm text-muted sm:text-[15px]; }
   .notification-button { @apply relative grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink transition hover:bg-white hover:shadow-sm; }

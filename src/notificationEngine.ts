@@ -1,9 +1,9 @@
 import type { FinanceData } from './domain'
 import { money } from './domain'
 import { getFinanceNotifications, type FinanceNotification } from './notifications'
-import { calculateFreeMoney, calculateSafeDailySpend, detectAnomalies } from './ai/services/financialEngine'
 import { calculateForecast, summarizeForecast } from './forecast/calculate'
 import { accountBalance, today } from './domain'
+import { generateInvoicesForCard, getCardSummary } from './creditCards/creditCardService'
 
 function addDaysIso(dateIso: string, days: number): string {
   const d = new Date(`${dateIso}T12:00:00`)
@@ -24,23 +24,19 @@ export interface ExtendedNotificationInput {
 
 /**
  * Motor determinístico central de notificações do Atlas.
- * Agrega as 4 regras originais (overdue, reminder, budget-warning/exceeded)
- * + regras futuras 100% determinísticas sem IA:
- * - gasto diário acima do recomendado
- * - previsão de saldo negativo
- * - gasto muito acima da média histórica
+ * Após remoção do módulo de IA, mantém apenas regras 100% determinísticas
+ * sem dependência de `ai/services/financialEngine`:
+ * - base: overdue, reminder, budget-warning/exceeded
+ * - previsão de saldo negativo (forecast)
  * - aumento em despesa recorrente variável
  * - meta atrasada
- * - queda no dinheiro livre
- * - oportunidade para metas
- *
- * Todas as regras são puras, sem side-effects, sem chamadas de rede.
+ * - oportunidade para metas (simplificada, sem financialEngine)
  */
 export function getAllNotifications(input: ExtendedNotificationInput): FinanceNotification[] {
   const referenceDate = input.referenceDate ?? today()
   const data = input.data
 
-  // 1) Regras base (mantém compatibilidade total com getFinanceNotifications)
+  // 1) Regras base (compatível com getFinanceNotifications)
   const base = getFinanceNotifications({
     recurringExpenses: data.recurringExpenses,
     transactions: data.transactions,
@@ -50,33 +46,7 @@ export function getAllNotifications(input: ExtendedNotificationInput): FinanceNo
 
   const extended: FinanceNotification[] = []
 
-  // 2) Gasto diário acima do recomendado
-  try {
-    const safe = calculateSafeDailySpend(data, referenceDate)
-    if (safe.status === 'over' && safe.safeDailySpendInCents !== null && safe.remainingTodayInCents !== null) {
-      extended.push({
-        id: `daily-overspent:${referenceDate}`,
-        kind: 'daily-overspent',
-        title: 'Gasto do dia acima do recomendado',
-        message: `Você gastou ${money(safe.spentTodayInCents)} hoje, acima do limite de ${money(safe.safeDailySpendInCents)}. Excesso de ${money(Math.abs(safe.remainingTodayInCents))}.`,
-        date: referenceDate,
-        href: '/',
-      })
-    } else if (safe.status === 'negative_free') {
-      extended.push({
-        id: `free-money-drop:${referenceDate}:negative`,
-        kind: 'free-money-drop',
-        title: 'Dinheiro livre negativo',
-        message: `Seu dinheiro livre está negativo. Ajuste seu planejamento para evitar saldo negativo.`,
-        date: referenceDate,
-        href: '/',
-      })
-    }
-  } catch {
-    // ignora erro determinístico
-  }
-
-  // 3) Previsão de saldo negativo (30 dias)
+  // 2) Previsão de saldo negativo (30 dias)
   try {
     const forecastPoints = calculateForecast({
       accounts: data.accounts,
@@ -84,7 +54,7 @@ export function getAllNotifications(input: ExtendedNotificationInput): FinanceNo
       recurringExpenses: data.recurringExpenses,
       startDate: referenceDate,
       days: 30,
-      realistic: (data as any).forecastRealistic ?? true,
+      realistic: (data as unknown as { forecastRealistic?: boolean }).forecastRealistic ?? true,
     })
     const total = data.accounts.filter(a => !a.archived).reduce((s, acc) => s + accountBalance(acc, data.transactions.filter(t => !t.deletedAt)), 0)
     const summary = summarizeForecast(forecastPoints, total)
@@ -100,26 +70,11 @@ export function getAllNotifications(input: ExtendedNotificationInput): FinanceNo
         href: '/forecast',
       })
     }
-  } catch {}
+  } catch {
+    // ignora erro determinístico
+  }
 
-  // 4) Gasto muito acima da média histórica (anomalias)
-  try {
-    const anomalies = detectAnomalies(6, data)
-    for (const anomaly of anomalies.slice(0, 2)) {
-      // limita a 2 para não spammar
-      const month = referenceDate.slice(0, 7)
-      extended.push({
-        id: `anomaly:${anomaly.category}:${month}`,
-        kind: 'anomaly',
-        title: `Gasto com ${anomaly.category} acima da média`,
-        message: `${anomaly.currentFormatted} este mês, ${anomaly.deltaPercent}% acima da média de ${anomaly.averageFormatted}.`,
-        date: referenceDate,
-        href: '/transactions',
-      })
-    }
-  } catch {}
-
-  // 5) Aumento em despesa recorrente variável
+  // 3) Aumento em despesa recorrente variável
   try {
     const t = referenceDate
     const start90 = addDaysIso(t, -90)
@@ -130,7 +85,6 @@ export function getAllNotifications(input: ExtendedNotificationInput): FinanceNo
       if (sameCat.length < 2) continue
       const avg = Math.round(sameCat.reduce((s, tx) => s + tx.amountCents, 0) / sameCat.length)
       if (avg > exp.amountInCents * 1.15 && avg > exp.amountInCents + 1000) {
-        // aumento >15% e > R$10
         extended.push({
           id: `recurring-increase:${exp.id}:${referenceDate.slice(0, 7)}`,
           kind: 'recurring-increase',
@@ -141,9 +95,11 @@ export function getAllNotifications(input: ExtendedNotificationInput): FinanceNo
         })
       }
     }
-  } catch {}
+  } catch {
+    // ignora
+  }
 
-  // 6) Meta financeira atrasada
+  // 4) Meta financeira atrasada
   try {
     for (const goal of data.goals ?? []) {
       if (!goal.deadline) continue
@@ -159,47 +115,159 @@ export function getAllNotifications(input: ExtendedNotificationInput): FinanceNo
         href: '/organizar',
       })
     }
-  } catch {}
+  } catch {
+    // ignora
+  }
 
-  // 7) Queda significativa no dinheiro livre / oportunidade para metas
+  // 5) Cartões de crédito
   try {
-    const free = calculateFreeMoney({ period: 'next30', data })
-    // Queda: livre negativo já coberto acima, mas se livre positivo porém < 50% do livre de 7 dias atrás (via localStorage snapshot)
-    // Para engine pura, detecta livre muito baixo vs total: < 10% do total quando total > 0
-    const total = free.totalCents
-    if (total > 50000 && free.freeCents >= 0 && free.freeCents < total * 0.1 && !free.isInsufficientData) {
-      extended.push({
-        id: `free-money-drop:${referenceDate}:low`,
-        kind: 'free-money-drop',
-        title: 'Dinheiro livre em queda',
-        message: `Seu dinheiro livre é de ${money(free.freeCents)}, menos de 10% do saldo total.`,
-        date: referenceDate,
-        href: '/',
-      })
-    }
-    // Oportunidade: livre alto (>30% do total) e existe meta aberta
-    const hasOpenGoal = (data.goals ?? []).some(g => g.targetAmountInCents > g.currentAmountInCents)
-    if (hasOpenGoal && free.freeCents > 0 && total > 0 && free.freeCents > total * 0.3) {
-      const target = (data.goals ?? []).find(g => g.targetAmountInCents > g.currentAmountInCents)
-      if (target) {
+    const cards = (data as any).creditCards ?? []
+    const purchases = (data as any).creditCardPurchases ?? []
+    const payments = (data as any).creditCardInvoicePayments ?? []
+    for (const card of cards) {
+      if (card.archived) continue
+      const invoices = generateInvoicesForCard(card, purchases, payments, referenceDate, 3, 6)
+      const summary = getCardSummary(card, purchases, payments, referenceDate)
+      const pct = card.limitCents ? (summary.usedCents / card.limitCents) * 100 : 0
+
+      // fatura próxima do fechamento (3 dias)
+      const nextClosing = invoices.find(inv => inv.closingDate >= referenceDate && inv.totalCents > 0)
+      if (nextClosing) {
+        const diffClose = Math.round((new Date(`${nextClosing.closingDate}T12:00:00`).getTime() - new Date(`${referenceDate}T12:00:00`).getTime()) / 86_400_000)
+        if (diffClose >= 0 && diffClose <= 3 && nextClosing.status === 'open') {
+          extended.push({
+            id: `card-closing-soon:${card.id}:${nextClosing.closingDate}`,
+            kind: 'card-closing-soon',
+            title: `Fatura do ${card.name} fecha em ${diffClose === 0 ? 'hoje' : `${diffClose}d`}`,
+            message: `Fechamento em ${formatDate(nextClosing.closingDate)} • ${money(nextClosing.totalCents)}`,
+            date: nextClosing.closingDate,
+            href: '/cards',
+          })
+        }
+        const diffDue = Math.round((new Date(`${nextClosing.dueDate}T12:00:00`).getTime() - new Date(`${referenceDate}T12:00:00`).getTime()) / 86_400_000)
+        if (diffDue >= 0 && diffDue <= 3 && nextClosing.remainingCents > 0) {
+          extended.push({
+            id: `card-due-soon:${card.id}:${nextClosing.dueDate}`,
+            kind: 'card-due-soon',
+            title: `Fatura do ${card.name} vence em ${diffDue === 0 ? 'hoje' : `${diffDue}d`}`,
+            message: `Vencimento ${formatDate(nextClosing.dueDate)} • ${money(nextClosing.remainingCents)}`,
+            date: nextClosing.dueDate,
+            href: '/cards',
+          })
+        }
+      }
+
+      // faturas vencidas / atrasadas
+      for (const inv of invoices) {
+        if (inv.status === 'overdue') {
+          extended.push({
+            id: `card-overdue:${card.id}:${inv.closingDate}`,
+            kind: 'card-overdue',
+            title: `Fatura atrasada • ${card.name}`,
+            message: `Venceu em ${formatDate(inv.dueDate)} • ${money(inv.remainingCents)} em aberto`,
+            date: inv.dueDate,
+            href: '/cards',
+          })
+          break
+        }
+      }
+
+      // limite
+      if (pct >= 98) {
         extended.push({
-          id: `goal-opportunity:${referenceDate}:${target.id}`,
-          kind: 'goal-opportunity',
-          title: 'Oportunidade para reservar para metas',
-          message: `Você tem ${money(free.freeCents)} livres — que tal reservar para "${target.title}"?`,
+          id: `card-limit-exhausted:${card.id}:${referenceDate.slice(0, 7)}`,
+          kind: 'card-limit-exhausted',
+          title: `${card.name} sem limite`,
+          message: `Limite praticamente esgotado: ${pct.toFixed(0)}% usado`,
           date: referenceDate,
-          href: '/organizar',
+          href: '/cards',
+        })
+      } else if (pct >= 90) {
+        extended.push({
+          id: `card-limit-critical:${card.id}:${referenceDate.slice(0, 7)}`,
+          kind: 'card-limit-critical',
+          title: `${card.name} acima de 90% do limite`,
+          message: `${pct.toFixed(0)}% do limite utilizado • ${money(summary.availableCents)} disponível`,
+          date: referenceDate,
+          href: '/cards',
+        })
+      } else if (pct >= 70) {
+        extended.push({
+          id: `card-limit-warning:${card.id}:${referenceDate.slice(0, 7)}`,
+          kind: 'card-limit-warning',
+          title: `${card.name} acima de 70% do limite`,
+          message: `${pct.toFixed(0)}% usado • ${money(summary.availableCents)} disponível`,
+          date: referenceDate,
+          href: '/cards',
+        })
+      }
+
+      // aumento incomum da fatura (compara com média 3 meses)
+      const recentTotals = invoices.filter(inv => inv.totalCents > 0).sort((a, b) => b.closingDate.localeCompare(a.closingDate)).slice(0, 4)
+      if (recentTotals.length >= 4) {
+        const current = recentTotals[0].totalCents
+        const avg = Math.round(recentTotals.slice(1, 4).reduce((s, inv) => s + inv.totalCents, 0) / 3)
+        if (avg > 0 && current > avg * 1.3 && current - avg > 5000) {
+          extended.push({
+            id: `card-invoice-increase:${card.id}:${referenceDate.slice(0, 7)}`,
+            kind: 'card-invoice-increase',
+            title: `Fatura do ${card.name} acima da média`,
+            message: `${money(current)} vs média ${money(avg)}`,
+            date: referenceDate,
+            href: '/cards',
+          })
+        }
+      }
+
+      // parcela próxima do fim (última parcela)
+      for (const p of purchases.filter((pr: any) => pr.cardId === card.id && pr.status === 'active' && pr.installments > 1)) {
+        const insts = generateInvoicesForCard(card, [p], payments, referenceDate, 12, 12)
+        // simplifica: se só resta 1 parcela futura
+        const futureCount = (p as any).installments - 1 // aproximado; melhor calcular via service
+        // usa helper para contar restantes
+        const remaining = (() => {
+          try {
+            const all = generateInvoicesForCard(card, [p], payments, referenceDate, 0, 12)
+            return all.filter(inv => inv.closingDate >= referenceDate && inv.totalCents > 0).length
+          } catch { return 0 }
+        })()
+        if (remaining === 1) {
+          extended.push({
+            id: `card-installment-ending:${p.id}:${referenceDate.slice(0, 7)}`,
+            kind: 'card-installment-ending',
+            title: `Última parcela: ${p.description}`,
+            message: `${p.installments}x terminando • ${money(p.totalAmountCents)} total`,
+            date: referenceDate,
+            href: '/cards',
+          })
+          break
+        }
+        if (futureCount === 1) break
+      }
+
+      // pagamento parcial pendente
+      const partially = invoices.find(inv => inv.status === 'partially_paid')
+      if (partially) {
+        extended.push({
+          id: `card-partially-paid:${card.id}:${partially.closingDate}`,
+          kind: 'card-partially-paid',
+          title: `Pagamento parcial • ${card.name}`,
+          message: `Falta ${money(partially.remainingCents)} de ${money(partially.totalCents)}`,
+          date: partially.dueDate,
+          href: '/cards',
         })
       }
     }
-  } catch {}
+  } catch {
+    // ignora
+  }
 
   // Merge + ordenação determinística por severidade
   const all = [...base, ...extended]
   const weight = (item: FinanceNotification) => {
-    if (item.kind === 'overdue' || item.kind === 'goal-overdue') return 0
-    if (item.kind === 'forecast-negative' || item.kind === 'budget-exceeded' || item.kind === 'free-money-drop') return 1
-    if (item.kind === 'budget-warning' || item.kind === 'daily-overspent') return 2
+    if (item.kind === 'overdue' || item.kind === 'goal-overdue' || item.kind === 'card-overdue' || item.kind === 'card-limit-exhausted') return 0
+    if (item.kind === 'forecast-negative' || item.kind === 'budget-exceeded' || item.kind === 'free-money-drop' || item.kind === 'card-limit-critical' || item.kind === 'card-partially-paid') return 1
+    if (item.kind === 'budget-warning' || item.kind === 'daily-overspent' || item.kind === 'card-limit-warning' || item.kind === 'card-due-soon' || item.kind === 'card-closing-soon') return 2
     return 3
   }
   return all.sort((a, b) => weight(a) - weight(b) || a.date.localeCompare(b.date))

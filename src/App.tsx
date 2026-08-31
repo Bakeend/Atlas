@@ -1,25 +1,28 @@
 import {
   AlertTriangle, ArrowDownLeft, ArrowUpRight, Bell, BellRing, Car, ChartPie, Check, CheckCheck, ChevronRight,
-  Eye, EyeOff, FileUp, Gamepad2, House, Package, Plus, Settings, Sparkles,
+  Eye, EyeOff, FileUp, Gamepad2, House, Package, Plus, Settings,
   TrendingDown, TrendingUp, Utensils, Wallet, X, type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useState, Fragment, type ReactNode } from 'react'
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { AccountIcon, AccountModal, BackButton, Card, CategoryIcon, Empty, Modal, MoneyInput, PageTitle, SelectMenu, TransactionModal, TransactionRow } from './components'
+import { AccountIcon, AccountModal, AtlasLogo, BackButton, Card, CategoryIcon, Empty, Modal, MoneyInput, PageTitle, SelectMenu, TransactionModal, TransactionRow } from './components'
 import { accountBalance, categories, currentMonth, money, parseMoney, today, uid, type FinanceTransaction, type FinancialProfile } from './domain'
 import { useFinanceStore } from './store'
 import { RecurringExpensesPage } from './RecurringExpenses'
 import { ImportPage } from './ImportPage'
 import { ForecastPage } from './ForecastPage'
-import { AiAssistantPage } from './ai/components/AiAssistantPage'
+import { CreditCardsPage } from './creditCards/CreditCardsPage'
+import { CreditCardDetailPage } from './creditCards/CreditCardDetailPage'
 import { CategoryManager } from './components/CategoryManager'
 import { getCategoryIcon } from './lib/categoryIcons'
 import { getFinanceNotifications, type FinanceNotification } from './notifications'
+import { getAllNotifications } from './notificationEngine'
+import { getAllPurchaseInstallments, getCardSpendingByCategory } from './creditCards/creditCardService'
 import { OrganizePage } from './OrganizePage'
 import { DailySpendCard } from './DailySpend'
 import { FreeMoneyCard } from './FreeMoneyCard'
-import { DashboardSettings, SettingsMenu, NavigationSettings, FinanceSettings, PaymentSettings, PrivacySettings } from './SettingsPages'
+import { DashboardSettings, SettingsMenu, NavigationSettings, FinanceSettings, PaymentSettings, PrivacySettings, ThemeSettings } from './SettingsPages'
 import { NotificationSettings } from './NotificationSettings'
 import { resolveShortcutItems, APP_PAGES } from './navigation'
 import { useSystemNotifications } from './useSystemNotifications'
@@ -49,13 +52,13 @@ function Shell() {
     void initSystemNotificationListeners((href: string) => navigate(href))
   }, [navigate])
   useSystemNotifications({ data: financeData, ready })
-  if (!ready) return <div className="grid min-h-screen place-items-center"><div className="text-center"><div className="mx-auto h-11 w-11 animate-pulse rounded-full bg-brand"/><p className="mt-3 text-sm text-muted">Carregando suas finanças…</p></div></div>
+  if (!ready) return <div className="grid min-h-screen place-items-center"><div className="text-center"><AtlasLogo className="atlas-logo-loading" /><p className="mt-3 text-sm text-muted">Carregando suas finanças…</p></div></div>
   // Modo edição do onboarding (Perfil → Refazer configuração): rota dedicada, nunca altera dados existentes.
   if (location.pathname === '/onboarding') return <OnboardingPage mode="edit"/>
   // Gatilho exclusivo: onboardingDone (usuário pode criar conta no meio e fechar o app sem perder o fluxo).
   if (!onboardingDone) return <OnboardingPage/>
   return <div className="min-h-screen"><main className="app-content"><Routes>
-    <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/organizar" element={<OrganizePage/>}/><Route path="/import" element={<ImportPage/>}/><Route path="/forecast" element={<ForecastPage/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/recurring" element={<RecurringExpensesPage/>}/><Route path="/assistant" element={<AiAssistantPage/>}/><Route path="/profile" element={<Profile/>}/><Route path="/settings" element={<SettingsMenu/>}/><Route path="/settings/home" element={<DashboardSettings/>}/><Route path="/settings/nav" element={<NavigationSettings/>}/><Route path="/settings/finance" element={<FinanceSettings/>}/><Route path="/settings/payment" element={<PaymentSettings/>}/><Route path="/settings/privacy" element={<PrivacySettings/>}/><Route path="/settings/notifications" element={<NotificationSettings/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
+    <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/organizar" element={<OrganizePage/>}/><Route path="/import" element={<ImportPage/>}/><Route path="/forecast" element={<ForecastPage/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/recurring" element={<RecurringExpensesPage/>}/><Route path="/cards" element={<CreditCardsPage/>}/><Route path="/cards/:id" element={<CreditCardDetailPage/>}/><Route path="/profile" element={<Profile/>}/><Route path="/settings" element={<SettingsMenu/>}/><Route path="/settings/theme" element={<ThemeSettings/>}/><Route path="/settings/home" element={<DashboardSettings/>}/><Route path="/settings/nav" element={<NavigationSettings/>}/><Route path="/settings/finance" element={<FinanceSettings/>}/><Route path="/settings/payment" element={<PaymentSettings/>}/><Route path="/settings/privacy" element={<PrivacySettings/>}/><Route path="/settings/notifications" element={<NotificationSettings/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
   </Routes></main><BottomNavigation onNew={() => setNewTransaction(true)}/>{newTransaction && <TransactionModal close={() => setNewTransaction(false)}/>}</div>
 }
 
@@ -73,29 +76,63 @@ function BottomNavItem({ to, label, icon: Icon }: { to: string; label: string; i
   return <NavLink end={to === '/'} to={to} className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}><Icon size={22} strokeWidth={1.9}/><span>{label}</span></NavLink>
 }
 
-function AiFab() {
-  return <NavLink to="/assistant" className="ai-fab" aria-label="Assistente financeiro"><Sparkles size={20}/><span>Assistente</span></NavLink>
-}
-
 function Dashboard() {
-  const { accounts, transactions, budgets, recurringExpenses, readNotificationIds, markNotificationRead, markAllNotificationsRead, hideBalances, toggleBalances, profileName, dashboardWidgets } = useFinanceStore()
+  const { accounts, transactions, budgets, recurringExpenses, readNotificationIds, markNotificationRead, markAllNotificationsRead, hideBalances, toggleBalances, profileName, dashboardWidgets, creditCards, creditCardPurchases, creditCardInvoicePayments, goals, recurringIncomes, allocationPlans, paymentAllocationPlans } = useFinanceStore() as any
   const [notificationsOpen, setNotificationsOpen] = useState(false)
-  const live = transactions.filter(transaction => !transaction.deletedAt)
+  const live = transactions.filter((transaction: FinanceTransaction) => !transaction.deletedAt)
   const month = currentMonth()
-  const total = accounts.filter(account => !account.archived).reduce((sum, account) => sum + accountBalance(account, live), 0)
+  const total = accounts.filter((account: any) => !account.archived).reduce((sum: number, account: any) => sum + accountBalance(account, live), 0)
+  // inclui gastos de cartão nas despesas (por fechamento do mês)
+  const cardExpenseForMonth = (m: string) => {
+    const start = `${m}-01`
+    const endDate = new Date(`${start}T12:00:00`); endDate.setMonth(endDate.getMonth() + 1); endDate.setDate(0)
+    const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`
+    const map = getCardSpendingByCategory(creditCards ?? [], creditCardPurchases ?? [], start, end)
+    let sum = 0; for (const v of map.values()) sum += v
+    return sum
+  }
   const income = sumTransactions(live, month, 'income')
-  const expense = sumTransactions(live, month, 'expense')
+  const expenseBase = sumTransactions(live, month, 'expense')
+  const expense = expenseBase + cardExpenseForMonth(month)
   const previousIncome = sumTransactions(live, monthKey(-1), 'income')
-  const previousExpense = sumTransactions(live, monthKey(-1), 'expense')
+  const previousExpense = sumTransactions(live, monthKey(-1), 'expense') + cardExpenseForMonth(monthKey(-1))
   const previousBalance = total - (income - expense)
   const balanceTrend = percentageChange(total, previousBalance)
   const [chartPeriod, setChartPeriod] = useState<'3'|'6'|'12'>('6')
-  const recent = [...live].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4)
-  const chartData = useMemo(() => lastNMonths(live, Number(chartPeriod)), [live, chartPeriod])
-  const budgetData = budgetCategories(live, month)
+  const recent = [...live].sort((a: any, b: any) => b.date.localeCompare(a.date)).slice(0, 4)
+  const chartData = useMemo(() => {
+    const base = lastNMonths(live, Number(chartPeriod))
+    // adiciona gastos de cartão por mês no gráfico
+    return base.map(item => {
+      // item.label é mês abreviado, mas precisamos do key YYYY-MM; recalcula
+      const idx = base.indexOf(item)
+      const n = Number(chartPeriod)
+      const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (n - 1 - idx))
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const cardExtra = cardExpenseForMonth(key)
+      return { ...item, value: item.value + cardExtra }
+    })
+  }, [live, chartPeriod, creditCardPurchases, creditCards])
+  const rawBudgetData = budgetCategories(live, month)
+  const budgetData = useMemo(() => {
+    const cardMap = getCardSpendingByCategory(creditCards ?? [], creditCardPurchases ?? [], `${month}-01`, `${month}-31`)
+    // merge com budgetData: distribui por categoria
+    const merged = rawBudgetData.map(item => {
+      const extra = cardMap.get(item.name) ?? 0
+      return extra ? { ...item, value: item.value + extra } : item
+    })
+    // categorias de cartão que não estão no budget padrão (ex: Outros já inclui)
+    let outrosIdx = merged.findIndex(item => item.name === 'Outros')
+    for (const [cat, cents] of cardMap) {
+      if (!merged.some(m => m.name === cat)) {
+        if (outrosIdx >= 0) merged[outrosIdx] = { ...merged[outrosIdx], value: merged[outrosIdx].value + cents }
+      }
+    }
+    return merged
+  }, [live, month, creditCards, creditCardPurchases])
   const expenseTotal = budgetData.reduce((sum, item) => sum + item.value, 0)
-  const hasBudget = budgets.some(budget => budget.month === month)
-  const notifications = useMemo(() => getFinanceNotifications({ recurringExpenses, transactions, budgets, referenceDate: today() }), [recurringExpenses, transactions, budgets])
+  const hasBudget = budgets.some((budget: any) => budget.month === month)
+  const notifications = useMemo(() => getAllNotifications({ data: { accounts, transactions, budgets, recurringExpenses, recurringIncomes, goals, allocationPlans, paymentAllocationPlans, creditCards, creditCardPurchases, creditCardInvoicePayments } as any, referenceDate: today() }), [recurringExpenses, transactions, budgets, creditCards, creditCardPurchases, creditCardInvoicePayments, goals, recurringIncomes, allocationPlans, paymentAllocationPlans])
   const unreadNotifications = notifications.filter(notification => !readNotificationIds.includes(notification.id))
   const rawProfile = useFinanceStore(state => state.financialProfile)
   // Sem perfil salvo (usuário antigo) o dashboard permanece exatamente como era.
@@ -117,11 +154,11 @@ function Dashboard() {
     summary: <section className="summary-grid"><SummaryCard title="Receitas" value={money(income, hideBalances)} trend={percentageChange(income, previousIncome)} icon={ArrowDownLeft} tone="income"/><SummaryCard title="Despesas" value={money(expense, hideBalances)} trend={percentageChange(expense, previousExpense)} icon={ArrowUpRight} tone="expense"/></section>,
     ...secondaryCards,
   }
-  const configuredLayout = dashboardWidgets?.filter(widget => widget.visible).map(widget => widget.key)
+  const configuredLayout = dashboardWidgets?.filter((widget: any) => widget.visible).map((widget: any) => widget.key)
   const widgetLayout: DashboardWidgetKey[] = configuredLayout ?? ['balance', 'summary', ...layout]
 
   return <>
-    <header className="dashboard-header"><div><h1>{profileName ? `Olá, ${profileName}` : 'Olá'} <span aria-hidden="true">👋</span></h1><p>Aqui está o resumo das suas finanças</p></div><div className="flex items-center gap-2"><NavLink to="/assistant" className="ai-header-fab"><Sparkles size={16}/> Assistente</NavLink><button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`Notificações${unreadNotifications.length ? `: ${unreadNotifications.length} não lidas` : ''}`} aria-haspopup="dialog" aria-expanded={notificationsOpen}><Bell size={23} strokeWidth={1.9}/>{unreadNotifications.length > 0 && <span className="notification-dot"/>}</button></div></header>
+    <header className="dashboard-header"><div className="dashboard-brand"><AtlasLogo className="dashboard-logo" /><div><h1>{profileName ? `Olá, ${profileName}` : 'Olá'} <span aria-hidden="true">👋</span></h1><p>Aqui está o resumo das suas finanças</p></div></div><div className="flex items-center gap-2"><button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`Notificações${unreadNotifications.length ? `: ${unreadNotifications.length} não lidas` : ''}`} aria-haspopup="dialog" aria-expanded={notificationsOpen}><Bell size={23} strokeWidth={1.9}/>{unreadNotifications.length > 0 && <span className="notification-dot"/>}</button></div></header>
     {notificationsOpen && <NotificationCenter notifications={notifications} unreadIds={readNotificationIds} close={() => setNotificationsOpen(false)} markRead={markNotificationRead} markAllRead={markAllNotificationsRead}/>}
     {widgetLayout.map(key => <Fragment key={key}>{widgetCards[key]}</Fragment>)}
   </>
@@ -131,10 +168,10 @@ function NotificationCenter({ notifications, unreadIds, close, markRead, markAll
   const navigate = useNavigate()
   const unread = notifications.filter(item => !unreadIds.includes(item.id))
   const icon = (kind: FinanceNotification['kind']) => {
-    if (kind === 'overdue' || kind === 'budget-exceeded' || kind === 'forecast-negative' || kind === 'goal-overdue' || kind === 'free-money-drop') return AlertTriangle
-    if (kind === 'reminder' || kind === 'daily-overspent') return BellRing
-    if (kind === 'anomaly' || kind === 'recurring-increase') return TrendingUp
-    if (kind === 'goal-opportunity') return Wallet
+    if (kind === 'overdue' || kind === 'budget-exceeded' || kind === 'forecast-negative' || kind === 'goal-overdue' || kind === 'free-money-drop' || kind === 'card-overdue' || kind === 'card-limit-exhausted' || kind === 'card-limit-critical') return AlertTriangle
+    if (kind === 'reminder' || kind === 'daily-overspent' || kind === 'card-due-soon' || kind === 'card-closing-soon') return BellRing
+    if (kind === 'anomaly' || kind === 'recurring-increase' || kind === 'card-invoice-increase') return TrendingUp
+    if (kind === 'goal-opportunity' || kind === 'card-installment-ending' || kind === 'card-limit-warning' || kind === 'card-partially-paid') return Wallet
     return ChartPie
   }
   const openNotification = (notification: FinanceNotification) => {
@@ -302,18 +339,18 @@ function OnboardingChoiceRow({ selected, label, description, icon: Icon, onSelec
   )
 }
 
-function ConfirmDelete({ close, confirm }: { close: () => void; confirm: () => void }) { return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"><h2 className="text-lg font-bold">Excluir lançamento?</h2><p className="mt-2 text-sm leading-6 text-muted">Ele deixará de afetar seus saldos e relatórios. Esta ação pode ser revista no histórico técnico futuramente.</p><div className="mt-6 grid grid-cols-2 gap-3"><button className="btn-secondary" onClick={close}>Cancelar</button><button className="inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700" onClick={confirm}>Excluir</button></div></div></div> }
+function ConfirmDelete({ close, confirm }: { close: () => void; confirm: () => void }) { return <Modal title="Excluir lançamento?" close={close}><p className="text-sm leading-6 text-muted">Ele deixará de afetar seus saldos e relatórios. Esta ação pode ser revista no histórico técnico futuramente.</p><div className="mt-6 grid grid-cols-2 gap-3"><button className="btn-secondary" onClick={close}>Cancelar</button><button className="inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700" onClick={confirm}>Excluir</button></div></Modal> }
 
 interface BudgetCategory { name: string; value: number; color: string; icon: LucideIcon }
-function budgetCategories(transactions: FinanceTransaction[], month: string): BudgetCategory[] { const expenses = transactions.filter(item => item.type === 'expense' && item.date.startsWith(month)); const values = (terms: RegExp) => expenses.filter(item => terms.test(item.category.toLowerCase())).reduce((sum, item) => sum + item.amountCents, 0); const housing = values(/moradia/); const food = values(/alimenta/); const transport = values(/transporte/); const leisure = values(/lazer/); const total = expenses.reduce((sum, item) => sum + item.amountCents, 0); return [{ name: 'Moradia', value: housing, color: '#2563EB', icon: House }, { name: 'Alimentação', value: food, color: '#60A5FA', icon: Utensils }, { name: 'Transporte', value: transport, color: '#F2B323', icon: Car }, { name: 'Lazer', value: leisure, color: '#9367E9', icon: Gamepad2 }, { name: 'Outros', value: Math.max(0, total - housing - food - transport - leisure), color: '#B7BCC5', icon: Package }] }
-function lastNMonths(transactions: FinanceTransaction[], n: number) { return Array.from({ length: n }, (_, index) => { const date = new Date(); date.setDate(1); date.setMonth(date.getMonth() - (n - 1 - index)); const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; return { label: new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(date).replace('.', '').replace(/^./, char => char.toUpperCase()), value: sumTransactions(transactions, key, 'expense') } }) }
+function budgetCategories(transactions: FinanceTransaction[], month: string): BudgetCategory[] { const expenses = transactions.filter(item => item.type === 'expense' && !item.isCreditCardInvoicePayment && item.date.startsWith(month)); const values = (terms: RegExp) => expenses.filter(item => terms.test(item.category.toLowerCase())).reduce((sum, item) => sum + item.amountCents, 0); const housing = values(/moradia/); const food = values(/alimenta/); const transport = values(/transporte/); const leisure = values(/lazer/); const total = expenses.reduce((sum, item) => sum + item.amountCents, 0); return [{ name: 'Moradia', value: housing, color: '#2563EB', icon: House }, { name: 'Alimentação', value: food, color: '#60A5FA', icon: Utensils }, { name: 'Transporte', value: transport, color: '#F2B323', icon: Car }, { name: 'Lazer', value: leisure, color: '#9367E9', icon: Gamepad2 }, { name: 'Outros', value: Math.max(0, total - housing - food - transport - leisure), color: '#B7BCC5', icon: Package }] }
+function lastNMonths(transactions: FinanceTransaction[], n: number) { return Array.from({ length: n }, (_, index) => { const date = new Date(); date.setDate(1); date.setMonth(date.getMonth() - (n - 1 - index)); const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; return { label: new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(date).replace('.', '').replace(/^./, char => char.toUpperCase()), value: sumTransactions(transactions.filter(t => !t.isCreditCardInvoicePayment), key, 'expense') } }) }
 function lastSixMonths(transactions: FinanceTransaction[]) { return lastNMonths(transactions, 6) }
 function monthKey(offset: number) { const date = new Date(); date.setDate(1); date.setMonth(date.getMonth() + offset); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}` }
-function sumTransactions(transactions: FinanceTransaction[], month: string, type: 'income' | 'expense') { return transactions.filter(item => item.type === type && item.date.startsWith(month)).reduce((sum, item) => sum + item.amountCents, 0) }
+function sumTransactions(transactions: FinanceTransaction[], month: string, type: 'income' | 'expense') { return transactions.filter(item => item.type === type && !item.isCreditCardInvoicePayment && item.date.startsWith(month)).reduce((sum, item) => sum + item.amountCents, 0) }
 function percentageChange(current: number, previous: number) { if (!previous) return current ? 100 : 0; return (current - previous) / Math.abs(previous) * 100 }
 function formatPercent(value: number) { return `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(value)}%` }
 function shortMoney(value: number) { return value >= 100000 ? `R$ ${Math.round(value / 100000)}k` : value ? `R$ ${Math.round(value / 100)}` : 'R$ 0' }
-function spentByCategory(transactions: FinanceTransaction[], month: string, category: string) { return transactions.filter(item => item.type === 'expense' && item.category === category && item.date.startsWith(month)).reduce((sum, item) => sum + item.amountCents, 0) }
+function spentByCategory(transactions: FinanceTransaction[], month: string, category: string) { return transactions.filter(item => item.type === 'expense' && !item.isCreditCardInvoicePayment && item.category === category && item.date.startsWith(month)).reduce((sum, item) => sum + item.amountCents, 0) }
 function accountType(type: string) { return ({ checking: 'Conta corrente', savings: 'Poupança', cash: 'Dinheiro', wallet: 'Carteira digital', investment: 'Investimento' } as Record<string, string>)[type] }
 
 export default function App() { return <Shell/> }

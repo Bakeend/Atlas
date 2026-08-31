@@ -12,15 +12,15 @@
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "/icons/icon-192.svg",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
+      "src": "/icons/%E2%94%9C%C2%A1cone_azul_minimalista_em_forma_de_arco.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-512.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
+      "src": "/icons/%E2%94%9C%C2%A1cone_azul_minimalista_em_forma_de_arco.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]

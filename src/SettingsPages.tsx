@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, ChevronUp, Download, Trash2, Upload } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, ChevronUp, Download, Monitor, Moon, Sun, Trash2, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { Card, CategoryIcon, Modal, PageTitle, SelectMenu } from './components'
@@ -7,9 +7,11 @@ import { BackupFileSchema, summarizeBackup, type BackupSummary } from './data/ba
 import type { FinanceData } from './domain'
 import { DEFAULT_SHORTCUTS, MAX_SHORTCUTS, NAV_DESTINATIONS } from './navigation'
 import { DASHBOARD_WIDGETS, DEFAULT_DASHBOARD_WIDGETS, type DashboardWidgetPreference } from './dashboardLayout'
+import { getThemePreference, setThemePreference, type ThemePreference } from './theme'
 
 export function SettingsMenu() {
   const configLinks = [
+    { to: '/settings/theme', label: 'Aparência', description: 'Tema claro, escuro ou igual ao sistema.' },
     { to: '/settings/notifications', label: 'Notificações', description: 'Central do sistema: Windows e Android, por tipo de alerta.' },
     { to: '/settings/home', label: 'Tela inicial', description: 'Escolha o que aparece e a ordem dos blocos.' },
     { to: '/settings/nav', label: 'Navegação', description: 'Escolha os atalhos da barra inferior.' },
@@ -25,6 +27,34 @@ export function SettingsMenu() {
         <NavLink to="/accounts" className="settings-row"><div className="min-w-0"><p className="font-semibold">Contas e carteiras</p><p className="mt-1 text-sm text-muted">Gerencie saldos, contas ativas e arquivadas.</p></div><ChevronRight className="text-muted shrink-0" size={20}/></NavLink>
       </div></Card>
     </div>
+  </>
+}
+
+const THEME_OPTIONS: Array<{ value: ThemePreference; label: string; description: string; icon: typeof Monitor }> = [
+  { value: 'system', label: 'Usar o sistema', description: 'Acompanha automaticamente o tema do dispositivo.', icon: Monitor },
+  { value: 'light', label: 'Claro', description: 'Interface clara em todos os momentos.', icon: Sun },
+  { value: 'dark', label: 'Escuro', description: 'Interface escura em todos os momentos.', icon: Moon },
+]
+
+export function ThemeSettings() {
+  const [preference, setPreference] = useState<ThemePreference>(() => getThemePreference())
+  const chooseTheme = (next: ThemePreference) => {
+    setThemePreference(next)
+    setPreference(next)
+  }
+  return <>
+    <PageTitle eyebrow="Configurações" title="Aparência" backTo="/settings" />
+    <Card>
+      <h2 className="section-title">Tema do aplicativo</h2>
+      <p className="mt-1 text-sm text-muted">Escolha como o Atlas aparece. A opção do sistema sincroniza quando o dispositivo muda de tema.</p>
+      <div className="mt-4 space-y-2">
+        {THEME_OPTIONS.map(option => {
+          const Icon = option.icon
+          const selected = preference === option.value
+          return <button key={option.value} type="button" className={`theme-option ${selected ? 'selected' : ''}`} aria-pressed={selected} onClick={() => chooseTheme(option.value)}><CategoryIcon icon={Icon} size={18}/><span className="min-w-0 flex-1 text-left"><strong>{option.label}</strong><small>{option.description}</small></span><span className={`theme-option-check ${selected ? 'selected' : ''}`} aria-hidden="true">{selected && <Check size={14} strokeWidth={3}/>}</span></button>
+        })}
+      </div>
+    </Card>
   </>
 }
 
