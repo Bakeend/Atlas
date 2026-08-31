@@ -603,6 +603,60 @@ html[data-theme='dark'] .notification-button:hover { background-color: #172033; 
 html[data-theme='dark'] .bottom-nav-shell { background-color: rgba(15, 23, 42, 0.95); border-color: #273449; }
 html[data-theme='dark'] .card { box-shadow: 0 6px 22px rgba(0, 0, 0, 0.16); }
 html[data-theme='dark'] .dashboard-card:hover { box-shadow: 0 8px 26px rgba(0, 0, 0, 0.22); }
+html[data-theme='dark'] [class*='bg-white'] { background-color: #111827; }
+html[data-theme='dark'] [class*='bg-slate-50'] { background-color: #172033; }
+html[data-theme='dark'] [class*='bg-slate-100'],
+html[data-theme='dark'] [class*='bg-slate-200'] { background-color: #202c40; }
+html[data-theme='dark'] [class*='bg-blue-50'] { background-color: #122741; }
+html[data-theme='dark'] [class*='bg-emerald-50'] { background-color: #12352c; }
+html[data-theme='dark'] [class*='bg-red-50'] { background-color: #3b2028; }
+html[data-theme='dark'] [class*='bg-amber-50'] { background-color: #382e18; }
+html[data-theme='dark'] [class*='text-slate-300'],
+html[data-theme='dark'] [class*='text-slate-200'] { color: #64748b; }
+html[data-theme='dark'] [class*='text-slate-400'],
+html[data-theme='dark'] [class*='text-slate-500'] { color: #94a3b8; }
+html[data-theme='dark'] [class*='text-slate-600'],
+html[data-theme='dark'] [class*='text-slate-700'] { color: #cbd5e1; }
+html[data-theme='dark'] [class*='text-slate-800'],
+html[data-theme='dark'] [class*='text-slate-900'] { color: #f8fafc; }
+html[data-theme='dark'] [class*='border-slate-'],
+html[data-theme='dark'] [class*='divide-slate-'] { border-color: #273449; }
+html[data-theme='dark'] .ai-input-bar,
+html[data-theme='dark'] .onboarding-root,
+html[data-theme='dark'] .onboarding-top { background-color: #0b1220; }
+html[data-theme='dark'] .onboarding-footer { background-image: linear-gradient(to top, #0b1220, #0b1220, transparent); }
+html[data-theme='dark'] .onboarding-feedback-overlay { background-color: rgba(11, 18, 32, 0.88); }
+html[data-theme='dark'] .money-overlay-panel,
+html[data-theme='dark'] .control-overlay-panel,
+html[data-theme='dark'] .notification-panel { border-color: #273449; }
+html[data-theme='dark'] .select-overlay-list,
+html[data-theme='dark'] .money-keypad { border-color: #21466f; background-color: #122741; }
+html[data-theme='dark'] .select-overlay-list .select-option,
+html[data-theme='dark'] .money-key { background-color: #111827; }
+html[data-theme='dark'] .calendar-grid button.outside { color: #526176; }
+html[data-theme='dark'] .chart-tooltip { border-color: #273449; }
+html[data-theme='dark'] .toggle > span { background-color: #f8fafc; }
+html[data-theme='dark'] .bottom-nav-shell { box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.24); }
+html[data-theme='dark'] .bg-canvas,
+html[data-theme='dark'] [class*='bg-canvas'] { background-color: #0b1220; }
+html[data-theme='dark'] [class*='bg-blue-100'] { background-color: #1e3a5f; }
+html[data-theme='dark'] [class*='bg-blue-200'] { background-color: #1e3a5f; }
+html[data-theme='dark'] [class*='bg-slate-200'] { background-color: #202c40; }
+html[data-theme='dark'] [class*='bg-slate-300'] { background-color: #2a3a52; }
+html[data-theme='dark'] [class*='border-blue-100'],
+html[data-theme='dark'] [class*='border-blue-200'],
+html[data-theme='dark'] [class*='border-slate-300'],
+html[data-theme='dark'] [class*='border-white'],
+html[data-theme='dark'] [class*='divide-white'] { border-color: #273449; }
+html[data-theme='dark'] .color-popover,
+html[data-theme='dark'] .import-dropzone,
+html[data-theme='dark'] .import-search,
+html[data-theme='dark'] .recurring-search,
+html[data-theme='dark'] .filter-grid .field,
+html[data-theme='dark'] .onboarding-card,
+html[data-theme='dark'] .onboarding-complete-item,
+html[data-theme='dark'] .ai-confirm-card,
+html[data-theme='dark'] .ai-visual-block .card { background-color: #111827; border-color: #273449; }
 
 @media (min-width: 900px) {
   html[data-theme='dark'] body { background-image: radial-gradient(circle at 50% 0%, rgba(47, 128, 237, 0.12), transparent 45%); }
