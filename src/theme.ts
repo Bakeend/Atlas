@@ -10,6 +10,7 @@ export function getThemePreference(): ThemePreference {
 
 export function resolveTheme(preference: ThemePreference): 'light' | 'dark' {
   if (preference !== 'system') return preference
+  if (typeof window === 'undefined') return 'light'
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
@@ -32,6 +33,13 @@ export function initializeThemeSync() {
   const syncSystemTheme = () => {
     if (getThemePreference() === 'system') applyTheme('system')
   }
+  const syncSavedPreference = (event: StorageEvent) => {
+    if (event.key === THEME_STORAGE_KEY) applyTheme()
+  }
   media.addEventListener('change', syncSystemTheme)
-  return () => media.removeEventListener('change', syncSystemTheme)
+  window.addEventListener('storage', syncSavedPreference)
+  return () => {
+    media.removeEventListener('change', syncSystemTheme)
+    window.removeEventListener('storage', syncSavedPreference)
+  }
 }

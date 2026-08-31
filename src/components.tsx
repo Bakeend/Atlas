@@ -32,7 +32,7 @@ export function BackButton({ to, label = 'Voltar', className = '' }: { to?: stri
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) { return <section className={`card ${className}`}>{children}</section> }
 
 export function AtlasLogo({ className = '', alt = 'Atlas' }: { className?: string; alt?: string }) {
-  return <span className={`atlas-logo ${className}`}><img className="atlas-logo-light" src="/icons/%E2%94%9C%C2%A1cone_azul_minimalista_em_forma_de_arco.png" alt={alt} /><img className="atlas-logo-dark" src="/icons/logotipo_azul_abstrato_em_fundo_escuro.png" alt={alt} /></span>
+  return <span className={`atlas-logo ${className}`} role="img" aria-label={alt}><img className="atlas-logo-light" src="/icons/%E2%94%9C%C2%A1cone_azul_minimalista_em_forma_de_arco.png" alt="" /><img className="atlas-logo-dark" src="/icons/logotipo_azul_abstrato_em_fundo_escuro.png" alt="" /></span>
 }
 
 export function CategoryIcon({ icon: Icon, color = '#2F80ED', backgroundColor = '#E8F1FE', size = 20, className = '' }: { icon: LucideIcon; color?: string; backgroundColor?: string; size?: number; className?: string }) {

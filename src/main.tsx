@@ -8,10 +8,11 @@ import { initializeThemeSync } from './theme'
 import './styles.css'
 import './import-mobile.css'
 
+initializeThemeSync()
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode><BrowserRouter><App /></BrowserRouter></StrictMode>,
 )
 
 initPwaPlaceholder()
-initializeThemeSync()
 installMojibakeRepair()
