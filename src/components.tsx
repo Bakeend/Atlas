@@ -95,7 +95,7 @@ export function DatePicker({ value, onChange, ariaLabel }: { value: string; onCh
 const colorOptions = [
   { value: '#2F80ED', label: 'Azul' }, { value: '#2563EB', label: 'Azul intenso' },
   { value: '#4F46E5', label: 'Índigo' }, { value: '#7C3AED', label: 'Violeta' },
-  { value: '#E11D48', label: 'Rosa' }, { value: '#D97706', label: 'Âmbar' },
+  { value: '#E11D48', label: 'Rosa' }, { value: '#D97706', label: '\u00C1mbar' },
   { value: '#475569', label: 'Grafite' }, { value: '#0F172A', label: 'Noturno' },
 ]
 
