@@ -97,9 +97,18 @@
   .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-brand/30; }
   .btn-secondary { @apply inline-flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50; }
   .icon-button { @apply grid h-9 w-9 place-items-center rounded-full text-muted transition hover:bg-slate-100 hover:text-ink; }
-  .atlas-logo { @apply block shrink-0 rounded-xl; }
+  .atlas-logo { @apply block shrink-0 overflow-hidden rounded-xl; }
+  .atlas-logo img { @apply h-full w-full object-cover; }
+  .atlas-logo-dark { display: none; }
   .atlas-logo-loading { @apply mx-auto h-11 w-11 animate-pulse rounded-xl; }
   .category-icon { @apply grid h-10 w-10 shrink-0 place-items-center rounded-full; }
+
+  .theme-option { @apply flex w-full items-center gap-3 rounded-xl border border-slate-200 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/25; }
+  .theme-option.selected { @apply border-brand bg-blue-50/60; }
+  .theme-option strong { @apply block text-sm font-semibold text-ink; }
+  .theme-option small { @apply mt-0.5 block text-xs leading-5 text-muted; }
+  .theme-option-check { @apply grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 border-slate-300 text-transparent; }
+  .theme-option-check.selected { @apply border-brand bg-brand text-white; }
 
   .dashboard-header { @apply mb-6 flex items-center justify-between gap-4 px-1; }
   .dashboard-brand { @apply flex min-w-0 items-center gap-3; }
@@ -545,4 +554,56 @@
 
 @media (min-width: 640px) {
   .chart-card .card-heading h2 { font-size: 16px; }
+}
+
+/* Tema escuro: preserva o azul do Atlas e reduz o contraste das superfícies secundárias. */
+html[data-theme='dark'] { background: #0b1220; color-scheme: dark; }
+html[data-theme='dark'] body { background: #0b1220; color: #f8fafc; }
+html[data-theme='dark'] .atlas-logo-light { display: none; }
+html[data-theme='dark'] .atlas-logo-dark { display: block; }
+html[data-theme='dark'] .bg-white,
+html[data-theme='dark'] .card,
+html[data-theme='dark'] .field,
+html[data-theme='dark'] .money-trigger,
+html[data-theme='dark'] .select-trigger,
+html[data-theme='dark'] .date-trigger,
+html[data-theme='dark'] .color-trigger,
+html[data-theme='dark'] .money-overlay-panel,
+html[data-theme='dark'] .control-overlay-panel,
+html[data-theme='dark'] .notification-panel,
+html[data-theme='dark'] .modal-panel { background-color: #111827; }
+html[data-theme='dark'] .bg-slate-50,
+html[data-theme='dark'] .bg-slate-100 { background-color: #172033; }
+html[data-theme='dark'] .bg-blue-50,
+html[data-theme='dark'] .bg-blue-50\/40,
+html[data-theme='dark'] .bg-blue-50\/45,
+html[data-theme='dark'] .bg-blue-50\/50,
+html[data-theme='dark'] .bg-blue-50\/60 { background-color: #122741; }
+html[data-theme='dark'] .text-ink,
+html[data-theme='dark'] .text-slate-900,
+html[data-theme='dark'] .text-slate-800 { color: #f8fafc; }
+html[data-theme='dark'] .text-slate-700,
+html[data-theme='dark'] .text-slate-600 { color: #cbd5e1; }
+html[data-theme='dark'] .text-muted,
+html[data-theme='dark'] .text-slate-500,
+html[data-theme='dark'] .text-slate-400 { color: #94a3b8; }
+html[data-theme='dark'] .border,
+html[data-theme='dark'] .border-slate-100,
+html[data-theme='dark'] .border-slate-200,
+html[data-theme='dark'] .border-black\/\[0\.025\] { border-color: #273449; }
+html[data-theme='dark'] .btn-secondary,
+html[data-theme='dark'] .theme-option,
+html[data-theme='dark'] .notification-item { background-color: #111827; border-color: #273449; }
+html[data-theme='dark'] .theme-option.selected,
+html[data-theme='dark'] .notification-item.unread,
+html[data-theme='dark'] .calendar-header { background-color: #122741; }
+html[data-theme='dark'] .calendar-header button:hover,
+html[data-theme='dark'] .icon-button:hover,
+html[data-theme='dark'] .notification-button:hover { background-color: #172033; }
+html[data-theme='dark'] .bottom-nav-shell { background-color: rgba(15, 23, 42, 0.95); border-color: #273449; }
+html[data-theme='dark'] .card { box-shadow: 0 6px 22px rgba(0, 0, 0, 0.16); }
+html[data-theme='dark'] .dashboard-card:hover { box-shadow: 0 8px 26px rgba(0, 0, 0, 0.22); }
+
+@media (min-width: 900px) {
+  html[data-theme='dark'] body { background-image: radial-gradient(circle at 50% 0%, rgba(47, 128, 237, 0.12), transparent 45%); }
 }
