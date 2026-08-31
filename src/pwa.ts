@@ -1,14 +1,25 @@
-// Registro do Service Worker — preparado mas NÃO importado ainda.
-// Quando ativar PWA: descomente o import em src/main.tsx:5
-//
-// import { registerSW } from 'virtual:pwa-register'
-// export function initPwa() {
-//   registerSW({ immediate: true })
-// }
+import { registerSW } from 'virtual:pwa-register'
+
+export function initPwa() {
+  if ('serviceWorker' in navigator) {
+    registerSW({
+      immediate: true,
+      onNeedRefresh() {},
+      onOfflineReady() {
+        console.log('[PWA] pronto para uso offline')
+      },
+    })
+    navigator.serviceWorker.addEventListener('message', (event: any) => {
+      const href = event?.data?.href
+      if (href) window.location.href = href
+    })
+  }
+}
 
 export function initPwaPlaceholder() {
-  // placeholder para não quebrar build sem vite-plugin-pwa instalado
-  if ('serviceWorker' in navigator) {
-    // registro manual opcional se usar workbox direto
-  }
+  initPwa()
+}
+
+if (typeof window !== 'undefined') {
+  ;(window as any).__atlas_pwa = { initPwa }
 }

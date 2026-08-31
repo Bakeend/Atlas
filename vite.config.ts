@@ -1,9 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-// Quando for ativar PWA/Capacitor (não rodar build ainda):
-// 1) npm i -D vite-plugin-pwa
-// 2) descomente o import e o bloco VitePWA abaixo
-// import { VitePWA } from 'vite-plugin-pwa'
+import { VitePWA } from 'vite-plugin-pwa'
 
 function aiApiPlugin() {
   return {
@@ -111,11 +108,20 @@ export default defineConfig({
   plugins: [
     react(),
     aiApiPlugin(),
-    // VitePWA({
-    //   registerType: 'autoUpdate',
-    //   includeAssets: ['icons/*'],
-    //   manifest: false, // usamos public/manifest.webmanifest
-    //   workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'] },
-    // }),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['icons/*'],
+      manifest: false,
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: { cacheName: 'google-fonts', expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+          },
+        ],
+      },
+    }),
   ],
 })

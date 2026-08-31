@@ -10,6 +10,7 @@ import { DASHBOARD_WIDGETS, DEFAULT_DASHBOARD_WIDGETS, type DashboardWidgetPrefe
 
 export function SettingsMenu() {
   const configLinks = [
+    { to: '/settings/notifications', label: 'Notificações', description: 'Central do sistema: Windows e Android, por tipo de alerta.' },
     { to: '/settings/home', label: 'Tela inicial', description: 'Escolha o que aparece e a ordem dos blocos.' },
     { to: '/settings/nav', label: 'Navegação', description: 'Escolha os atalhos da barra inferior.' },
     { to: '/settings/finance', label: 'Financeiro', description: 'Margem de segurança e previsão de saldo.' },

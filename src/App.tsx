@@ -20,7 +20,11 @@ import { OrganizePage } from './OrganizePage'
 import { DailySpendCard } from './DailySpend'
 import { FreeMoneyCard } from './FreeMoneyCard'
 import { DashboardSettings, SettingsMenu, NavigationSettings, FinanceSettings, PaymentSettings, PrivacySettings } from './SettingsPages'
+import { NotificationSettings } from './NotificationSettings'
 import { resolveShortcutItems, APP_PAGES } from './navigation'
+import { useSystemNotifications } from './useSystemNotifications'
+import { initSystemNotificationListeners } from './systemNotifications'
+import { currentSnapshot } from './store'
 import { OnboardingPage } from './onboarding/OnboardingPage'
 import { buildFinancialProfile, getDashboardPriority, getEffectiveFinancialProfile, type DashboardCardKey } from './onboarding/onboardingProfile'
 import { GOAL_LABELS, LEVEL_LABELS, LEVEL_OPTIONS, GOAL_OPTIONS, PRIORITY_OPTIONS } from './onboarding/onboardingConfig'
@@ -29,16 +33,29 @@ import { type DashboardWidgetKey } from './dashboardLayout'
 function Shell() {
   const [newTransaction, setNewTransaction] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
   const { hydrate, ready } = useFinanceStore()
   const onboardingDone = useFinanceStore(state => state.onboardingDone)
+  const accounts = useFinanceStore(state => state.accounts)
+  const transactions = useFinanceStore(state => state.transactions)
+  const budgets = useFinanceStore(state => state.budgets)
+  const recurringExpenses = useFinanceStore(state => state.recurringExpenses)
+  const recurringIncomes = useFinanceStore(state => state.recurringIncomes)
+  const goals = useFinanceStore(state => state.goals)
+  const paymentAllocationPlans = useFinanceStore(state => state.paymentAllocationPlans)
+  const financeData = useMemo(() => currentSnapshot(), [accounts, transactions, budgets, recurringExpenses, recurringIncomes, goals, paymentAllocationPlans])
   useEffect(() => { void hydrate() }, [hydrate])
+  useEffect(() => {
+    void initSystemNotificationListeners((href: string) => navigate(href))
+  }, [navigate])
+  useSystemNotifications({ data: financeData, ready })
   if (!ready) return <div className="grid min-h-screen place-items-center"><div className="text-center"><div className="mx-auto h-11 w-11 animate-pulse rounded-full bg-brand"/><p className="mt-3 text-sm text-muted">Carregando suas finanças…</p></div></div>
   // Modo edição do onboarding (Perfil → Refazer configuração): rota dedicada, nunca altera dados existentes.
   if (location.pathname === '/onboarding') return <OnboardingPage mode="edit"/>
   // Gatilho exclusivo: onboardingDone (usuário pode criar conta no meio e fechar o app sem perder o fluxo).
   if (!onboardingDone) return <OnboardingPage/>
   return <div className="min-h-screen"><main className="app-content"><Routes>
-    <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/organizar" element={<OrganizePage/>}/><Route path="/import" element={<ImportPage/>}/><Route path="/forecast" element={<ForecastPage/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/recurring" element={<RecurringExpensesPage/>}/><Route path="/assistant" element={<AiAssistantPage/>}/><Route path="/profile" element={<Profile/>}/><Route path="/settings" element={<SettingsMenu/>}/><Route path="/settings/home" element={<DashboardSettings/>}/><Route path="/settings/nav" element={<NavigationSettings/>}/><Route path="/settings/finance" element={<FinanceSettings/>}/><Route path="/settings/payment" element={<PaymentSettings/>}/><Route path="/settings/privacy" element={<PrivacySettings/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
+    <Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/organizar" element={<OrganizePage/>}/><Route path="/import" element={<ImportPage/>}/><Route path="/forecast" element={<ForecastPage/>}/><Route path="/accounts" element={<Accounts/>}/><Route path="/planning" element={<Planning/>}/><Route path="/recurring" element={<RecurringExpensesPage/>}/><Route path="/assistant" element={<AiAssistantPage/>}/><Route path="/profile" element={<Profile/>}/><Route path="/settings" element={<SettingsMenu/>}/><Route path="/settings/home" element={<DashboardSettings/>}/><Route path="/settings/nav" element={<NavigationSettings/>}/><Route path="/settings/finance" element={<FinanceSettings/>}/><Route path="/settings/payment" element={<PaymentSettings/>}/><Route path="/settings/privacy" element={<PrivacySettings/>}/><Route path="/settings/notifications" element={<NotificationSettings/>}/><Route path="*" element={<Navigate to="/" replace/>}/>
   </Routes></main><BottomNavigation onNew={() => setNewTransaction(true)}/>{newTransaction && <TransactionModal close={() => setNewTransaction(false)}/>}</div>
 }
 
@@ -113,7 +130,13 @@ function Dashboard() {
 function NotificationCenter({ notifications, unreadIds, close, markRead, markAllRead }: { notifications: FinanceNotification[]; unreadIds: string[]; close: () => void; markRead: (id: string) => void; markAllRead: (ids: string[]) => void }) {
   const navigate = useNavigate()
   const unread = notifications.filter(item => !unreadIds.includes(item.id))
-  const icon = (kind: FinanceNotification['kind']) => kind === 'overdue' || kind === 'budget-exceeded' ? AlertTriangle : kind === 'reminder' ? BellRing : ChartPie
+  const icon = (kind: FinanceNotification['kind']) => {
+    if (kind === 'overdue' || kind === 'budget-exceeded' || kind === 'forecast-negative' || kind === 'goal-overdue' || kind === 'free-money-drop') return AlertTriangle
+    if (kind === 'reminder' || kind === 'daily-overspent') return BellRing
+    if (kind === 'anomaly' || kind === 'recurring-increase') return TrendingUp
+    if (kind === 'goal-opportunity') return Wallet
+    return ChartPie
+  }
   const openNotification = (notification: FinanceNotification) => {
     markRead(notification.id)
     close()

@@ -2,7 +2,18 @@ import type { Budget, FinanceTransaction } from './domain'
 import type { RecurringExpense } from './recurring'
 import { getNextUnrecordedOccurrence, getUnrecordedOccurrencesBetween } from './recurring'
 
-export type NotificationKind = 'overdue' | 'reminder' | 'budget-warning' | 'budget-exceeded'
+export type NotificationKind =
+  | 'overdue'
+  | 'reminder'
+  | 'budget-warning'
+  | 'budget-exceeded'
+  | 'daily-overspent'
+  | 'forecast-negative'
+  | 'anomaly'
+  | 'goal-overdue'
+  | 'recurring-increase'
+  | 'free-money-drop'
+  | 'goal-opportunity'
 
 export interface FinanceNotification {
   id: string
@@ -10,7 +21,7 @@ export interface FinanceNotification {
   title: string
   message: string
   date: string
-  href: '/recurring' | '/planning'
+  href: '/recurring' | '/planning' | '/forecast' | '/transactions' | '/organizar' | '/'
 }
 
 const addDays = (value: string, amount: number) => {
@@ -63,7 +74,7 @@ export function getFinanceNotifications({
   })
 
   return [...recurring, ...budgetAlerts].sort((a, b) => {
-    const weight = (item: FinanceNotification) => item.kind === 'overdue' ? 0 : item.kind === 'budget-exceeded' ? 1 : 2
+    const weight = (item: FinanceNotification) => item.kind === 'overdue' ? 0 : item.kind === 'budget-exceeded' ? 1 : item.kind === 'forecast-negative' ? 1 : 2
     return weight(a) - weight(b) || a.date.localeCompare(b.date)
   })
 }
