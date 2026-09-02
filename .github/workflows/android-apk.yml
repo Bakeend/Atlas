@@ -5,6 +5,14 @@ on:
     branches: [master]
     paths:
       - '.github/workflows/android-apk.yml'
+      - 'src/**'
+      - 'public/**'
+      - 'android/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.*'
+      - 'vite.config.*'
+      - 'index.html'
   pull_request:
     branches: [master]
   workflow_dispatch:
