@@ -30,7 +30,6 @@ describe('Organizar meu pagamento', () => {
   })
 
   it('pagamento insuficiente - deficit', async () => {
-    // cria conta gigante para gerar deficit
     const exp = { id: uid(), name: 'Conta gigante', amountInCents: 999999, category: 'Moradia', accountId: 'account-bank', frequency: 'monthly' as const, dueDay: Number(today().slice(8,10)), startDate: today(), isVariable: false, isActive: true, reminderEnabled: false, createdAt: today(), updatedAt: today() }
     useFinanceStore.getState().saveRecurringExpense(exp as any)
     const plan = preparePaymentAllocationPlan({ receivedAmountInCents: 100000 })
@@ -61,8 +60,7 @@ describe('Organizar meu pagamento', () => {
     const plan = preparePaymentAllocationPlan({ receivedAmountInCents: 450000 })
     useFinanceStore.getState().savePaymentAllocationPlan(plan)
     useFinanceStore.getState().applyPaymentAllocationPlan(plan.id)
-    const before = getVirtualReservesTotal()
-    // tenta preparar outro com mesmo valor - deve considerar reservas existentes? Para MVP, não duplica bills já reservados? Mas nosso prepare não considera reservas, então vai propor de novo. Para evitar duplicata, o teste verifica que aplicar não duplica o plano em si.
+    getVirtualReservesTotal()
     const countBefore = (useFinanceStore.getState() as any).paymentAllocationPlans.length
     const plan2 = preparePaymentAllocationPlan({ receivedAmountInCents: 450000 })
     useFinanceStore.getState().savePaymentAllocationPlan(plan2)
@@ -74,9 +72,6 @@ describe('Organizar meu pagamento', () => {
     const tx = { id: uid(), type: 'expense' as const, amountCents: rec.amountInCents, description: rec.name, category: rec.category, accountId: rec.accountId, date: today(), recurringExpenseId: rec.id, recurringOccurrenceDate: today(), createdAt: new Date().toISOString() }
     useFinanceStore.getState().addTransaction(tx)
     const plan = preparePaymentAllocationPlan({ receivedAmountInCents: 450000 })
-    // se a recorrência foi paga hoje com ocorrência hoje, ela não deve aparecer se o período inclui hoje e já foi paga? Nosso getUnrecordedOccurrencesBetween deve excluir pagas com mesma occurrence date, mas se a ocorrência é hoje e já foi paga, não deve contar.
-    // Para garantir, usamos um rec com dueDay hoje, então após pagar, não deve contar.
-    // Como o rec tem dueDay 6 e hoje pode não ser 6, não é garantido. Então apenas verifica que não duplica se já pago com mesma occurrence.
     expect(plan).toBeDefined()
   })
 
@@ -104,7 +99,6 @@ describe('Organizar meu pagamento', () => {
     await executeTool('updatePaymentAllocationItem', { planId: plan.id, itemId: firstBill.id, amountInCents: newAmount })
     const updated = (useFinanceStore.getState() as any).paymentAllocationPlans.find((p: any) => p.id === plan.id)
     expect(updated.items.find((i: any) => i.id === firstBill.id).amountInCents).toBe(newAmount)
-    // livre deve ter sido recalculado
     expect(updated.freeAmountInCents).toBe(plan.receivedAmountInCents - updated.items.filter((i: any) => i.type !== 'free').reduce((s: number, i: any) => s + i.amountInCents, 0))
   })
 
@@ -135,26 +129,22 @@ describe('Organizar meu pagamento', () => {
     expect(getVirtualReservesTotal()).toBe(firstApply)
   })
 
-  it('consumo da reserva ao pagar conta', async () => {
+  it('consome apenas a ocorrência reservada ao pagar conta', async () => {
     const rec = useFinanceStore.getState().recurringExpenses[0]
     const plan = preparePaymentAllocationPlan({ receivedAmountInCents: 450000 })
-    // garante que o plano contém a conta rec
-    const hasBill = plan.items.some(i => i.recurringExpenseId === rec.id)
-    if (!hasBill) {
-      // força adicionar
-      plan.items.unshift({ id: uid(), label: rec.name, type: 'bill', amountInCents: rec.amountInCents, recurringExpenseId: rec.id, categoryId: rec.category })
-      plan.freeAmountInCents = plan.receivedAmountInCents - plan.items.filter(i => i.type !== 'free').reduce((s, i) => s + i.amountInCents, 0)
-    }
+    const reservedBill = plan.items.find(i => i.recurringExpenseId === rec.id)
+    expect(reservedBill).toBeDefined()
+    expect(reservedBill?.recurringOccurrenceDate).toBeTruthy()
+
     useFinanceStore.getState().savePaymentAllocationPlan(plan)
     useFinanceStore.getState().applyPaymentAllocationPlan(plan.id)
-    const before = getVirtualReservesTotal()
-    // paga a conta
-    const tx = { id: uid(), type: 'expense' as const, amountCents: rec.amountInCents, description: rec.name, category: rec.category, accountId: rec.accountId, date: today(), recurringExpenseId: rec.id, recurringOccurrenceDate: today(), createdAt: new Date().toISOString() }
+
+    const occurrenceDate = reservedBill!.recurringOccurrenceDate!
+    const tx = { id: uid(), type: 'expense' as const, amountCents: rec.amountInCents, description: rec.name, category: rec.category, accountId: rec.accountId, date: occurrenceDate, recurringExpenseId: rec.id, recurringOccurrenceDate: occurrenceDate, createdAt: new Date().toISOString() }
     useFinanceStore.getState().addTransaction(tx)
-    const after = getVirtualReservesTotal()
-    // como a reserva é para bill, ela não conta no virtualReserves (só non-bill), então antes e depois podem ser iguais. Para testar consumo real, verificamos que o item foi marcado como consumido
+
     const updatedPlan = (useFinanceStore.getState() as any).paymentAllocationPlans.find((p: any) => p.id === plan.id)
-    const item = updatedPlan.items.find((i: any) => i.recurringExpenseId === rec.id)
+    const item = updatedPlan.items.find((i: any) => i.id === reservedBill!.id)
     expect(item.isConsumed).toBe(true)
   })
 })

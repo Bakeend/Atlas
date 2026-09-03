@@ -19,20 +19,24 @@ function ForecastTooltip({ active, payload, label, hidden }: { active?: boolean;
     <div className="chart-tooltip">
       <span>{label} • {p.date}</span>
       <strong>{money(p.balance, hidden)}</strong>
-      <span className="text-[11px]">{p.recurringCents ? `Recorrentes: -${money(p.recurringCents, hidden)}` : 'Sem recorrentes'} {p.variableCents !== 0 ? `• Prev. diário: ${p.variableCents > 0 ? '+' : ''}${money(p.variableCents, hidden)}` : ''}</span>
+      <span className="text-[11px]">
+        {p.recurringCents ? `Fixos: -${money(p.recurringCents, hidden)}` : 'Sem despesas fixas'}
+        {p.recurringIncomeCents ? ` • Receitas fixas: +${money(p.recurringIncomeCents, hidden)}` : ''}
+        {p.variableCents !== 0 ? ` • Prev. diário: ${p.variableCents > 0 ? '+' : ''}${money(p.variableCents, hidden)}` : ''}
+      </span>
     </div>
   )
 }
 
 export function ForecastDashboardCard() {
-  const { accounts, transactions, recurringExpenses, forecastRealistic, hideBalances } = useFinanceStore()
+  const { accounts, transactions, recurringExpenses, recurringIncomes, forecastRealistic, hideBalances } = useFinanceStore()
   const isDark = useResolvedTheme() === 'dark'
   const gridColor = isDark ? '#334155' : '#E9EDF3'
   const tickColor = isDark ? '#94A3B8' : '#7A8392'
   const tickColorY = isDark ? '#94A3B8' : '#8A93A1'
   const live = transactions.filter(t => !t.deletedAt)
   const total = accounts.filter(a => !a.archived).reduce((s, acc) => s + accountBalance(acc, live), 0)
-  const points = useMemo(() => calculateForecast({ accounts, transactions, recurringExpenses, startDate: today(), days: 30, realistic: forecastRealistic }), [accounts, transactions, recurringExpenses, forecastRealistic])
+  const points = useMemo(() => calculateForecast({ accounts, transactions, recurringExpenses, recurringIncomes, startDate: today(), days: 30, realistic: forecastRealistic }), [accounts, transactions, recurringExpenses, recurringIncomes, forecastRealistic])
   const summary = useMemo(() => summarizeForecast(points, total), [points, total])
   const delta = summary.endBalance - total
   const isNegative = summary.minBalance < 0
@@ -77,8 +81,9 @@ export function ForecastDashboardCard() {
           </AreaChart>
         </ResponsiveContainer>
       </div>
-      <div className="mt-3 flex gap-2 text-xs text-muted">
-        <span>Recorrentes 30d: -{money(summary.totalRecurring, hideBalances)}</span>
+      <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
+        <span>Despesas fixas 30d: -{money(summary.totalRecurring, hideBalances)}</span>
+        {summary.totalRecurringIncome > 0 && <span>• Receitas fixas: +{money(summary.totalRecurringIncome, hideBalances)}</span>}
         {forecastRealistic && <span>• Variável previsto: {summary.totalVariable >= 0 ? '+' : ''}{money(summary.totalVariable, hideBalances)}</span>}
       </div>
     </Card>
@@ -87,7 +92,7 @@ export function ForecastDashboardCard() {
 
 export function ForecastPage() {
   const navigate = useNavigate()
-  const { accounts, transactions, recurringExpenses, forecastRealistic, setForecastRealistic, hideBalances } = useFinanceStore()
+  const { accounts, transactions, recurringExpenses, recurringIncomes, forecastRealistic, setForecastRealistic, hideBalances } = useFinanceStore()
   const isDarkFP = useResolvedTheme() === 'dark'
   const gridColorFP = isDarkFP ? '#334155' : '#E9EDF3'
   const tickColorFP = isDarkFP ? '#94A3B8' : '#7A8392'
@@ -96,7 +101,7 @@ export function ForecastPage() {
   const live = transactions.filter(t => !t.deletedAt)
   const total = accounts.filter(a => !a.archived).reduce((s, acc) => s + accountBalance(acc, live), 0)
   const avg = useMemo(() => getAverageDailyVariable(transactions, today()), [transactions])
-  const points = useMemo(() => calculateForecast({ accounts, transactions, recurringExpenses, startDate: today(), days, realistic: forecastRealistic }), [accounts, transactions, recurringExpenses, days, forecastRealistic])
+  const points = useMemo(() => calculateForecast({ accounts, transactions, recurringExpenses, recurringIncomes, startDate: today(), days, realistic: forecastRealistic }), [accounts, transactions, recurringExpenses, recurringIncomes, days, forecastRealistic])
   const summary = useMemo(() => summarizeForecast(points, total), [points, total])
   const firstNegative = points.find(p => p.balance < 0)
 
@@ -106,7 +111,7 @@ export function ForecastPage() {
         <div>
           <button onClick={() => navigate('/')} className="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-brand"><ChevronLeft size={17}/>Início</button>
           <h1>Previsão de saldo</h1>
-          <span className="mt-2 block max-w-md text-xs leading-5 text-muted sm:text-sm">Simula seu saldo dia a dia. Alterne entre Realista e Só fixos abaixo.</span>
+          <span className="mt-2 block max-w-md text-xs leading-5 text-muted sm:text-sm">Simula seu saldo dia a dia com receitas e despesas recorrentes. Alterne entre Realista e Só fixos abaixo.</span>
         </div>
         <Wallet className="hidden text-brand sm:block" size={28} />
       </div>
@@ -159,31 +164,33 @@ export function ForecastPage() {
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
           <div className="rounded-xl bg-slate-50 p-3">
-            <span className="flex items-center gap-1 text-muted"><CategoryIcon icon={ArrowUpRight} color="#DC2626" backgroundColor="#FEECEC" size={14} /> Recorrentes</span><strong className="mt-2 block text-red-600">{money(summary.totalRecurring, hideBalances)}</strong>
+            <span className="flex items-center gap-1 text-muted"><CategoryIcon icon={ArrowUpRight} color="#DC2626" backgroundColor="#FEECEC" size={14} /> Despesas fixas</span><strong className="mt-2 block text-red-600">{money(summary.totalRecurring, hideBalances)}</strong>
           </div>
           <div className="rounded-xl bg-slate-50 p-3">
-            <span className="flex items-center gap-1 text-muted"><CategoryIcon icon={summary.totalVariable >= 0 ? ArrowDownLeft : ArrowUpRight} color={summary.totalVariable >= 0 ? '#16A36A' : '#DC2626'} backgroundColor={summary.totalVariable >= 0 ? '#E5F8EF' : '#FEECEC'} size={14} /> Variável previsto</span><strong className={`mt-2 block ${summary.totalVariable >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{money(summary.totalVariable, hideBalances)}</strong><small className="text-[11px] text-muted">Média {money(Math.abs(avg.avgExpense), hideBalances)}/dia despesa</small>
+            <span className="flex items-center gap-1 text-muted"><CategoryIcon icon={ArrowDownLeft} color="#16A36A" backgroundColor="#E5F8EF" size={14} /> Receitas fixas</span><strong className="mt-2 block text-emerald-600">{money(summary.totalRecurringIncome, hideBalances)}</strong>
           </div>
           <div className="rounded-xl bg-slate-50 p-3">
-            <span className="flex items-center gap-1 text-muted"><CategoryIcon icon={ArrowDownLeft} color="#16A36A" backgroundColor="#E5F8EF" size={14} /> Receita média</span><strong className="mt-2 block text-emerald-600">{money(avg.avgIncome * days, hideBalances)}</strong><small className="text-[11px] text-muted">{money(avg.avgIncome, hideBalances)}/dia</small>
+            <span className="flex items-center gap-1 text-muted"><CategoryIcon icon={summary.totalVariable >= 0 ? ArrowDownLeft : ArrowUpRight} color={summary.totalVariable >= 0 ? '#16A36A' : '#DC2626'} backgroundColor={summary.totalVariable >= 0 ? '#E5F8EF' : '#FEECEC'} size={14} /> Variável previsto</span><strong className={`mt-2 block ${summary.totalVariable >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{money(summary.totalVariable, hideBalances)}</strong><small className="text-[11px] text-muted">Média despesa {money(Math.abs(avg.avgExpense), hideBalances)}/dia</small>
           </div>
           <div className="rounded-xl bg-slate-50 p-3">
-            <span className="flex items-center gap-1 text-muted"><CategoryIcon icon={ArrowLeftRight} color="#2F80ED" backgroundColor="#E8F1FE" size={14} /> Modo</span><strong className="mt-2 block">{forecastRealistic ? 'Realista' : 'Só recorrentes'}</strong><small className="text-[11px] text-muted">{forecastRealistic ? 'Fixos + média 90d' : 'Só fixos'}</small>
+            <span className="flex items-center gap-1 text-muted"><CategoryIcon icon={ArrowLeftRight} color="#2F80ED" backgroundColor="#E8F1FE" size={14} /> Modo</span><strong className="mt-2 block">{forecastRealistic ? 'Realista' : 'Só recorrentes'}</strong><small className="text-[11px] text-muted">{forecastRealistic ? 'Fixos + média 90d' : 'Receitas + despesas fixas'}</small>
           </div>
         </div>
       </Card>
 
       <Card className="mt-4 !p-0">
-        <div className="p-4 pb-2"><h2 className="section-title">Detalhe por dia</h2><p className="mt-1 text-xs text-muted">Toque no gráfico para ver o dia. Primeiros 14 dias:</p></div>
+        <div className="p-4 pb-2"><h2 className="section-title">Detalhe por dia</h2><p className="mt-1 text-xs text-muted">Primeiros 14 dias da projeção:</p></div>
         <div className="divide-y divide-slate-100">
           {points.slice(0, 14).map(p => {
             const isBalanceNegative = p.balance < 0
             return (
-              <div key={p.date} className="flex items-center gap-3 px-4 py-3">
+              <div key={p.date} className="flex flex-wrap items-center gap-3 px-4 py-3">
                 <span className="min-w-[74px] text-xs font-medium text-muted">{p.label} • {p.date.slice(8,10)}/{p.date.slice(5,7)}</span>
-                <span className={`transaction-amount !px-2 !py-1 text-[11px] ${p.recurringCents ? 'expense' : '!bg-slate-50 !text-slate-500'}`}>{p.recurringCents ? <><ArrowUpRight size={12} strokeWidth={2.4}/>-{money(p.recurringCents, hideBalances)} recorrente</> : '—'}</span>
+                {p.recurringCents > 0 && <span className="transaction-amount expense !px-2 !py-1 text-[11px]"><ArrowUpRight size={12} strokeWidth={2.4}/>-{money(p.recurringCents, hideBalances)} fixo</span>}
+                {p.recurringIncomeCents > 0 && <span className="transaction-amount income !px-2 !py-1 text-[11px]"><ArrowDownLeft size={12} strokeWidth={2.4}/>+{money(p.recurringIncomeCents, hideBalances)} fixo</span>}
+                {!p.recurringCents && !p.recurringIncomeCents && <span className="transaction-amount !bg-slate-50 !px-2 !py-1 text-[11px] !text-slate-500">—</span>}
                 <strong className="ml-auto tabular-nums text-sm">{money(p.balance, hideBalances)}</strong>
-                <span className={`transaction-amount !px-2 !py-1 text-xs ${isBalanceNegative ? 'expense' : 'income'}`}>{isBalanceNegative ? <ArrowUpRight size={13} strokeWidth={2.4}/> : <ArrowDownLeft size={13} strokeWidth={2.4}/>}{isBalanceNegative ? 'saída' : 'entrada'}</span>
+                <span className={`transaction-amount !px-2 !py-1 text-xs ${isBalanceNegative ? 'expense' : 'income'}`}>{isBalanceNegative ? <ArrowUpRight size={13} strokeWidth={2.4}/> : <ArrowDownLeft size={13} strokeWidth={2.4}/>}{isBalanceNegative ? 'negativo' : 'positivo'}</span>
               </div>
             )
           })}
@@ -194,9 +201,9 @@ export function ForecastPage() {
       <Card className="mt-4">
         <h3 className="section-title">Como é calculado?</h3>
         <ul className="mt-3 space-y-3 text-xs leading-5 text-muted">
-          <li className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand"></span><span><strong className="text-ink">Só recorrentes:</strong> considera apenas suas contas fixas (aluguel, internet e outras que você cadastrou) e desconta cada vencimento futuro do seu saldo atual de {money(total, hideBalances)}.</span></li>
-          <li className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand"></span><span><strong className="text-ink">Realista:</strong> além das contas fixas, usa sua média do dia a dia dos últimos 3 meses para prever melhor. Hoje isso é cerca de {money(avg.avgExpense, hideBalances)}/dia em despesas e {money(avg.avgIncome, hideBalances)}/dia em receitas variáveis.</span></li>
-          <li className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300"></span><span>Você pode mudar o modo pelos botões acima ou no <NavLink to="/" className="font-semibold text-brand">Dashboard</NavLink> — previsão não fica mais escondida em Perfil.</span></li>
+          <li className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand"></span><span><strong className="text-ink">Só recorrentes:</strong> considera receitas fixas cadastradas (como salário) e despesas fixas (como aluguel e internet), aplicando cada ocorrência futura ao saldo atual de {money(total, hideBalances)}.</span></li>
+          <li className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand"></span><span><strong className="text-ink">Realista:</strong> além das recorrências, usa apenas movimentações não recorrentes dos últimos 3 meses para estimar o dia a dia. Hoje isso é cerca de {money(avg.avgExpense, hideBalances)}/dia em despesas e {money(avg.avgIncome, hideBalances)}/dia em receitas variáveis.</span></li>
+          <li className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300"></span><span>Uma ocorrência recorrente já realizada não é projetada novamente.</span></li>
         </ul>
       </Card>
     </>

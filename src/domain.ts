@@ -46,7 +46,10 @@ export interface FinanceTransaction {
   note?: string
   recurringExpenseId?: string
   recurringOccurrenceDate?: string
+  recurringIncomeId?: string
+  recurringIncomeOccurrenceDate?: string
   plannedAmountCents?: number
+  importExternalId?: string
   createdAt: string
   deletedAt?: string
 }
@@ -112,6 +115,7 @@ export interface PaymentAllocationItem {
   categoryId?: string
   goalId?: string
   recurringExpenseId?: string
+  recurringOccurrenceDate?: string
   isConsumed?: boolean
 }
 
@@ -217,7 +221,13 @@ export interface FinanceData {
 
 export const categories = ['Alimentação', 'Moradia', 'Transporte', 'Saúde', 'Lazer', 'Educação', 'Assinaturas', 'Outros']
 export const uid = () => crypto.randomUUID()
-export const today = () => new Date().toISOString().slice(0, 10)
+export const localDate = (date = new Date()) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+export const today = () => localDate()
 export const currentMonth = () => today().slice(0, 7)
 export const money = (cents: number, hidden = false) => hidden ? '••••••' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100)
 

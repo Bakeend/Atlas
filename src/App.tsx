@@ -29,6 +29,7 @@ import { PaymentOrganizerCard } from './PaymentAllocationCard'
 import { RecurringDashboardCard } from './RecurringExpenses'
 import { ForecastDashboardCard } from './ForecastPage'
 import { getAdaptiveSuggestionIds } from './lib/homeAdaptive'
+import { calculateBudgetUsage } from './financialView'
 
 function Shell() {
   const [newTransaction, setNewTransaction] = useState(false)
@@ -110,7 +111,6 @@ function Dashboard() {
   const greetingBig = (() => {
     const t = greetingTemplate
     if (profileName) return t.replace('{name}', profileName)
-    // sem nome: remove placeholder e pontuação órfã
     return t.replace(/\s*,?\s*\{name\}\s*,?\s*/g, ' ').replace(/\s{2,}/g, ' ').replace(/\s+\?/g, '?').trim()
   })()
   const fullData = useFinanceStore(state => state as unknown as import('./domain').FinanceData)
@@ -242,8 +242,43 @@ function Accounts() {
 }
 
 function Planning() {
-  const { budgets, saveBudget, transactions, hideBalances } = useFinanceStore(); const { customCategories, customCategoryIcons } = useFinanceStore() as any; const month = currentMonth(); const [draft, setDraft] = useState({ category: categories[0], limit: '' }); const [showCats, setShowCats] = useState(false); const live = transactions.filter(item => !item.deletedAt); const list = budgets.filter((item: any) => item.month === month); const allCats = [...categories, ...((customCategories ?? []) as string[])]
-  return <><PageTitle eyebrow="Planejamento" title="Orçamento mensal"><button className="btn-secondary" onClick={() => setShowCats(true)}><Package size={16}/> Categorias</button></PageTitle><div className="space-y-5"><Card><div className="flex items-center justify-between"><h2 className="section-title">Limites por categoria</h2><button className="text-xs font-semibold text-brand" onClick={() => setShowCats(true)}>Pack de ícones</button></div><p className="mt-1 text-sm text-muted">Acompanhe seu consumo no mês atual.</p><div className="mt-5 space-y-5">{list.length ? list.map(item => { const used = spentByCategory(live, month, item.category); const percent = Math.min(100, Math.round(used / item.limitCents * 100)); return <div key={item.id}><div className="flex justify-between gap-3 text-sm"><span className="font-semibold">{item.category}</span><span className={used > item.limitCents ? 'font-semibold text-red-600' : 'text-muted'}>{money(used, hideBalances)} de {money(item.limitCents, hideBalances)}</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div style={{ width: `${percent}%` }} className={`h-full rounded-full ${used > item.limitCents ? 'bg-red-500' : percent > 80 ? 'bg-amber-500' : 'bg-brand'}`}/></div><p className="mt-1 text-xs text-muted">{used > item.limitCents ? 'Limite excedido' : `${percent}% utilizado`}</p></div> }) : <p className="empty-inline">Você ainda não definiu limites.</p>}</div></Card><Card><h2 className="section-title">Novo limite</h2><p className="mt-1 text-sm text-muted">Válido para {new Date(`${month}-01T12:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p><form className="mt-5 space-y-4" onSubmit={event => { event.preventDefault(); if (parseMoney(draft.limit) <= 0) return; const existing = list.find(item => item.category === draft.category); saveBudget({ id: existing?.id ?? uid(), category: draft.category, month, limitCents: parseMoney(draft.limit) }); setDraft({ category: categories[0], limit: '' }) }}><div><span className="label">Categoria</span><SelectMenu ariaLabel="Categoria do orçamento" value={draft.category} onChange={value => setDraft({ ...draft, category: value })} options={allCats.map(category => ({ value: category, label: category, icon: getCategoryIcon(category, customCategoryIcons) }))}/></div><div><span className="label">Limite mensal</span><MoneyInput ariaLabel="Limite mensal" value={draft.limit} onChange={limit => setDraft({ ...draft, limit })}/></div><button className="btn-primary w-full">Salvar limite</button></form></Card></div>{showCats && <CategoryManager close={() => setShowCats(false)} />}</>
+  const { budgets, saveBudget, transactions, recurringExpenses, hideBalances } = useFinanceStore()
+  const { customCategories, customCategoryIcons } = useFinanceStore() as any
+  const month = currentMonth()
+  const [draft, setDraft] = useState({ category: categories[0], limit: '' })
+  const [showCats, setShowCats] = useState(false)
+  const list = budgets.filter((item: any) => item.month === month)
+  const allCats = [...categories, ...((customCategories ?? []) as string[])]
+
+  return <>
+    <PageTitle eyebrow="Planejamento" title="Orçamento mensal"><button className="btn-secondary" onClick={() => setShowCats(true)}><Package size={16}/> Categorias</button></PageTitle>
+    <div className="space-y-5">
+      <Card>
+        <div className="flex items-center justify-between"><h2 className="section-title">Limites por categoria</h2><button className="text-xs font-semibold text-brand" onClick={() => setShowCats(true)}>Pack de ícones</button></div>
+        <p className="mt-1 text-sm text-muted">Realizado mostra o que já saiu; comprometido inclui contas recorrentes ainda não pagas; projetado soma os dois.</p>
+        <div className="mt-5 space-y-5">{list.length ? list.map(item => {
+          const usage = calculateBudgetUsage({ budget: item, transactions, recurringExpenses })
+          const percent = Math.min(100, usage.percentProjected)
+          const exceeded = usage.projectedCents > item.limitCents
+          return <div key={item.id}>
+            <div className="flex justify-between gap-3 text-sm"><span className="font-semibold">{item.category}</span><span className={exceeded ? 'font-semibold text-red-600' : 'text-muted'}>{money(usage.projectedCents, hideBalances)} de {money(item.limitCents, hideBalances)}</span></div>
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted"><span>Realizado: {money(usage.realizedCents, hideBalances)}</span><span>Comprometido: {money(usage.committedCents, hideBalances)}</span><span>Restante: {money(usage.remainingCents, hideBalances)}</span></div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div style={{ width: `${percent}%` }} className={`h-full rounded-full ${exceeded ? 'bg-red-500' : percent >= 80 ? 'bg-amber-500' : 'bg-brand'}`}/></div>
+            <p className="mt-1 text-xs text-muted">{exceeded ? 'Limite projetado excedido' : `${usage.percentProjected}% projetado`}</p>
+          </div>
+        }) : <p className="empty-inline">Você ainda não definiu limites.</p>}</div>
+      </Card>
+      <Card>
+        <h2 className="section-title">Novo limite</h2><p className="mt-1 text-sm text-muted">Válido para {new Date(`${month}-01T12:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
+        <form className="mt-5 space-y-4" onSubmit={event => { event.preventDefault(); if (parseMoney(draft.limit) <= 0) return; const existing = list.find(item => item.category === draft.category); saveBudget({ id: existing?.id ?? uid(), category: draft.category, month, limitCents: parseMoney(draft.limit) }); setDraft({ category: categories[0], limit: '' }) }}>
+          <div><span className="label">Categoria</span><SelectMenu ariaLabel="Categoria do orçamento" value={draft.category} onChange={value => setDraft({ ...draft, category: value })} options={allCats.map(category => ({ value: category, label: category, icon: getCategoryIcon(category, customCategoryIcons) }))}/></div>
+          <div><span className="label">Limite mensal</span><MoneyInput ariaLabel="Limite mensal" value={draft.limit} onChange={limit => setDraft({ ...draft, limit })}/></div>
+          <button className="btn-primary w-full">Salvar limite</button>
+        </form>
+      </Card>
+    </div>
+    {showCats && <CategoryManager close={() => setShowCats(false)} />}
+  </>
 }
 
 function Profile() {

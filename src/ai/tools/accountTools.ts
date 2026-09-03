@@ -40,7 +40,7 @@ export const accountTools = [
     type: 'function' as const,
     function: {
       name: 'deleteAccount',
-      description: 'EXCLUSÃO: arquiva/remove conta. Se houver transações vinculadas, arquiva em vez de excluir. Requer confirmação.',
+      description: 'EXCLUSÃO: remove apenas conta sem referências. Se transações, recorrências, receitas recorrentes ou metas usarem a conta, arquiva em vez de excluir. Requer confirmação.',
       parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
     },
     _zod: deleteAccountSchema,
@@ -49,12 +49,21 @@ export const accountTools = [
       const s = useFinanceStore.getState() as any
       const existing = s.accounts.find((a:any)=> a.id===parsed.id)
       if (!existing) throw new Error('Conta não encontrada')
-      const hasTx = s.transactions.some((t:any)=> !t.deletedAt && (t.accountId===parsed.id || t.destinationAccountId===parsed.id))
-      if (hasTx) {
-        useFinanceStore.getState().updateAccount({ ...existing, archived: true })
-        return { success: true, archived: true, id: parsed.id, message: 'Conta possui movimentações e foi arquivada ao invés de excluída.' }
+
+      const references = {
+        transactions: s.transactions.some((t:any)=> !t.deletedAt && (t.accountId===parsed.id || t.destinationAccountId===parsed.id)),
+        recurringExpenses: s.recurringExpenses.some((r:any)=> r.accountId===parsed.id),
+        recurringIncomes: (s.recurringIncomes ?? []).some((r:any)=> r.accountId===parsed.id),
+        goals: (s.goals ?? []).some((g:any)=> g.accountId===parsed.id),
       }
-      // remove
+      const hasReferences = Object.values(references).some(Boolean)
+      if (hasReferences) {
+        useFinanceStore.getState().updateAccount({ ...existing, archived: true })
+        try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. O arquivamento não foi concluído.') }
+        const usedBy = Object.entries(references).filter(([, used]) => used).map(([key]) => key)
+        return { success: true, archived: true, id: parsed.id, referencedBy: usedBy, message: 'A conta possui dados vinculados e foi arquivada para preservar o histórico.' }
+      }
+
       const removed = useFinanceStore.getState().removeAccount(parsed.id)
       if (!removed) throw new Error('Conta não encontrada')
       try { await waitForPersist() } catch { throw new Error('Falha ao salvar os dados no dispositivo. A exclusão não foi concluída.') }
