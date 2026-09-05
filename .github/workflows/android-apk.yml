@@ -5,6 +5,7 @@ on:
     branches: [master]
     paths:
       - '.github/workflows/android-apk.yml'
+      - 'scripts/**'
       - 'src/**'
       - 'public/**'
       - 'android/**'
@@ -38,8 +39,16 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
       - name: Install web dependencies
         run: npm ci
+
+      - name: Install icon tooling
+        run: python -m pip install --disable-pip-version-check pillow
 
       - name: Validate TypeScript
         run: npm run lint
@@ -55,6 +64,9 @@ jobs:
 
       - name: Sync web build and native plugins to Android
         run: npx cap sync android
+
+      - name: Generate Android launcher icons from Atlas app icon
+        run: python scripts/generate_android_icons.py
 
       - name: Build debug APK
         working-directory: android
