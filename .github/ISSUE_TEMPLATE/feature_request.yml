@@ -1,0 +1,35 @@
+name: "💡 Sugestão"
+description: "Proponha uma melhoria para o Atlas Finance."
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Qual problema a ideia resolve?
+      description: Descreva o contexto de uso, sem expor valores ou dados financeiros reais.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Solução proposta
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Dashboard e navegação
+        - Contas e transações
+        - Cartões
+        - Orçamento e planejamento
+        - Importação e backup
+        - Android / PWA
+        - Documentação
+        - Outra

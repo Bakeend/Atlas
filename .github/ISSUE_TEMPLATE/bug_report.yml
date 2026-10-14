@@ -1,0 +1,53 @@
+name: "🐛 Bug"
+description: "Relate um erro usando somente dados fictícios."
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "⚠️ Não publique extratos reais, backups, CPF, senhas ou tokens. Falhas de segurança devem seguir SECURITY.md."
+  - type: textarea
+    id: description
+    attributes:
+      label: O que aconteceu?
+      description: Descreva o comportamento incorreto.
+      placeholder: "Ao importar um CSV fictício, o valor..."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Como reproduzir?
+      description: Use exemplos anônimos ou sintéticos.
+      placeholder: "1. Abrir ...\n2. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamento esperado
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Plataforma
+      options:
+        - Web / navegador
+        - PWA
+        - Android
+        - Não sei
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versão ou commit
+      placeholder: "ex.: hash do commit ou branch"
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Confirmação de privacidade
+      options:
+        - label: "Usei somente dados fictícios e não incluí credenciais."
+          required: true

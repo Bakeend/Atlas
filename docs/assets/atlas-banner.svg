@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">Atlas Finance — Seu dinheiro, suas regras</title>
+  <desc id="desc">Banner azul do projeto Atlas Finance, com ilustração conceitual de um painel de finanças no desktop e em um celular.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="1" y2="0">
+      <stop offset="0%" stop-color="#08152F"/>
+      <stop offset="48%" stop-color="#0E2C60"/>
+      <stop offset="100%" stop-color="#195BC3"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#8ED4FF"/>
+      <stop offset="100%" stop-color="#2F80ED"/>
+    </linearGradient>
+    <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#2F80ED" stop-opacity=".28"/>
+      <stop offset="100%" stop-color="#2F80ED" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-25%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="18" stdDeviation="15" flood-color="#010B20" flood-opacity=".3"/>
+    </filter>
+    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M 44 0 L 0 0 0 44" fill="none" stroke="#FFFFFF" stroke-opacity=".045" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="420" rx="24" fill="url(#bg)"/>
+  <rect width="1200" height="420" rx="24" fill="url(#grid)"/>
+  <circle cx="1120" cy="-90" r="410" fill="#66C9FF" opacity=".08"/>
+  <circle cx="505" cy="450" r="285" fill="#2F80ED" opacity=".11"/>
+  <g transform="translate(70 67)">
+    <rect width="61" height="61" rx="18" fill="url(#accent)"/>
+    <rect x="15" y="29" width="9" height="19" rx="3" fill="#FFFFFF"/>
+    <rect x="28" y="20" width="9" height="28" rx="3" fill="#FFFFFF"/>
+    <rect x="41" y="12" width="9" height="36" rx="3" fill="#FFFFFF"/>
+  </g>
+  <text x="145" y="114" font-size="48" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="800" letter-spacing="-2" fill="#FFFFFF">Atlas <tspan fill="#8ED4FF">Finance</tspan></text>
+  <text x="71" y="187" font-family="Inter,Segoe UI,Arial,sans-serif" fill="#FFFFFF" font-size="31" font-weight="700" letter-spacing="-.5">Seu dinheiro, suas regras.</text>
+  <text x="72" y="226" font-family="Inter,Segoe UI,Arial,sans-serif" fill="#C6DAF7" font-size="19">Organize, planeje e acompanhe.</text>
+  <text x="72" y="254" font-family="Inter,Segoe UI,Arial,sans-serif" fill="#C6DAF7" font-size="19">Tudo em um só lugar.</text>
+  <g font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="700" fill="#DCEEFF" text-anchor="middle">
+    <rect x="71" y="305" width="133" height="39" rx="19.5" fill="#FFFFFF" fill-opacity=".09" stroke="#A8D5FF" stroke-opacity=".3"/>
+    <text x="137" y="329">WEB + ANDROID</text>
+    <rect x="216" y="305" width="111" height="39" rx="19.5" fill="#FFFFFF" fill-opacity=".09" stroke="#A8D5FF" stroke-opacity=".3"/>
+    <text x="271" y="329">LOCAL FIRST</text>
+    <rect x="339" y="305" width="124" height="39" rx="19.5" fill="#FFFFFF" fill-opacity=".09" stroke="#A8D5FF" stroke-opacity=".3"/>
+    <text x="401" y="329">OPEN SOURCE</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="628" y="63" width="467" height="299" rx="20" fill="#F8FAFF"/>
+    <rect x="628" y="63" width="467" height="48" rx="20" fill="#EEF4FF"/>
+    <rect x="628" y="93" width="467" height="18" fill="#EEF4FF"/>
+    <circle cx="657" cy="87" r="6" fill="#F6A9A9"/>
+    <circle cx="677" cy="87" r="6" fill="#F8D18B"/>
+    <circle cx="697" cy="87" r="6" fill="#88D4AF"/>
+    <text x="727" y="93" fill="#28456F" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="700" font-size="14">Visão geral</text>
+    <rect x="652" y="130" width="133" height="65" rx="12" fill="#E6F1FF"/>
+    <rect x="796" y="130" width="133" height="65" rx="12" fill="#E6F8F0"/>
+    <rect x="940" y="130" width="131" height="65" rx="12" fill="#FFF0EF"/>
+    <text x="668" y="154" fill="#60738B" font-family="Arial,sans-serif" font-size="12">Saldo total</text>
+    <rect x="668" y="167" width="80" height="13" rx="6" fill="#74A8F2"/>
+    <text x="812" y="154" fill="#60738B" font-family="Arial,sans-serif" font-size="12">Receitas</text>
+    <rect x="812" y="167" width="72" height="13" rx="6" fill="#5CC99A"/>
+    <text x="956" y="154" fill="#60738B" font-family="Arial,sans-serif" font-size="12">Despesas</text>
+    <rect x="956" y="167" width="70" height="13" rx="6" fill="#F29B96"/>
+    <rect x="652" y="211" width="419" height="129" rx="12" fill="#FFFFFF" stroke="#E1EAF5"/>
+    <text x="667" y="234" fill="#223B5D" font-family="Arial,sans-serif" font-size="13" font-weight="700">Evolução financeira</text>
+    <path d="M672 309 H1049 M672 283 H1049 M672 257 H1049" stroke="#E8EEF7" stroke-width="1"/>
+    <path d="M674 312 L710 295 L748 305 L789 277 L829 285 L865 253 L901 272 L944 243 L982 260 L1020 228 L1048 236 L1048 314 L674 314 Z" fill="url(#area)"/>
+    <path d="M674 312 L710 295 L748 305 L789 277 L829 285 L865 253 L901 272 L944 243 L982 260 L1020 228 L1048 236" fill="none" stroke="#2F80ED" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="1042" y="176" width="117" height="218" rx="20" fill="#102C54"/>
+    <rect x="1050" y="185" width="101" height="200" rx="15" fill="#F7FBFF"/>
+    <rect x="1080" y="189" width="42" height="5" rx="2.5" fill="#102C54"/>
+    <text x="1061" y="217" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="#24446A">Meu painel</text>
+    <rect x="1060" y="230" width="81" height="48" rx="8" fill="#E2EEFF"/>
+    <rect x="1068" y="240" width="46" height="6" rx="3" fill="#99BDEF"/>
+    <rect x="1068" y="251" width="59" height="11" rx="5" fill="#2F80ED"/>
+    <rect x="1061" y="292" width="15" height="44" rx="5" fill="#B7D6FF"/>
+    <rect x="1081" y="306" width="15" height="30" rx="5" fill="#2F80ED"/>
+    <rect x="1101" y="284" width="15" height="52" rx="5" fill="#79BAFF"/>
+    <rect x="1121" y="298" width="15" height="38" rx="5" fill="#A8D4FD"/>
+    <rect x="1061" y="352" width="80" height="8" rx="4" fill="#E2EAF4"/>
+    <rect x="1061" y="366" width="54" height="7" rx="3.5" fill="#E2EAF4"/>
+  </g>
+  <text x="71" y="389" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" fill="#9BBDE8">Ilustração conceitual • React + TypeScript + Capacitor</text>
+</svg>
