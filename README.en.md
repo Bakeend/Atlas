@@ -38,29 +38,29 @@ React 19, TypeScript, Vite, Tailwind CSS, Zustand, Zod, React Hook Form, AlaSQL/
 
 Requires **Node.js 22**, npm and Git.
 
-\`\`\`bash
+```bash
 git clone https://github.com/Bakeend/financas.git
 cd financas
 npm ci
 npm run dev
-\`\`\`
+```
 
 Run checks and create a production web build:
 
-\`\`\`bash
+```bash
 npm run lint   # TypeScript typecheck, not ESLint
 npm test
 npm run build
 npm run preview
-\`\`\`
+```
 
 For Android development, install Android Studio, Android SDK and an appropriate JDK (CI uses Java 21):
 
-\`\`\`bash
+```bash
 npm run build
 npx cap sync android
 npx cap open android
-\`\`\`
+```
 
 The Android GitHub Action creates a **debug APK** artifact, not a signed production release.
 
