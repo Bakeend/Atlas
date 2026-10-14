@@ -4,15 +4,15 @@
 
 ## Como foi testado?
 
-- [ ] \`npm run lint\`
-- [ ] \`npm test\`
-- [ ] \`npm run build\`
+- [ ] `npm run lint`
+- [ ] `npm test`
+- [ ] `npm run build`
 - [ ] Android testado, se a alteração afetar o app nativo
 - [ ] Testes não aplicáveis (justifique abaixo)
 
 ## Dados e compatibilidade
 
-- [ ] Não incluí dados financeiros reais, backups, credenciais nem \`.env\`.
+- [ ] Não incluí dados financeiros reais, backups, credenciais nem `.env`.
 - [ ] Analisei impacto em armazenamento, importação, migração e restauração.
 - [ ] Mantive os padrões de [AGENTS.md](../AGENTS.md) e [REGRAS_VISUAIS.md](../REGRAS_VISUAIS.md).
 
