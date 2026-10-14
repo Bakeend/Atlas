@@ -22,7 +22,7 @@
   <img alt="Web e Android" src="https://img.shields.io/badge/plataformas-Web%20%7C%20Android-0F172A" />
 </p>
 
-> **Status:** projeto independente em evolução. A documentação descreve o código da branch \`master\`, não uma versão de produção auditada. Não há serviço hospedado oficialmente indicado neste repositório.
+> **Status:** projeto independente em evolução. A documentação descreve o código da branch `master`, não uma versão de produção auditada. Não há serviço hospedado oficialmente indicado neste repositório.
 
 ## ✨ O que é o Atlas?
 
@@ -67,32 +67,32 @@ O **Atlas Finance** é um aplicativo de finanças pessoais para registrar movime
 
 ### Executar no navegador
 
-\`\`\`bash
+```bash
 git clone https://github.com/Bakeend/financas.git
 cd financas
 npm ci
 npm run dev
-\`\`\`
+```
 
 Abra o endereço local exibido pelo Vite.
 
 ### Validar e gerar build Web
 
-\`\`\`bash
+```bash
 npm run lint    # Checagem de tipos TypeScript (não é ESLint)
 npm test        # Testes Vitest
 npm run build   # Gera dist/
 npm run preview # Visualiza o build localmente
-\`\`\`
+```
 
 ### Android (desenvolvimento)
 
-\`\`\`bash
+```bash
 npm ci
 npm run build
 npx cap sync android
 npx cap open android
-\`\`\`
+```
 
 Abra o projeto nativo no Android Studio e execute no emulador ou aparelho. O workflow [Android APK](.github/workflows/android-apk.yml) também gera um **APK de debug** como artefato de CI; ele não é um release assinado para distribuição.
 
@@ -108,7 +108,7 @@ Veja [SECURITY.md](SECURITY.md) para relatos responsáveis de vulnerabilidades.
 
 ## 🗂️ Estrutura básica
 
-\`\`\`text
+```text
 src/
   App.tsx                 # Rotas, painel e navegação
   domain.ts              # Entidades e regras de dados
@@ -122,7 +122,7 @@ android/                 # Projeto nativo Capacitor/Android
 public/                  # Manifesto PWA e imagens
 .github/workflows/       # CI Web e build do APK
 docs/                    # Materiais de publicação
-\`\`\`
+```
 
 As regras de engenharia estão em [AGENTS.md](AGENTS.md), e os tokens/componentes visuais em [REGRAS_VISUAIS.md](REGRAS_VISUAIS.md). Alterações devem preservar a consistência financeira e a persistência de dados.
 
@@ -133,7 +133,7 @@ Issues, correções, documentação e testes são bem-vindos. Antes de enviar um
 1. Leia [CONTRIBUTING.md](CONTRIBUTING.md) e [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 2. Abra uma issue para mudanças maiores.
 3. Trabalhe em uma branch e mantenha o diff focado.
-4. Rode \`npm run lint\`, \`npm test\` e \`npm run build\`.
+4. Rode `npm run lint`, `npm test` e `npm run build`.
 5. Use dados fictícios em testes, capturas e relatórios.
 
 Consulte a [lista de verificação para publicação](docs/OPEN_SOURCE_CHECKLIST.md) antes de alterar a visibilidade do repositório.
